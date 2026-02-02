@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/EncDotNet.Console/EncDotNet.Console.csproj" />
+    <Project Path="src/EncDotNet.Iso8211/EncDotNet.Iso8211.csproj" />
+    <Project Path="src/EncDotNet.ProductCatalog/EncDotNet.ProductCatalog.csproj" />
+  </Folder>
+</Solution>
