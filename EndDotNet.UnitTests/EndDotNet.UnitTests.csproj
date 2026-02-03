@@ -20,6 +20,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\src\EncDotNet.Iso8211\EncDotNet.Iso8211.csproj"/>
+        <ProjectReference Include="..\src\EncDotNet.Enc\EncDotNet.Enc.csproj"/>
     </ItemGroup>
 
 </Project>
