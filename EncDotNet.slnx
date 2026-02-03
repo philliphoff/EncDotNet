@@ -1,6 +1,8 @@
 <Solution>
   <Folder Name="/scripts/">
     <File Path="scripts\DownloadCatalog.cs" />
+    <File Path="scripts\ExpandCatalog.cs" />
+    <File Path="scripts\ReadCatalog.cs" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/EncDotNet.Console/EncDotNet.Console.csproj" />
