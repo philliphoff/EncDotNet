@@ -179,7 +179,7 @@ public readonly struct Iso8211Leader
 /// and use the various value accessors to retrieve data.
 /// </para>
 /// </remarks>
-public ref struct ForwardOnlyIso8211Reader
+public ref struct Iso8211Parser
 {
     private const int LeaderLength = 24;
     private const byte UnitTerminator = 0x1F;
@@ -215,20 +215,20 @@ public ref struct ForwardOnlyIso8211Reader
     private ReadOnlySpan<byte> _currentSubfieldData;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="ForwardOnlyIso8211Reader"/> struct with a span of bytes.
+    /// Initializes a new instance of the <see cref="Iso8211Parser"/> struct with a span of bytes.
     /// </summary>
     /// <param name="data">The ISO 8211 data to read.</param>
-    public ForwardOnlyIso8211Reader(ReadOnlySpan<byte> data) : this(data, isFinalBlock: true)
+    public Iso8211Parser(ReadOnlySpan<byte> data) : this(data, isFinalBlock: true)
     {
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="ForwardOnlyIso8211Reader"/> struct with a span of bytes
+    /// Initializes a new instance of the <see cref="Iso8211Parser"/> struct with a span of bytes
     /// and an indication of whether this is the final block of data.
     /// </summary>
     /// <param name="data">The ISO 8211 data to read.</param>
     /// <param name="isFinalBlock"><c>true</c> if this is the final block of data; otherwise, <c>false</c>.</param>
-    public ForwardOnlyIso8211Reader(ReadOnlySpan<byte> data, bool isFinalBlock)
+    public Iso8211Parser(ReadOnlySpan<byte> data, bool isFinalBlock)
     {
         _buffer = data;
         _consumed = 0;
@@ -256,7 +256,7 @@ public ref struct ForwardOnlyIso8211Reader
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="ForwardOnlyIso8211Reader"/> struct with a span of bytes,
+    /// Initializes a new instance of the <see cref="Iso8211Parser"/> struct with a span of bytes,
     /// an indication of whether this is the final block of data, and a previous reader state.
     /// </summary>
     /// <param name="data">The ISO 8211 data to read.</param>
@@ -266,7 +266,7 @@ public ref struct ForwardOnlyIso8211Reader
     /// This constructor is used in streaming scenarios where data arrives incrementally.
     /// The <paramref name="data"/> should contain only the unprocessed portion of the stream.
     /// </remarks>
-    public ForwardOnlyIso8211Reader(ReadOnlySpan<byte> data, bool isFinalBlock, Iso8211StreamingReaderState state)
+    public Iso8211Parser(ReadOnlySpan<byte> data, bool isFinalBlock, Iso8211StreamingReaderState state)
     {
         _buffer = data;
         _consumed = 0;
@@ -876,7 +876,7 @@ public ref struct ForwardOnlyIso8211Reader
 }
 
 /// <summary>
-/// Captures the current state of a <see cref="ForwardOnlyIso8211Reader"/> to support resuming
+/// Captures the current state of a <see cref="Iso8211Parser"/> to support resuming
 /// reading after getting more data.
 /// </summary>
 /// <remarks>
@@ -912,7 +912,7 @@ public readonly struct Iso8211StreamingReaderState
 }
 
 /// <summary>
-/// Options for configuring the <see cref="ForwardOnlyIso8211Reader"/>.
+/// Options for configuring the <see cref="Iso8211Parser"/>.
 /// </summary>
 public sealed class Iso8211ReaderOptions
 {

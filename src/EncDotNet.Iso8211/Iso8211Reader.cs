@@ -233,7 +233,7 @@ public sealed class Iso8211Subfield
 /// Provides methods to read ISO 8211 formatted data and return structured objects.
 /// </summary>
 /// <remarks>
-/// This reader uses <see cref="ForwardOnlyIso8211Reader"/> internally for parsing
+/// This reader uses <see cref="Iso8211Parser"/> internally for parsing
 /// and builds a complete object model of the ISO 8211 data.
 /// </remarks>
 public static class Iso8211Reader
@@ -255,7 +255,7 @@ public static class Iso8211Reader
     /// <returns>The parsed ISO 8211 document.</returns>
     public static Iso8211Document Read(ReadOnlySpan<byte> data)
     {
-        var reader = new ForwardOnlyIso8211Reader(data);
+        var reader = new Iso8211Parser(data);
         return Read(ref reader);
     }
 
@@ -310,20 +310,20 @@ public static class Iso8211Reader
     /// <summary>
     /// Reads an ISO 8211 document using a ForwardOnlyIso8211Reader.
     /// </summary>
-    /// <param name="reader">The forward-only reader to use for parsing.</param>
+    /// <param name="parser">The forward-only reader to use for parsing.</param>
     /// <returns>The parsed ISO 8211 document.</returns>
-    public static Iso8211Document Read(ref ForwardOnlyIso8211Reader reader)
+    public static Iso8211Document Read(ref Iso8211Parser parser)
     {
         var records = ImmutableArray.CreateBuilder<Iso8211Record>();
 
-        while (reader.Read())
+        while (parser.Read())
         {
-            if (reader.TokenType == Iso8211TokenType.StartRecord)
+            if (parser.TokenType == Iso8211TokenType.StartRecord)
             {
-                var record = ReadRecord(ref reader);
+                var record = ReadRecord(ref parser);
                 records.Add(record);
             }
-            else if (reader.TokenType == Iso8211TokenType.EndOfData)
+            else if (parser.TokenType == Iso8211TokenType.EndOfData)
             {
                 break;
             }
@@ -338,40 +338,40 @@ public static class Iso8211Reader
     /// <summary>
     /// Reads a single ISO 8211 record from the reader.
     /// </summary>
-    /// <param name="reader">The forward-only reader positioned at a StartRecord token.</param>
+    /// <param name="parser">The forward-only reader positioned at a StartRecord token.</param>
     /// <returns>The parsed record.</returns>
-    private static Iso8211Record ReadRecord(ref ForwardOnlyIso8211Reader reader)
+    private static Iso8211Record ReadRecord(ref Iso8211Parser parser)
     {
-        if (reader.TokenType != Iso8211TokenType.StartRecord)
+        if (parser.TokenType != Iso8211TokenType.StartRecord)
         {
             throw new InvalidOperationException("Reader must be positioned at a StartRecord token.");
         }
 
-        var leader = Iso8211RecordLeader.FromLeader(reader.CurrentLeader);
+        var leader = Iso8211RecordLeader.FromLeader(parser.CurrentLeader);
         var directoryEntries = ImmutableArray.CreateBuilder<Iso8211DirectoryEntry>();
         var fields = ImmutableArray.CreateBuilder<Iso8211Field>();
 
         // Read directory entries
-        while (reader.Read())
+        while (parser.Read())
         {
-            if (reader.TokenType == Iso8211TokenType.DirectoryEntry)
+            if (parser.TokenType == Iso8211TokenType.DirectoryEntry)
             {
                 var entry = new Iso8211DirectoryEntry
                 {
-                    Tag = reader.GetTagString(),
-                    Length = reader.CurrentLength,
-                    Position = reader.CurrentPosition
+                    Tag = parser.GetTagString(),
+                    Length = parser.CurrentLength,
+                    Position = parser.CurrentPosition
                 };
                 directoryEntries.Add(entry);
             }
-            else if (reader.TokenType == Iso8211TokenType.Field)
+            else if (parser.TokenType == Iso8211TokenType.Field)
             {
                 // Read first field and break to field reading loop
-                var field = ReadField(ref reader);
+                var field = ReadField(ref parser);
                 fields.Add(field);
                 break;
             }
-            else if (reader.TokenType == Iso8211TokenType.EndRecord)
+            else if (parser.TokenType == Iso8211TokenType.EndRecord)
             {
                 // Record with no fields
                 break;
@@ -379,14 +379,14 @@ public static class Iso8211Reader
         }
 
         // Read remaining fields
-        while (reader.Read())
+        while (parser.Read())
         {
-            if (reader.TokenType == Iso8211TokenType.Field)
+            if (parser.TokenType == Iso8211TokenType.Field)
             {
-                var field = ReadField(ref reader);
+                var field = ReadField(ref parser);
                 fields.Add(field);
             }
-            else if (reader.TokenType == Iso8211TokenType.EndRecord)
+            else if (parser.TokenType == Iso8211TokenType.EndRecord)
             {
                 break;
             }
@@ -403,18 +403,18 @@ public static class Iso8211Reader
     /// <summary>
     /// Reads a single field from the reader.
     /// </summary>
-    /// <param name="reader">The forward-only reader positioned at a Field token.</param>
+    /// <param name="parser">The forward-only reader positioned at a Field token.</param>
     /// <returns>The parsed field.</returns>
-    private static Iso8211Field ReadField(ref ForwardOnlyIso8211Reader reader)
+    private static Iso8211Field ReadField(ref Iso8211Parser parser)
     {
-        if (reader.TokenType != Iso8211TokenType.Field)
+        if (parser.TokenType != Iso8211TokenType.Field)
         {
             throw new InvalidOperationException("Reader must be positioned at a Field token.");
         }
 
-        var tag = reader.GetTagString();
-        var data = reader.ValueSpan.ToArray();
-        var subfields = ReadSubfields(ref reader);
+        var tag = parser.GetTagString();
+        var data = parser.ValueSpan.ToArray();
+        var subfields = ReadSubfields(ref parser);
 
         return new Iso8211Field
         {
@@ -427,19 +427,19 @@ public static class Iso8211Reader
     /// <summary>
     /// Reads all subfields from the current field.
     /// </summary>
-    /// <param name="reader">The forward-only reader positioned at a Field token.</param>
+    /// <param name="parser">The forward-only reader positioned at a Field token.</param>
     /// <returns>The parsed subfields.</returns>
-    private static ImmutableArray<Iso8211Subfield> ReadSubfields(ref ForwardOnlyIso8211Reader reader)
+    private static ImmutableArray<Iso8211Subfield> ReadSubfields(ref Iso8211Parser parser)
     {
         var subfields = ImmutableArray.CreateBuilder<Iso8211Subfield>();
         int index = 0;
 
-        while (reader.ReadSubfield())
+        while (parser.ReadSubfield())
         {
             var subfield = new Iso8211Subfield
             {
                 Index = index++,
-                Data = reader.CurrentSubfieldData.ToArray()
+                Data = parser.CurrentSubfieldData.ToArray()
             };
             subfields.Add(subfield);
         }

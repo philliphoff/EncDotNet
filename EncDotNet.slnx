@@ -7,4 +7,7 @@
     <Project Path="src/EncDotNet.Iso8211/EncDotNet.Iso8211.csproj" />
     <Project Path="src/EncDotNet.ProductCatalog/EncDotNet.ProductCatalog.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="EndDotNet.UnitTests/EndDotNet.UnitTests.csproj" />
+  </Folder>
 </Solution>
