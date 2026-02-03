@@ -1,20 +1,201 @@
-﻿using System.Text;
+using System.Collections.Immutable;
+using System.Text;
 
 namespace EncDotNet.Iso8211;
 
 /// <summary>
-/// Represents metadata about an ISO 8211 field within a record.
+/// Represents a complete ISO 8211 document containing multiple records.
 /// </summary>
-public sealed record Iso8211FieldMetadata(
-    string Tag,
-    int Length,
-    int Position,
-    byte[] Data)
+public sealed class Iso8211Document
 {
+    /// <summary>
+    /// Gets the records contained in this document.
+    /// </summary>
+    public ImmutableArray<Iso8211Record> Records { get; init; }
+
+    /// <summary>
+    /// Gets the Data Descriptive Record (DDR) if present.
+    /// </summary>
+    public Iso8211Record? DataDescriptiveRecord => Records.Length > 0 && Records[0].IsDataDescriptiveRecord ? Records[0] : null;
+
+    /// <summary>
+    /// Gets all data records (non-DDR records).
+    /// </summary>
+    public IEnumerable<Iso8211Record> DataRecords => Records.Where(r => !r.IsDataDescriptiveRecord);
+}
+
+/// <summary>
+/// Represents a single ISO 8211 record with its leader, directory, and fields.
+/// </summary>
+public sealed class Iso8211Record
+{
+    /// <summary>
+    /// Gets the leader information for this record.
+    /// </summary>
+    public Iso8211RecordLeader Leader { get; init; } = default!;
+
+    /// <summary>
+    /// Gets the directory entries for this record.
+    /// </summary>
+    public ImmutableArray<Iso8211DirectoryEntry> Directory { get; init; }
+
+    /// <summary>
+    /// Gets the fields contained in this record.
+    /// </summary>
+    public ImmutableArray<Iso8211Field> Fields { get; init; }
+
+    /// <summary>
+    /// Gets whether this record is a Data Descriptive Record (DDR).
+    /// </summary>
+    public bool IsDataDescriptiveRecord => Leader.LeaderIdentifier == 'L';
+
+    /// <summary>
+    /// Gets a field by its tag.
+    /// </summary>
+    /// <param name="tag">The tag to search for.</param>
+    /// <returns>The field with the specified tag, or null if not found.</returns>
+    public Iso8211Field? GetFieldByTag(string tag) => Fields.FirstOrDefault(f => f.Tag == tag);
+
+    /// <summary>
+    /// Gets all fields with the specified tag.
+    /// </summary>
+    /// <param name="tag">The tag to search for.</param>
+    /// <returns>All fields with the specified tag.</returns>
+    public IEnumerable<Iso8211Field> GetFieldsByTag(string tag) => Fields.Where(f => f.Tag == tag);
+}
+
+/// <summary>
+/// Represents the leader information for an ISO 8211 record.
+/// </summary>
+public readonly struct Iso8211RecordLeader
+{
+    /// <summary>
+    /// Gets the total length of the record in bytes.
+    /// </summary>
+    public int RecordLength { get; init; }
+
+    /// <summary>
+    /// Gets the interchange level character.
+    /// </summary>
+    public char InterchangeLevel { get; init; }
+
+    /// <summary>
+    /// Gets the leader identifier ('L' for DDR, 'D' for data record).
+    /// </summary>
+    public char LeaderIdentifier { get; init; }
+
+    /// <summary>
+    /// Gets the inline code extension indicator.
+    /// </summary>
+    public char InlineCodeExtensionIndicator { get; init; }
+
+    /// <summary>
+    /// Gets the version number character.
+    /// </summary>
+    public char VersionNumber { get; init; }
+
+    /// <summary>
+    /// Gets the application indicator character.
+    /// </summary>
+    public char ApplicationIndicator { get; init; }
+
+    /// <summary>
+    /// Gets the field control length.
+    /// </summary>
+    public int FieldControlLength { get; init; }
+
+    /// <summary>
+    /// Gets the base address of the field area.
+    /// </summary>
+    public int BaseAddressOfFieldArea { get; init; }
+
+    /// <summary>
+    /// Gets the extended character set indicators.
+    /// </summary>
+    public string ExtendedCharacterSetIndicator { get; init; }
+
+    /// <summary>
+    /// Gets the size of the field length field in directory entries.
+    /// </summary>
+    public int SizeOfFieldLengthField { get; init; }
+
+    /// <summary>
+    /// Gets the size of the field position field in directory entries.
+    /// </summary>
+    public int SizeOfFieldPositionField { get; init; }
+
+    /// <summary>
+    /// Gets the size of the field tag field in directory entries.
+    /// </summary>
+    public int SizeOfFieldTagField { get; init; }
+
+    /// <summary>
+    /// Creates an <see cref="Iso8211RecordLeader"/> from an <see cref="Iso8211Leader"/>.
+    /// </summary>
+    internal static Iso8211RecordLeader FromLeader(Iso8211Leader leader) => new()
+    {
+        RecordLength = leader.RecordLength,
+        InterchangeLevel = leader.InterchangeLevel,
+        LeaderIdentifier = leader.LeaderIdentifier,
+        InlineCodeExtensionIndicator = leader.InlineCodeExtensionIndicator,
+        VersionNumber = leader.VersionNumber,
+        ApplicationIndicator = leader.ApplicationIndicator,
+        FieldControlLength = leader.FieldControlLength,
+        BaseAddressOfFieldArea = leader.BaseAddressOfFieldArea,
+        ExtendedCharacterSetIndicator = $"{leader.ExtendedCharacterSetIndicator0}{leader.ExtendedCharacterSetIndicator1}{leader.ExtendedCharacterSetIndicator2}",
+        SizeOfFieldLengthField = leader.SizeOfFieldLengthField,
+        SizeOfFieldPositionField = leader.SizeOfFieldPositionField,
+        SizeOfFieldTagField = leader.SizeOfFieldTagField
+    };
+}
+
+/// <summary>
+/// Represents a directory entry within an ISO 8211 record.
+/// </summary>
+public sealed class Iso8211DirectoryEntry
+{
+    /// <summary>
+    /// Gets the field tag.
+    /// </summary>
+    public string Tag { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Gets the field length in bytes.
+    /// </summary>
+    public int Length { get; init; }
+
+    /// <summary>
+    /// Gets the field position within the field area.
+    /// </summary>
+    public int Position { get; init; }
+}
+
+/// <summary>
+/// Represents a field within an ISO 8211 record.
+/// </summary>
+public sealed class Iso8211Field
+{
+    /// <summary>
+    /// Gets the field tag.
+    /// </summary>
+    public string Tag { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Gets the raw field data.
+    /// </summary>
+    public byte[] Data { get; init; } = Array.Empty<byte>();
+
+    /// <summary>
+    /// Gets the subfields contained in this field.
+    /// </summary>
+    public ImmutableArray<Iso8211Subfield> Subfields { get; init; }
+
     /// <summary>
     /// Gets the field data as a string using the specified encoding.
     /// </summary>
-    public string GetDataAsString(Encoding? encoding = null)
+    /// <param name="encoding">The encoding to use. Defaults to ASCII.</param>
+    /// <returns>The field data as a string.</returns>
+    public string GetDataString(Encoding? encoding = null)
     {
         encoding ??= Encoding.ASCII;
         return encoding.GetString(Data).TrimEnd('\x1f', '\x1e');
@@ -22,436 +203,247 @@ public sealed record Iso8211FieldMetadata(
 }
 
 /// <summary>
-/// Represents a directory entry in an ISO 8211 record.
+/// Represents a subfield within an ISO 8211 field.
 /// </summary>
-public sealed record Iso8211DirectoryEntry(
-    string Tag,
-    int Length,
-    int Position);
-
-/// <summary>
-/// Represents metadata about an ISO 8211 record.
-/// </summary>
-public sealed record Iso8211RecordMetadata(
-    int RecordLength,
-    char InterchangeLevel,
-    char LeaderIdentifier,
-    char InlineCodeExtensionIndicator,
-    char VersionNumber,
-    char ApplicationIndicator,
-    int FieldControlLength,
-    int BaseAddressOfFieldArea,
-    char ExtendedCharacterSetIndicator0,
-    char ExtendedCharacterSetIndicator1,
-    char ExtendedCharacterSetIndicator2,
-    int SizeOfFieldLengthField,
-    int SizeOfFieldPositionField,
-    int Reserved,
-    int SizeOfFieldTagField,
-    IReadOnlyList<Iso8211DirectoryEntry> DirectoryEntries,
-    IReadOnlyList<Iso8211FieldMetadata> Fields);
-
-/// <summary>
-/// Represents the Data Descriptive Record (DDR) which describes the structure of data records.
-/// </summary>
-public sealed record Iso8211DataDescriptiveRecord(
-    Iso8211RecordMetadata Metadata,
-    IReadOnlyDictionary<string, Iso8211FieldDescriptor> FieldDescriptors);
-
-/// <summary>
-/// Describes a field's structure and format.
-/// </summary>
-public sealed record Iso8211FieldDescriptor(
-    string Tag,
-    string Name,
-    string ArrayDescriptor,
-    string FormatControls);
-
-/// <summary>
-/// Represents a complete ISO 8211 file with its DDR and data records.
-/// </summary>
-public sealed record Iso8211File(
-    Iso8211DataDescriptiveRecord DataDescriptiveRecord,
-    IReadOnlyList<Iso8211RecordMetadata> DataRecords);
-
-/// <summary>
-/// Reads ISO 8211 (ISO/IEC 8211) formatted files and returns metadata about records, directories, and fields.
-/// </summary>
-public sealed class Iso8211Reader : IDisposable
+public sealed class Iso8211Subfield
 {
-    private const int LeaderLength = 24;
-    private const byte FieldTerminator = 0x1E;
-    private const byte UnitTerminator = 0x1F;
-
-    private readonly Stream _stream;
-    private readonly bool _leaveOpen;
+    /// <summary>
+    /// Gets the subfield index within the parent field.
+    /// </summary>
+    public int Index { get; init; }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="Iso8211Reader"/> class.
+    /// Gets the raw subfield data.
     /// </summary>
-    /// <param name="stream">The stream to read from.</param>
-    /// <param name="leaveOpen">Whether to leave the stream open when the reader is disposed.</param>
-    public Iso8211Reader(Stream stream, bool leaveOpen = false)
+    public byte[] Data { get; init; } = Array.Empty<byte>();
+
+    /// <summary>
+    /// Gets the subfield data as a string using the specified encoding.
+    /// </summary>
+    /// <param name="encoding">The encoding to use. Defaults to ASCII.</param>
+    /// <returns>The subfield data as a string.</returns>
+    public string GetDataString(Encoding? encoding = null)
     {
-        _stream = stream ?? throw new ArgumentNullException(nameof(stream));
-        _leaveOpen = leaveOpen;
+        encoding ??= Encoding.ASCII;
+        return encoding.GetString(Data);
+    }
+}
+
+/// <summary>
+/// Provides methods to read ISO 8211 formatted data and return structured objects.
+/// </summary>
+/// <remarks>
+/// This reader uses <see cref="ForwardOnlyIso8211Reader"/> internally for parsing
+/// and builds a complete object model of the ISO 8211 data.
+/// </remarks>
+public static class Iso8211Reader
+{
+    /// <summary>
+    /// Reads an ISO 8211 document from a byte array.
+    /// </summary>
+    /// <param name="data">The ISO 8211 data to read.</param>
+    /// <returns>The parsed ISO 8211 document.</returns>
+    public static Iso8211Document Read(byte[] data)
+    {
+        return Read(data.AsSpan());
     }
 
     /// <summary>
-    /// Opens an ISO 8211 file for reading.
+    /// Reads an ISO 8211 document from a span of bytes.
     /// </summary>
-    /// <param name="path">The path to the file.</param>
-    /// <returns>A new <see cref="Iso8211Reader"/> instance.</returns>
-    public static Iso8211Reader Open(string path)
+    /// <param name="data">The ISO 8211 data to read.</param>
+    /// <returns>The parsed ISO 8211 document.</returns>
+    public static Iso8211Document Read(ReadOnlySpan<byte> data)
     {
-        var stream = File.OpenRead(path);
-        return new Iso8211Reader(stream, leaveOpen: false);
+        var reader = new ForwardOnlyIso8211Reader(data);
+        return Read(ref reader);
     }
 
     /// <summary>
-    /// Reads the entire ISO 8211 file and returns its structure.
+    /// Reads an ISO 8211 document from a file.
     /// </summary>
-    /// <returns>An <see cref="Iso8211File"/> containing the DDR and all data records.</returns>
-    public Iso8211File ReadFile()
+    /// <param name="path">The path to the ISO 8211 file.</param>
+    /// <returns>The parsed ISO 8211 document.</returns>
+    public static Iso8211Document ReadFromFile(string path)
     {
-        // Reset stream position
-        _stream.Position = 0;
+        var data = File.ReadAllBytes(path);
+        return Read(data);
+    }
 
-        // Read the Data Descriptive Record (DDR) - always the first record
-        var ddrMetadata = ReadRecord();
-        if (ddrMetadata is null)
+    /// <summary>
+    /// Asynchronously reads an ISO 8211 document from a file.
+    /// </summary>
+    /// <param name="path">The path to the ISO 8211 file.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A task that represents the asynchronous read operation.</returns>
+    public static async Task<Iso8211Document> ReadFromFileAsync(string path, CancellationToken cancellationToken = default)
+    {
+        var data = await File.ReadAllBytesAsync(path, cancellationToken).ConfigureAwait(false);
+        return Read(data);
+    }
+
+    /// <summary>
+    /// Reads an ISO 8211 document from a stream.
+    /// </summary>
+    /// <param name="stream">The stream containing ISO 8211 data.</param>
+    /// <returns>The parsed ISO 8211 document.</returns>
+    public static Iso8211Document Read(Stream stream)
+    {
+        using var memoryStream = new MemoryStream();
+        stream.CopyTo(memoryStream);
+        return Read(memoryStream.ToArray());
+    }
+
+    /// <summary>
+    /// Asynchronously reads an ISO 8211 document from a stream.
+    /// </summary>
+    /// <param name="stream">The stream containing ISO 8211 data.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A task that represents the asynchronous read operation.</returns>
+    public static async Task<Iso8211Document> ReadAsync(Stream stream, CancellationToken cancellationToken = default)
+    {
+        using var memoryStream = new MemoryStream();
+        await stream.CopyToAsync(memoryStream, cancellationToken).ConfigureAwait(false);
+        return Read(memoryStream.ToArray());
+    }
+
+    /// <summary>
+    /// Reads an ISO 8211 document using a ForwardOnlyIso8211Reader.
+    /// </summary>
+    /// <param name="reader">The forward-only reader to use for parsing.</param>
+    /// <returns>The parsed ISO 8211 document.</returns>
+    public static Iso8211Document Read(ref ForwardOnlyIso8211Reader reader)
+    {
+        var records = ImmutableArray.CreateBuilder<Iso8211Record>();
+
+        while (reader.Read())
         {
-            throw new InvalidDataException("Failed to read Data Descriptive Record.");
-        }
-
-        var ddr = ParseDataDescriptiveRecord(ddrMetadata);
-
-        // Read all data records
-        var dataRecords = new List<Iso8211RecordMetadata>();
-        while (true)
-        {
-            var record = ReadRecord();
-            if (record is null)
+            if (reader.TokenType == Iso8211TokenType.StartRecord)
+            {
+                var record = ReadRecord(ref reader);
+                records.Add(record);
+            }
+            else if (reader.TokenType == Iso8211TokenType.EndOfData)
             {
                 break;
             }
-            dataRecords.Add(record);
         }
 
-        return new Iso8211File(ddr, dataRecords);
+        return new Iso8211Document
+        {
+            Records = records.ToImmutable()
+        };
     }
 
     /// <summary>
-    /// Reads the next record from the stream.
+    /// Reads a single ISO 8211 record from the reader.
     /// </summary>
-    /// <returns>The record metadata, or null if end of stream.</returns>
-    public Iso8211RecordMetadata? ReadRecord()
+    /// <param name="reader">The forward-only reader positioned at a StartRecord token.</param>
+    /// <returns>The parsed record.</returns>
+    private static Iso8211Record ReadRecord(ref ForwardOnlyIso8211Reader reader)
     {
-        // Read the 24-byte leader
-        var leader = new byte[LeaderLength];
-        var bytesRead = _stream.Read(leader, 0, LeaderLength);
-        
-        if (bytesRead == 0)
+        if (reader.TokenType != Iso8211TokenType.StartRecord)
         {
-            return null; // End of file
+            throw new InvalidOperationException("Reader must be positioned at a StartRecord token.");
         }
 
-        if (bytesRead < LeaderLength)
-        {
-            throw new InvalidDataException($"Incomplete leader: expected {LeaderLength} bytes, got {bytesRead}.");
-        }
-
-        // Parse leader fields
-        var recordLength = ParseNumeric(leader, 0, 5);
-        var interchangeLevel = (char)leader[5];
-        var leaderIdentifier = (char)leader[6];
-        var inlineCodeExtensionIndicator = (char)leader[7];
-        var versionNumber = (char)leader[8];
-        var applicationIndicator = (char)leader[9];
-        var fieldControlLength = ParseNumeric(leader, 10, 2);
-        var baseAddressOfFieldArea = ParseNumeric(leader, 12, 5);
-        var extendedCharacterSetIndicator0 = (char)leader[17];
-        var extendedCharacterSetIndicator1 = (char)leader[18];
-        var extendedCharacterSetIndicator2 = (char)leader[19];
-
-        // Entry map (positions 20-23)
-        var sizeOfFieldLengthField = leader[20] - '0';
-        var sizeOfFieldPositionField = leader[21] - '0';
-        var reserved = leader[22] - '0';
-        var sizeOfFieldTagField = leader[23] - '0';
-
-        // Calculate directory size
-        var directoryLength = baseAddressOfFieldArea - LeaderLength - 1; // -1 for field terminator
-        var entrySize = sizeOfFieldTagField + sizeOfFieldLengthField + sizeOfFieldPositionField;
-        var entryCount = directoryLength / entrySize;
+        var leader = Iso8211RecordLeader.FromLeader(reader.CurrentLeader);
+        var directoryEntries = ImmutableArray.CreateBuilder<Iso8211DirectoryEntry>();
+        var fields = ImmutableArray.CreateBuilder<Iso8211Field>();
 
         // Read directory entries
-        var directoryData = new byte[directoryLength + 1]; // +1 for field terminator
-        bytesRead = _stream.Read(directoryData, 0, directoryData.Length);
-        if (bytesRead < directoryData.Length)
+        while (reader.Read())
         {
-            throw new InvalidDataException("Incomplete directory data.");
+            if (reader.TokenType == Iso8211TokenType.DirectoryEntry)
+            {
+                var entry = new Iso8211DirectoryEntry
+                {
+                    Tag = reader.GetTagString(),
+                    Length = reader.CurrentLength,
+                    Position = reader.CurrentPosition
+                };
+                directoryEntries.Add(entry);
+            }
+            else if (reader.TokenType == Iso8211TokenType.Field)
+            {
+                // Read first field and break to field reading loop
+                var field = ReadField(ref reader);
+                fields.Add(field);
+                break;
+            }
+            else if (reader.TokenType == Iso8211TokenType.EndRecord)
+            {
+                // Record with no fields
+                break;
+            }
         }
 
-        var directoryEntries = new List<Iso8211DirectoryEntry>();
-        for (int i = 0; i < entryCount; i++)
+        // Read remaining fields
+        while (reader.Read())
         {
-            var offset = i * entrySize;
-            var tag = Encoding.ASCII.GetString(directoryData, offset, sizeOfFieldTagField);
-            var length = ParseNumeric(directoryData, offset + sizeOfFieldTagField, sizeOfFieldLengthField);
-            var position = ParseNumeric(directoryData, offset + sizeOfFieldTagField + sizeOfFieldLengthField, sizeOfFieldPositionField);
-            directoryEntries.Add(new Iso8211DirectoryEntry(tag, length, position));
+            if (reader.TokenType == Iso8211TokenType.Field)
+            {
+                var field = ReadField(ref reader);
+                fields.Add(field);
+            }
+            else if (reader.TokenType == Iso8211TokenType.EndRecord)
+            {
+                break;
+            }
         }
 
-        // Read field area
-        var fieldAreaLength = recordLength - baseAddressOfFieldArea;
-        var fieldAreaData = new byte[fieldAreaLength];
-        bytesRead = _stream.Read(fieldAreaData, 0, fieldAreaLength);
-        if (bytesRead < fieldAreaLength)
+        return new Iso8211Record
         {
-            throw new InvalidDataException("Incomplete field area data.");
-        }
-
-        // Extract fields based on directory entries
-        var fields = new List<Iso8211FieldMetadata>();
-        foreach (var entry in directoryEntries)
-        {
-            // Length includes the field terminator
-            var dataLength = entry.Length - 1;
-            var data = new byte[dataLength];
-            Array.Copy(fieldAreaData, entry.Position, data, 0, dataLength);
-            fields.Add(new Iso8211FieldMetadata(entry.Tag, entry.Length, entry.Position, data));
-        }
-
-        return new Iso8211RecordMetadata(
-            recordLength,
-            interchangeLevel,
-            leaderIdentifier,
-            inlineCodeExtensionIndicator,
-            versionNumber,
-            applicationIndicator,
-            fieldControlLength,
-            baseAddressOfFieldArea,
-            extendedCharacterSetIndicator0,
-            extendedCharacterSetIndicator1,
-            extendedCharacterSetIndicator2,
-            sizeOfFieldLengthField,
-            sizeOfFieldPositionField,
-            reserved,
-            sizeOfFieldTagField,
-            directoryEntries,
-            fields);
+            Leader = leader,
+            Directory = directoryEntries.ToImmutable(),
+            Fields = fields.ToImmutable()
+        };
     }
 
     /// <summary>
-    /// Reads all records from the stream.
+    /// Reads a single field from the reader.
     /// </summary>
-    /// <returns>An enumerable of record metadata.</returns>
-    public IEnumerable<Iso8211RecordMetadata> ReadRecords()
+    /// <param name="reader">The forward-only reader positioned at a Field token.</param>
+    /// <returns>The parsed field.</returns>
+    private static Iso8211Field ReadField(ref ForwardOnlyIso8211Reader reader)
     {
-        while (true)
+        if (reader.TokenType != Iso8211TokenType.Field)
         {
-            var record = ReadRecord();
-            if (record is null)
-            {
-                yield break;
-            }
-            yield return record;
+            throw new InvalidOperationException("Reader must be positioned at a Field token.");
         }
+
+        var tag = reader.GetTagString();
+        var data = reader.ValueSpan.ToArray();
+        var subfields = ReadSubfields(ref reader);
+
+        return new Iso8211Field
+        {
+            Tag = tag,
+            Data = data,
+            Subfields = subfields
+        };
     }
 
     /// <summary>
-    /// Asynchronously reads the next record from the stream.
+    /// Reads all subfields from the current field.
     /// </summary>
-    /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>The record metadata, or null if end of stream.</returns>
-    public async Task<Iso8211RecordMetadata?> ReadRecordAsync(CancellationToken cancellationToken = default)
+    /// <param name="reader">The forward-only reader positioned at a Field token.</param>
+    /// <returns>The parsed subfields.</returns>
+    private static ImmutableArray<Iso8211Subfield> ReadSubfields(ref ForwardOnlyIso8211Reader reader)
     {
-        // Read the 24-byte leader
-        var leader = new byte[LeaderLength];
-        var bytesRead = await _stream.ReadAsync(leader.AsMemory(0, LeaderLength), cancellationToken);
-        
-        if (bytesRead == 0)
+        var subfields = ImmutableArray.CreateBuilder<Iso8211Subfield>();
+        int index = 0;
+
+        while (reader.ReadSubfield())
         {
-            return null; // End of file
-        }
-
-        if (bytesRead < LeaderLength)
-        {
-            throw new InvalidDataException($"Incomplete leader: expected {LeaderLength} bytes, got {bytesRead}.");
-        }
-
-        // Parse leader fields
-        var recordLength = ParseNumeric(leader, 0, 5);
-        var interchangeLevel = (char)leader[5];
-        var leaderIdentifier = (char)leader[6];
-        var inlineCodeExtensionIndicator = (char)leader[7];
-        var versionNumber = (char)leader[8];
-        var applicationIndicator = (char)leader[9];
-        var fieldControlLength = ParseNumeric(leader, 10, 2);
-        var baseAddressOfFieldArea = ParseNumeric(leader, 12, 5);
-        var extendedCharacterSetIndicator0 = (char)leader[17];
-        var extendedCharacterSetIndicator1 = (char)leader[18];
-        var extendedCharacterSetIndicator2 = (char)leader[19];
-
-        // Entry map (positions 20-23)
-        var sizeOfFieldLengthField = leader[20] - '0';
-        var sizeOfFieldPositionField = leader[21] - '0';
-        var reserved = leader[22] - '0';
-        var sizeOfFieldTagField = leader[23] - '0';
-
-        // Calculate directory size
-        var directoryLength = baseAddressOfFieldArea - LeaderLength - 1;
-        var entrySize = sizeOfFieldTagField + sizeOfFieldLengthField + sizeOfFieldPositionField;
-        var entryCount = directoryLength / entrySize;
-
-        // Read directory entries
-        var directoryData = new byte[directoryLength + 1];
-        bytesRead = await _stream.ReadAsync(directoryData.AsMemory(0, directoryData.Length), cancellationToken);
-        if (bytesRead < directoryData.Length)
-        {
-            throw new InvalidDataException("Incomplete directory data.");
-        }
-
-        var directoryEntries = new List<Iso8211DirectoryEntry>();
-        for (int i = 0; i < entryCount; i++)
-        {
-            var offset = i * entrySize;
-            var tag = Encoding.ASCII.GetString(directoryData, offset, sizeOfFieldTagField);
-            var length = ParseNumeric(directoryData, offset + sizeOfFieldTagField, sizeOfFieldLengthField);
-            var position = ParseNumeric(directoryData, offset + sizeOfFieldTagField + sizeOfFieldLengthField, sizeOfFieldPositionField);
-            directoryEntries.Add(new Iso8211DirectoryEntry(tag, length, position));
-        }
-
-        // Read field area
-        var fieldAreaLength = recordLength - baseAddressOfFieldArea;
-        var fieldAreaData = new byte[fieldAreaLength];
-        bytesRead = await _stream.ReadAsync(fieldAreaData.AsMemory(0, fieldAreaLength), cancellationToken);
-        if (bytesRead < fieldAreaLength)
-        {
-            throw new InvalidDataException("Incomplete field area data.");
-        }
-
-        // Extract fields based on directory entries
-        var fields = new List<Iso8211FieldMetadata>();
-        foreach (var entry in directoryEntries)
-        {
-            var dataLength = entry.Length - 1;
-            var data = new byte[dataLength];
-            Array.Copy(fieldAreaData, entry.Position, data, 0, dataLength);
-            fields.Add(new Iso8211FieldMetadata(entry.Tag, entry.Length, entry.Position, data));
-        }
-
-        return new Iso8211RecordMetadata(
-            recordLength,
-            interchangeLevel,
-            leaderIdentifier,
-            inlineCodeExtensionIndicator,
-            versionNumber,
-            applicationIndicator,
-            fieldControlLength,
-            baseAddressOfFieldArea,
-            extendedCharacterSetIndicator0,
-            extendedCharacterSetIndicator1,
-            extendedCharacterSetIndicator2,
-            sizeOfFieldLengthField,
-            sizeOfFieldPositionField,
-            reserved,
-            sizeOfFieldTagField,
-            directoryEntries,
-            fields);
-    }
-
-    /// <summary>
-    /// Asynchronously reads all records from the stream.
-    /// </summary>
-    /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>An async enumerable of record metadata.</returns>
-    public async IAsyncEnumerable<Iso8211RecordMetadata> ReadRecordsAsync(
-        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
-    {
-        while (true)
-        {
-            var record = await ReadRecordAsync(cancellationToken);
-            if (record is null)
+            var subfield = new Iso8211Subfield
             {
-                yield break;
-            }
-            yield return record;
-        }
-    }
-
-    private Iso8211DataDescriptiveRecord ParseDataDescriptiveRecord(Iso8211RecordMetadata metadata)
-    {
-        var fieldDescriptors = new Dictionary<string, Iso8211FieldDescriptor>();
-
-        foreach (var field in metadata.Fields)
-        {
-            // Skip the file control field (tag "0000" or "0001")
-            if (field.Tag == "0000")
-            {
-                continue;
-            }
-
-            // Parse field descriptor
-            var dataString = field.GetDataAsString();
-            var descriptor = ParseFieldDescriptor(field.Tag, dataString, metadata.FieldControlLength);
-            fieldDescriptors[field.Tag] = descriptor;
+                Index = index++,
+                Data = reader.CurrentSubfieldData.ToArray()
+            };
+            subfields.Add(subfield);
         }
 
-        return new Iso8211DataDescriptiveRecord(metadata, fieldDescriptors);
-    }
-
-    private Iso8211FieldDescriptor ParseFieldDescriptor(string tag, string data, int fieldControlLength)
-    {
-        // Field control (first fieldControlLength characters)
-        // Followed by field name, array descriptor, and format controls separated by delimiters
-
-        var fieldControl = data.Length >= fieldControlLength 
-            ? data.Substring(0, fieldControlLength) 
-            : string.Empty;
-        
-        var remainder = data.Length > fieldControlLength 
-            ? data.Substring(fieldControlLength) 
-            : string.Empty;
-
-        // Split by unit terminator (0x1F) to get components
-        var parts = remainder.Split('\x1f');
-        
-        var name = parts.Length > 0 ? parts[0] : string.Empty;
-        var arrayDescriptor = parts.Length > 1 ? parts[1] : string.Empty;
-        var formatControls = parts.Length > 2 ? parts[2] : string.Empty;
-
-        return new Iso8211FieldDescriptor(tag, name, arrayDescriptor, formatControls);
-    }
-
-    private static int ParseNumeric(byte[] data, int offset, int length)
-    {
-        var value = 0;
-        for (int i = 0; i < length; i++)
-        {
-            var c = (char)data[offset + i];
-            if (c == ' ')
-            {
-                continue; // Skip spaces
-            }
-            if (c < '0' || c > '9')
-            {
-                throw new InvalidDataException($"Invalid numeric character '{c}' at position {offset + i}.");
-            }
-            value = value * 10 + (c - '0');
-        }
-        return value;
-    }
-
-    /// <summary>
-    /// Disposes the reader and optionally the underlying stream.
-    /// </summary>
-    public void Dispose()
-    {
-        if (!_leaveOpen)
-        {
-            _stream.Dispose();
-        }
+        return subfields.ToImmutable();
     }
 }

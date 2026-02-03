@@ -5,8 +5,12 @@
 using EncDotNet.ProductCatalog;
 
 // Define the output folder at the root of the repo
-string repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, ".."));
+// Use the script's source location to find the repo root
+string scriptDir = Path.GetDirectoryName(GetScriptPath())!;
+string repoRoot = Path.GetFullPath(Path.Combine(scriptDir, ".."));
 string catalogFolder = Path.Combine(repoRoot, ".catalog");
+
+static string GetScriptPath([System.Runtime.CompilerServices.CallerFilePath] string path = "") => path;
 
 // Ensure the .catalog folder exists
 Directory.CreateDirectory(catalogFolder);
