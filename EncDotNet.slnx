@@ -5,6 +5,7 @@
     <File Path="scripts\ReadCatalog.cs" />
   </Folder>
   <Folder Name="/src/">
+    <Project Path="src/EncDotNet.ChartViewer/EncDotNet.ChartViewer.csproj" />
     <Project Path="src/EncDotNet.Console/EncDotNet.Console.csproj" />
     <Project Path="src/EncDotNet.Enc/EncDotNet.Enc.csproj" />
     <Project Path="src/EncDotNet.Iso8211/EncDotNet.Iso8211.csproj" />
