@@ -151,6 +151,15 @@ public static class S57Reader
     /// <summary>
     /// Parses a Data Set Identification record.
     /// </summary>
+    /// <remarks>
+    /// DSID fields can be encoded in different ways depending on the ISO 8211 implementation:
+    /// 1. All 16 subfields in binary field data (traditional approach)
+    /// 2. First 10 subfields in binary field data, remaining 6 as parsed subfields (hybrid)
+    /// 3. All 16 subfields parsed individually based on DDR field definitions
+    /// 
+    /// This method handles all three cases by first attempting to read from binary data,
+    /// then falling back to subfields for any remaining fields.
+    /// </remarks>
     private static S57DataSetIdentification ParseDataSetIdentification(Iso8211Record record)
     {
         var dsidField = record.GetFieldByTag(S57FieldTags.DSID);
@@ -159,22 +168,8 @@ public static class S57Reader
             throw new InvalidOperationException("DSID field not found in record.");
         }
 
-        // Debug: Log the DSID field data length and first bytes
-        System.Diagnostics.Debug.WriteLine($"DSID field data length: {dsidField.Data.Length}");
-        if (dsidField.Data.Length > 0)
-        {
-            var preview = dsidField.Data.Take(Math.Min(60, dsidField.Data.Length)).ToArray();
-            System.Diagnostics.Debug.WriteLine($"DSID first bytes (hex): {BitConverter.ToString(preview)}");
-        }
-
-        // Check if we have subfields (real S-57 files may use subfield parsing)
-        if (!dsidField.Subfields.IsDefaultOrEmpty && dsidField.Subfields.Length > 0)
-        {
-            System.Diagnostics.Debug.WriteLine($"DSID has {dsidField.Subfields.Length} subfields, using subfield-based parsing");
-            return ParseDsidFromSubfields(dsidField);
-        }
-
         var reader = new S57BinaryFieldReader(dsidField.Data);
+        var subfields = dsidField.Subfields;
 
         // Ensure we have enough data - DSID needs at least 7 bytes for RCNM+RCID+EXPP+INTU
         if (dsidField.Data.Length < 7)
@@ -182,10 +177,11 @@ public static class S57Reader
             throw new InvalidOperationException($"DSID field data too short: {dsidField.Data.Length} bytes (expected at least 7)");
         }
 
-        // Parse DSID subfields according to S-57 specification
+        // Parse first 10 DSID fields from binary data according to S-57 specification:
+        // RCNM(b11), RCID(b14), EXPP(b11), INTU(b11), DSNM(A), EDTN(A), UPDN(A), UADT(A), ISDT(A), STED(A)
         var rcnm = reader.ReadUInt8();
         var rcid = reader.ReadUInt32();
-        _ = reader.ReadUInt8();  // expp - exchange purpose
+        _ = reader.ReadUInt8();  // EXPP - exchange purpose
         var intu = reader.ReadUInt8();
         var dsnm = reader.ReadString();
         var edtn = reader.ReadString();
@@ -193,14 +189,32 @@ public static class S57Reader
         var uadt = reader.ReadString();
         var isdt = reader.ReadString();
         var sted = reader.ReadString();
-        _ = reader.ReadUInt8();  // prsp - product specification
-        _ = reader.ReadString(); // psdn - product specification description
-        _ = reader.ReadString(); // pred - product specification edition number
-        _ = reader.ReadUInt8();  // prof - application profile identification
-        var agen = reader.ReadUInt16();
-        var comt = reader.ReadString();
 
-        // Read DSSI field if present for additional info
+        // Remaining 6 fields: PRSP(b11), PSDN(A), PRED(A), PROF(b11), AGEN(b12), COMT(A)
+        // These may be in binary data OR in subfields depending on how the file was encoded
+        ushort agen = 0;
+        string comt = "";
+
+        if (!reader.IsAtEnd)
+        {
+            // Continue reading from binary data
+            _ = reader.ReadUInt8();   // PRSP - product specification (not used)
+            _ = reader.ReadString();  // PSDN - product specification description (not used)
+            _ = reader.ReadString();  // PRED - product specification edition number (not used)
+            _ = reader.ReadUInt8();   // PROF - application profile identification (not used)
+            agen = reader.ReadUInt16();
+            comt = reader.ReadString();
+        }
+        else if (!subfields.IsDefaultOrEmpty && subfields.Length >= 6)
+        {
+            // Binary data exhausted after first 10 fields, remaining 6 are in subfields
+            // Subfield order: PRSP(0), PSDN(1), PRED(2), PROF(3), AGEN(4), COMT(5)
+            // PRSP, PSDN, PRED, PROF are not used in S57DataSetIdentification
+            agen = subfields[4].Data.Length >= 2 ? BitConverter.ToUInt16(subfields[4].Data, 0) : (ushort)0;
+            comt = subfields[5].Data.Length > 0 ? Encoding.ASCII.GetString(subfields[5].Data).TrimEnd('\0') : "";
+        }
+
+        // Read DSSI field if present for additional info (data structure, lexical levels)
         var dssiField = record.GetFieldByTag(S57FieldTags.DSSI);
         int dstr = 0, aall = 0, nall = 0;
         if (dssiField != null)
@@ -225,47 +239,6 @@ public static class S57Reader
             DataStructure = dstr,
             AttfLexicalLevel = aall,
             NatfLexicalLevel = nall,
-            Comment = comt
-        };
-    }
-
-    /// <summary>
-    /// Parses DSID from subfields when the ISO 8211 reader has parsed them.
-    /// </summary>
-    private static S57DataSetIdentification ParseDsidFromSubfields(Iso8211Field dsidField)
-    {
-        // When subfields are parsed, each subfield contains one value
-        // Order: RCNM, RCID, EXPP, INTU, DSNM, EDTN, UPDN, UADT, ISDT, STED, PRSP, PSDN, PRED, PROF, AGEN, COMT
-        var subfields = dsidField.Subfields;
-        
-        byte rcnm = subfields.Length > 0 && subfields[0].Data.Length > 0 ? subfields[0].Data[0] : (byte)0;
-        uint rcid = subfields.Length > 1 && subfields[1].Data.Length >= 4 ? BitConverter.ToUInt32(subfields[1].Data, 0) : 0;
-        // Skip EXPP (index 2)
-        byte intu = subfields.Length > 3 && subfields[3].Data.Length > 0 ? subfields[3].Data[0] : (byte)0;
-        string dsnm = subfields.Length > 4 ? Encoding.ASCII.GetString(subfields[4].Data).TrimEnd('\0') : "";
-        string edtn = subfields.Length > 5 ? Encoding.ASCII.GetString(subfields[5].Data).TrimEnd('\0') : "";
-        string updn = subfields.Length > 6 ? Encoding.ASCII.GetString(subfields[6].Data).TrimEnd('\0') : "";
-        string uadt = subfields.Length > 7 ? Encoding.ASCII.GetString(subfields[7].Data).TrimEnd('\0') : "";
-        string isdt = subfields.Length > 8 ? Encoding.ASCII.GetString(subfields[8].Data).TrimEnd('\0') : "";
-        string sted = subfields.Length > 9 ? Encoding.ASCII.GetString(subfields[9].Data).TrimEnd('\0') : "";
-        // Skip PRSP (index 10), PSDN (index 11), PRED (index 12), PROF (index 13)
-        ushort agen = subfields.Length > 14 && subfields[14].Data.Length >= 2 ? BitConverter.ToUInt16(subfields[14].Data, 0) : (ushort)0;
-        string comt = subfields.Length > 15 ? Encoding.ASCII.GetString(subfields[15].Data).TrimEnd('\0') : "";
-
-        return new S57DataSetIdentification
-        {
-            RecordName = S57RecordName.FromRcnmRcid(rcnm, (int)rcid),
-            IntendedUsage = intu,
-            DataSetName = dsnm,
-            EditionNumber = edtn,
-            UpdateNumber = updn,
-            UpdateApplicationDate = uadt,
-            IssueDate = isdt,
-            S57EditionNumber = sted,
-            ProducingAgency = agen,
-            DataStructure = 0,
-            AttfLexicalLevel = 0,
-            NatfLexicalLevel = 0,
             Comment = comt
         };
     }
