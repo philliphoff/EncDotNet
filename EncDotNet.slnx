@@ -3,6 +3,7 @@
     <File Path="scripts\DownloadCatalog.cs" />
     <File Path="scripts\ExpandCatalog.cs" />
     <File Path="scripts\ReadCatalog.cs" />
+    <File Path="scripts\ReadCatalogS57.cs" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/EncDotNet.ChartViewer/EncDotNet.ChartViewer.csproj" />
