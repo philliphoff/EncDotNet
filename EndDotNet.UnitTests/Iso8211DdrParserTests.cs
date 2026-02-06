@@ -56,8 +56,7 @@ public class Iso8211DdrParserTests
         var field = new Iso8211Field
         {
             Tag = tag,
-            Data = fieldData,
-            Subfields = ImmutableArray<Iso8211Subfield>.Empty
+            Data = fieldData
         };
 
         return new Iso8211Record
@@ -106,8 +105,7 @@ public class Iso8211DdrParserTests
             isoFields.Add(new Iso8211Field
             {
                 Tag = tag,
-                Data = data,
-                Subfields = ImmutableArray<Iso8211Subfield>.Empty
+                Data = data
             });
             dirEntries.Add(new Iso8211DirectoryEntry
             {

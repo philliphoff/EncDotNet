@@ -186,11 +186,6 @@ public sealed class Iso8211Field
     public byte[] Data { get; init; } = Array.Empty<byte>();
 
     /// <summary>
-    /// Gets the subfields contained in this field.
-    /// </summary>
-    public ImmutableArray<Iso8211Subfield> Subfields { get; init; }
-
-    /// <summary>
     /// Gets the field data as a string using the specified encoding.
     /// </summary>
     /// <param name="encoding">The encoding to use. Defaults to ASCII.</param>
@@ -199,33 +194,6 @@ public sealed class Iso8211Field
     {
         encoding ??= Encoding.ASCII;
         return encoding.GetString(Data).TrimEnd('\x1f', '\x1e');
-    }
-}
-
-/// <summary>
-/// Represents a subfield within an ISO 8211 field.
-/// </summary>
-public sealed class Iso8211Subfield
-{
-    /// <summary>
-    /// Gets the subfield index within the parent field.
-    /// </summary>
-    public int Index { get; init; }
-
-    /// <summary>
-    /// Gets the raw subfield data.
-    /// </summary>
-    public byte[] Data { get; init; } = Array.Empty<byte>();
-
-    /// <summary>
-    /// Gets the subfield data as a string using the specified encoding.
-    /// </summary>
-    /// <param name="encoding">The encoding to use. Defaults to ASCII.</param>
-    /// <returns>The subfield data as a string.</returns>
-    public string GetDataString(Encoding? encoding = null)
-    {
-        encoding ??= Encoding.ASCII;
-        return encoding.GetString(Data);
     }
 }
 
@@ -414,36 +382,11 @@ public static class Iso8211Reader
 
         var tag = parser.GetTagString();
         var data = parser.ValueSpan.ToArray();
-        var subfields = ReadSubfields(ref parser);
 
         return new Iso8211Field
         {
             Tag = tag,
-            Data = data,
-            Subfields = subfields
+            Data = data
         };
-    }
-
-    /// <summary>
-    /// Reads all subfields from the current field.
-    /// </summary>
-    /// <param name="parser">The forward-only reader positioned at a Field token.</param>
-    /// <returns>The parsed subfields.</returns>
-    private static ImmutableArray<Iso8211Subfield> ReadSubfields(ref Iso8211Parser parser)
-    {
-        var subfields = ImmutableArray.CreateBuilder<Iso8211Subfield>();
-        int index = 0;
-
-        while (parser.ReadSubfield())
-        {
-            var subfield = new Iso8211Subfield
-            {
-                Index = index++,
-                Data = parser.CurrentSubfieldData.ToArray()
-            };
-            subfields.Add(subfield);
-        }
-
-        return subfields.ToImmutable();
     }
 }

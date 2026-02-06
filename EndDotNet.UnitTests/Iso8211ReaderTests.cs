@@ -656,99 +656,6 @@ public class Iso8211ReaderTests
         Assert.DoesNotContain((char)0x1F, dataString);
     }
 
-    [Fact]
-    public void Field_Subfields_IsImmutableArray()
-    {
-        // Arrange
-        var data = CreateSubfieldRecord();
-
-        // Act
-        var document = Iso8211Reader.Read(data);
-        var field = document.Records[0].Fields[0];
-
-        // Assert
-        Assert.IsType<ImmutableArray<Iso8211Subfield>>(field.Subfields);
-    }
-
-    [Fact]
-    public void Field_Subfields_ContainsCorrectSubfields()
-    {
-        // Arrange
-        var data = CreateSubfieldRecord();
-
-        // Act
-        var document = Iso8211Reader.Read(data);
-        var field = document.Records[0].Fields[0];
-
-        // Assert
-        Assert.Equal(3, field.Subfields.Length);
-    }
-
-    #endregion
-
-    #region Iso8211Subfield Tests
-
-    [Fact]
-    public void Subfield_Index_IsCorrect()
-    {
-        // Arrange
-        var data = CreateSubfieldRecord();
-
-        // Act
-        var document = Iso8211Reader.Read(data);
-        var subfields = document.Records[0].Fields[0].Subfields;
-
-        // Assert
-        Assert.Equal(0, subfields[0].Index);
-        Assert.Equal(1, subfields[1].Index);
-        Assert.Equal(2, subfields[2].Index);
-    }
-
-    [Fact]
-    public void Subfield_Data_ContainsRawBytes()
-    {
-        // Arrange
-        var data = CreateSubfieldRecord();
-
-        // Act
-        var document = Iso8211Reader.Read(data);
-        var subfield = document.Records[0].Fields[0].Subfields[0];
-
-        // Assert
-        Assert.Equal("SUB1"u8.ToArray(), subfield.Data);
-    }
-
-    [Fact]
-    public void Subfield_GetDataString_ReturnsCorrectString()
-    {
-        // Arrange
-        var data = CreateSubfieldRecord();
-
-        // Act
-        var document = Iso8211Reader.Read(data);
-        var subfields = document.Records[0].Fields[0].Subfields;
-
-        // Assert
-        Assert.Equal("SUB1", subfields[0].GetDataString());
-        Assert.Equal("SUB2", subfields[1].GetDataString());
-        Assert.Equal("SUB3", subfields[2].GetDataString());
-    }
-
-    [Fact]
-    public void Subfield_GetDataString_WithEncoding_UsesSpecifiedEncoding()
-    {
-        // Arrange
-        var data = CreateSubfieldRecord();
-
-        // Act
-        var document = Iso8211Reader.Read(data);
-        var subfield = document.Records[0].Fields[0].Subfields[0];
-
-        // Assert
-        Assert.Equal("SUB1", subfield.GetDataString(Encoding.UTF8));
-        Assert.Equal("SUB1", subfield.GetDataString(Encoding.ASCII));
-    }
-
     #endregion
 
     #region Iso8211RecordLeader Tests
@@ -846,10 +753,9 @@ public class Iso8211ReaderTests
         Assert.Equal("HELLO", record1.Fields[0].GetDataString());
         Assert.Equal("WORLD", record1.Fields[1].GetDataString());
 
-        // Second data record has subfields
+        // Second data record has one field with subfield data
         var record2 = dataRecords[1];
         Assert.Single(record2.Fields);
-        Assert.Equal(3, record2.Fields[0].Subfields.Length);
     }
 
     #endregion
@@ -1037,21 +943,6 @@ public class Iso8211ReaderTests
         Assert.Single(document.Records);
         Assert.Empty(document.Records[0].Directory);
         Assert.Empty(document.Records[0].Fields);
-    }
-
-    [Fact]
-    public void Read_FieldWithNoSubfields_HasSingleSubfieldWithEntireData()
-    {
-        // Arrange - Field "TEST" has no unit terminators
-        var data = CreateMinimalRecord();
-
-        // Act
-        var document = Iso8211Reader.Read(data);
-        var field = document.Records[0].Fields[0];
-
-        // Assert - When no unit terminators exist, the entire field data becomes one subfield
-        Assert.Single(field.Subfields);
-        Assert.Equal("TEST"u8.ToArray(), field.Subfields[0].Data);
     }
 
     [Fact]

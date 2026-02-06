@@ -152,13 +152,9 @@ public static class S57Reader
     /// Parses a Data Set Identification record.
     /// </summary>
     /// <remarks>
-    /// DSID fields can be encoded in different ways depending on the ISO 8211 implementation:
-    /// 1. All 16 subfields in binary field data (traditional approach)
-    /// 2. First 10 subfields in binary field data, remaining 6 as parsed subfields (hybrid)
-    /// 3. All 16 subfields parsed individually based on DDR field definitions
-    /// 
-    /// This method handles all three cases by first attempting to read from binary data,
-    /// then falling back to subfields for any remaining fields.
+    /// DSID fields contain 16 subfields encoded in binary field data according to the
+    /// DDR field definition. This method reads all subfields from the raw binary data
+    /// using the S-57 specification format.
     /// </remarks>
     private static S57DataSetIdentification ParseDataSetIdentification(Iso8211Record record)
     {
@@ -169,7 +165,6 @@ public static class S57Reader
         }
 
         var reader = new S57BinaryFieldReader(dsidField.Data);
-        var subfields = dsidField.Subfields;
 
         // Ensure we have enough data - DSID needs at least 7 bytes for RCNM+RCID+EXPP+INTU
         if (dsidField.Data.Length < 7)
@@ -191,7 +186,6 @@ public static class S57Reader
         var sted = reader.ReadString();
 
         // Remaining 6 fields: PRSP(b11), PSDN(A), PRED(A), PROF(b11), AGEN(b12), COMT(A)
-        // These may be in binary data OR in subfields depending on how the file was encoded
         ushort agen = 0;
         string comt = "";
 
@@ -204,14 +198,6 @@ public static class S57Reader
             _ = reader.ReadUInt8();   // PROF - application profile identification (not used)
             agen = reader.ReadUInt16();
             comt = reader.ReadString();
-        }
-        else if (!subfields.IsDefaultOrEmpty && subfields.Length >= 6)
-        {
-            // Binary data exhausted after first 10 fields, remaining 6 are in subfields
-            // Subfield order: PRSP(0), PSDN(1), PRED(2), PROF(3), AGEN(4), COMT(5)
-            // PRSP, PSDN, PRED, PROF are not used in S57DataSetIdentification
-            agen = subfields[4].Data.Length >= 2 ? BitConverter.ToUInt16(subfields[4].Data, 0) : (ushort)0;
-            comt = subfields[5].Data.Length > 0 ? Encoding.ASCII.GetString(subfields[5].Data).TrimEnd('\0') : "";
         }
 
         // Read DSSI field if present for additional info (data structure, lexical levels)

@@ -672,81 +672,6 @@ public class Iso8211ParserTests
 
     #endregion
 
-    #region Subfield Tests
-
-    [Fact]
-    public void ReadSubfield_ReadsFirstSubfield()
-    {
-        // Arrange
-        var data = CreateSubfieldRecord();
-        var parser = new Iso8211Parser(data);
-        parser.Read(); // StartRecord
-        parser.Read(); // DirectoryEntry
-        parser.Read(); // Field
-
-        // Act
-        var result = parser.ReadSubfield();
-
-        // Assert
-        Assert.True(result);
-        Assert.Equal(Iso8211TokenType.Subfield, parser.TokenType);
-        Assert.Equal("SUB1", parser.GetSubfieldString());
-    }
-
-    [Fact]
-    public void ReadSubfield_ReadsAllSubfields()
-    {
-        // Arrange
-        var data = CreateSubfieldRecord();
-        var parser = new Iso8211Parser(data);
-        parser.Read(); // StartRecord
-        parser.Read(); // DirectoryEntry
-        parser.Read(); // Field
-
-        // Act & Assert
-        Assert.True(parser.ReadSubfield());
-        Assert.Equal("SUB1", parser.GetSubfieldString());
-
-        Assert.True(parser.ReadSubfield());
-        Assert.Equal("SUB2", parser.GetSubfieldString());
-
-        Assert.True(parser.ReadSubfield());
-        Assert.Equal("SUB3", parser.GetSubfieldString());
-
-        Assert.False(parser.ReadSubfield()); // No more subfields
-    }
-
-    [Fact]
-    public void ReadSubfield_ReturnsFalseWhenNotInField()
-    {
-        // Arrange
-        var data = CreateMinimalRecord();
-        var parser = new Iso8211Parser(data);
-        parser.Read(); // StartRecord
-
-        // Act
-        var result = parser.ReadSubfield();
-
-        // Assert
-        Assert.False(result);
-    }
-
-    [Fact]
-    public void GetSubfieldString_ReturnsEmptyForNoData()
-    {
-        // Arrange
-        var data = CreateMinimalRecord();
-        var parser = new Iso8211Parser(data);
-
-        // Act
-        var result = parser.GetSubfieldString();
-
-        // Assert
-        Assert.Equal(string.Empty, result);
-    }
-
-    #endregion
-
     #region Depth Tests
 
     [Fact]
@@ -794,21 +719,6 @@ public class Iso8211ParserTests
         parser.Read(); // StartRecord
         parser.Read(); // DirectoryEntry
         parser.Read(); // Field
-
-        // Assert
-        Assert.Equal(2, parser.CurrentDepth);
-    }
-
-    [Fact]
-    public void CurrentDepth_IsTwoForSubfield()
-    {
-        // Arrange
-        var data = CreateSubfieldRecord();
-        var parser = new Iso8211Parser(data);
-        parser.Read(); // StartRecord
-        parser.Read(); // DirectoryEntry
-        parser.Read(); // Field
-        parser.ReadSubfield();
 
         // Assert
         Assert.Equal(2, parser.CurrentDepth);
@@ -885,24 +795,6 @@ public class Iso8211ParserTests
         // Assert
         Assert.True(result);
         Assert.Equal(Iso8211TokenType.EndRecord, parser.TokenType);
-    }
-
-    [Fact]
-    public void TrySkip_FromSubfield_SkipsToEndOfField()
-    {
-        // Arrange
-        var data = CreateSubfieldRecord();
-        var parser = new Iso8211Parser(data);
-        parser.Read(); // StartRecord
-        parser.Read(); // DirectoryEntry
-        parser.Read(); // Field
-        parser.ReadSubfield(); // First subfield
-
-        // Act
-        var result = parser.TrySkip();
-
-        // Assert
-        Assert.True(result);
     }
 
     [Fact]
@@ -1105,24 +997,6 @@ public class Iso8211ParserTests
         // Assert
         Assert.True(result);
         Assert.Equal("TEST", value);
-    }
-
-    [Fact]
-    public void GetSubfieldString_UsesSpecifiedEncoding()
-    {
-        // Arrange
-        var data = CreateSubfieldRecord();
-        var parser = new Iso8211Parser(data);
-        parser.Read(); // StartRecord
-        parser.Read(); // DirectoryEntry
-        parser.Read(); // Field
-        parser.ReadSubfield();
-
-        // Act
-        var value = parser.GetSubfieldString(Encoding.UTF8);
-
-        // Assert
-        Assert.Equal("SUB1", value);
     }
 
     #endregion

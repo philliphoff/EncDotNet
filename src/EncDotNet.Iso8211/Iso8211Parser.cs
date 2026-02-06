@@ -33,11 +33,6 @@ public enum Iso8211TokenType : byte
     Field,
 
     /// <summary>
-    /// A subfield (unit) within a field.
-    /// </summary>
-    Subfield,
-
-    /// <summary>
     /// End of data.
     /// </summary>
     EndOfData
@@ -210,10 +205,6 @@ public ref struct Iso8211Parser
     private int _currentFieldPosition;
     private ReadOnlySpan<byte> _currentFieldData;
 
-    // Subfield state
-    private int _subfieldOffset;
-    private ReadOnlySpan<byte> _currentSubfieldData;
-
     /// <summary>
     /// Initializes a new instance of the <see cref="Iso8211Parser"/> struct with a span of bytes.
     /// </summary>
@@ -251,8 +242,6 @@ public ref struct Iso8211Parser
         _currentFieldPosition = 0;
         _currentFieldData = default;
 
-        _subfieldOffset = 0;
-        _currentSubfieldData = default;
     }
 
     /// <summary>
@@ -289,8 +278,6 @@ public ref struct Iso8211Parser
         _currentFieldPosition = 0;
         _currentFieldData = default;
 
-        _subfieldOffset = 0;
-        _currentSubfieldData = default;
     }
 
     /// <summary>
@@ -318,7 +305,7 @@ public ref struct Iso8211Parser
     /// </summary>
     /// <remarks>
     /// Only valid when <see cref="TokenType"/> is <see cref="Iso8211TokenType.StartRecord"/> or
-    /// when inside a record (DirectoryEntry, Field, Subfield).
+    /// when inside a record (DirectoryEntry, Field).
     /// </remarks>
     public readonly Iso8211Leader CurrentLeader => _leader;
 
@@ -340,7 +327,6 @@ public ref struct Iso8211Parser
                 Iso8211TokenType.StartRecord => 1,
                 Iso8211TokenType.DirectoryEntry => 1,
                 Iso8211TokenType.Field => 2,
-                Iso8211TokenType.Subfield => 2,
                 Iso8211TokenType.EndRecord => 0,
                 Iso8211TokenType.EndOfData => 0,
                 _ => 0
@@ -374,14 +360,6 @@ public ref struct Iso8211Parser
     /// Only valid when <see cref="TokenType"/> is <see cref="Iso8211TokenType.Field"/>.
     /// </remarks>
     public readonly ReadOnlySpan<byte> ValueSpan => _currentFieldData;
-
-    /// <summary>
-    /// Gets the data of the current subfield.
-    /// </summary>
-    /// <remarks>
-    /// Only valid when <see cref="TokenType"/> is <see cref="Iso8211TokenType.Subfield"/>.
-    /// </remarks>
-    public readonly ReadOnlySpan<byte> CurrentSubfieldData => _currentSubfieldData;
 
     /// <summary>
     /// Gets the index of the current directory entry within the record.
@@ -498,11 +476,6 @@ public ref struct Iso8211Parser
 
             case Iso8211TokenType.Field:
                 // Skip to next field (already consumed)
-                return true;
-
-            case Iso8211TokenType.Subfield:
-                // Skip to end of field
-                _subfieldOffset = _currentFieldData.Length;
                 return true;
 
             default:
@@ -650,58 +623,6 @@ public ref struct Iso8211Parser
     }
 
     /// <summary>
-    /// Reads and returns the next subfield from the current field.
-    /// </summary>
-    /// <returns><c>true</c> if a subfield was read; <c>false</c> if no more subfields.</returns>
-    public bool ReadSubfield()
-    {
-        if (_tokenType != Iso8211TokenType.Field && _tokenType != Iso8211TokenType.Subfield)
-        {
-            return false;
-        }
-
-        if (_subfieldOffset >= _currentFieldData.Length)
-        {
-            return false;
-        }
-
-        // Find the next unit terminator or end of field
-        var remaining = _currentFieldData.Slice(_subfieldOffset);
-        var terminatorIndex = remaining.IndexOf(UnitTerminator);
-
-        if (terminatorIndex >= 0)
-        {
-            _currentSubfieldData = remaining.Slice(0, terminatorIndex);
-            _subfieldOffset += terminatorIndex + 1;
-        }
-        else
-        {
-            // No terminator found, rest of field is the subfield (excluding field terminator)
-            _currentSubfieldData = remaining;
-            _subfieldOffset = _currentFieldData.Length;
-        }
-
-        _tokenType = Iso8211TokenType.Subfield;
-        return true;
-    }
-
-    /// <summary>
-    /// Gets the current subfield data as a string.
-    /// </summary>
-    /// <param name="encoding">The encoding to use. Defaults to ASCII.</param>
-    /// <returns>The subfield data as a string.</returns>
-    public readonly string GetSubfieldString(Encoding? encoding = null)
-    {
-        if (_currentSubfieldData.IsEmpty)
-        {
-            return string.Empty;
-        }
-
-        encoding ??= Encoding.ASCII;
-        return encoding.GetString(_currentSubfieldData);
-    }
-
-    /// <summary>
     /// Gets the current state of the reader for use in streaming scenarios.
     /// </summary>
     /// <returns>The current reader state that can be used to resume reading.</returns>
@@ -831,9 +752,6 @@ public ref struct Iso8211Parser
         var dataLength = _currentFieldLength - 1;
         var fieldDataOffset = _fieldAreaOffset + _currentFieldPosition;
         _currentFieldData = _buffer.Slice(fieldDataOffset, dataLength);
-
-        _subfieldOffset = 0;
-        _currentSubfieldData = default;
 
         _currentFieldIndex++;
         _tokenType = Iso8211TokenType.Field;
