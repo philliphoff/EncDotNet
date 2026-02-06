@@ -10,13 +10,16 @@ public class S57ReaderTests
 {
     #region Test Data Helpers
 
+    private const byte UnitTerminator = 0x1F;
+    private const byte FieldTerminator = 0x1E;
+
     /// <summary>
     /// Creates a minimal S-57 ISO 8211 document with a DDR and optional data records.
     /// </summary>
     private static byte[] CreateS57Document(params byte[][] dataRecords)
     {
-        // Create DDR (Data Descriptive Record)
-        var ddr = CreateMinimalDdr();
+        // Create DDR (Data Descriptive Record) with proper S-57 field definitions
+        var ddr = CreateS57Ddr();
         
         // Calculate total size
         var totalSize = ddr.Length;
@@ -42,37 +45,206 @@ public class S57ReaderTests
     }
 
     /// <summary>
-    /// Creates a minimal Data Descriptive Record (DDR).
+    /// Creates an S-57 Data Descriptive Record (DDR) with all required field definitions.
     /// </summary>
-    private static byte[] CreateMinimalDdr()
+    private static byte[] CreateS57Ddr()
     {
-        var fieldData = "0000"u8.ToArray();
-        var fieldTerminator = (byte)0x1E;
-        var fieldLength = fieldData.Length + 1;
-        var directoryEntry = Encoding.ASCII.GetBytes($"0001{fieldLength:D3}000");
-        var baseAddress = 24 + directoryEntry.Length + 1;
-        var recordLength = baseAddress + fieldData.Length + 1;
+        // Build all field definitions for DDR
+        var fields = new List<(string tag, byte[] data)>();
 
+        // 0001 - File control field (required)
+        fields.Add(("0001", CreateDdrFieldData("", "", "()")));
+
+        // DSID - Data Set Identification Field
+        // Format: RCNM(b11), RCID(b14), EXPP(b11), INTU(b11), DSNM(A), EDTN(A), UPDN(A), UADT(A), ISDT(A), STED(A), PRSP(b11), PSDN(A), PRED(A), PROF(b11), AGEN(b12), COMT(A)
+        fields.Add(("DSID", CreateDdrFieldData(
+            "DSID",
+            "RCNM!RCID!EXPP!INTU!DSNM!EDTN!UPDN!UADT!ISDT!STED!PRSP!PSDN!PRED!PROF!AGEN!COMT",
+            "(b11,b14,b11,b11,A,A,A,A,A,A,b11,A,A,b11,b12,A)")));
+
+        // DSSI - Data Set Structure Information Field
+        // Format: DSTR(b11), AALL(b11), NALL(b11), NOMR(b14), NOCR(b14), NOGR(b14), NOLR(b14), NOIN(b14), NOCN(b14), NOED(b14), NOFA(b14)
+        fields.Add(("DSSI", CreateDdrFieldData(
+            "DSSI",
+            "DSTR!AALL!NALL!NOMR!NOCR!NOGR!NOLR!NOIN!NOCN!NOED!NOFA",
+            "(b11,b11,b11,b14,b14,b14,b14,b14,b14,b14,b14)")));
+
+        // DSPM - Data Set Parameters Field
+        // Format: RCNM(b11), RCID(b14), HDAT(b11), VDAT(b11), SDAT(b11), CSCL(b14), DUNI(b11), HUNI(b11), PUNI(b11), COUN(b11), COMF(b14), SOMF(b14), COMT(A)
+        fields.Add(("DSPM", CreateDdrFieldData(
+            "DSPM",
+            "RCNM!RCID!HDAT!VDAT!SDAT!CSCL!DUNI!HUNI!PUNI!COUN!COMF!SOMF!COMT",
+            "(b11,b14,b11,b11,b11,b14,b11,b11,b11,b11,b14,b14,A)")));
+
+        // FRID - Feature Record Identifier Field
+        // Format: RCNM(b11), RCID(b14), PRIM(b11), GRUP(b11), OBJL(b12), RVER(b12), RUIN(b11)
+        fields.Add(("FRID", CreateDdrFieldData(
+            "FRID",
+            "RCNM!RCID!PRIM!GRUP!OBJL!RVER!RUIN",
+            "(b11,b14,b11,b11,b12,b12,b11)")));
+
+        // FOID - Feature Object Identifier Field
+        // Format: AGEN(b12), FIDN(b14), FIDS(b12)
+        fields.Add(("FOID", CreateDdrFieldData(
+            "FOID",
+            "AGEN!FIDN!FIDS",
+            "(b12,b14,b12)")));
+
+        // ATTF - Feature Record Attribute Field (repeating)
+        // Format: *ATTL(b12), ATVL(A)
+        fields.Add(("ATTF", CreateDdrFieldData(
+            "ATTF",
+            "*ATTL!ATVL",
+            "(b12,A)",
+            dataStructure: 1))); // Vector (repeating)
+
+        // NATF - Feature Record National Attribute Field (repeating)
+        // Format: *ATTL(b12), ATVL(A)
+        fields.Add(("NATF", CreateDdrFieldData(
+            "NATF",
+            "*ATTL!ATVL",
+            "(b12,A)",
+            dataStructure: 1)));
+
+        // FSPT - Feature Record to Spatial Record Pointer Field (repeating)
+        // Format: *NAME(b15), ORNT(b11), USAG(b11), MASK(b11)
+        // NAME is 5 bytes (RCNM=1 + RCID=4)
+        fields.Add(("FSPT", CreateDdrFieldData(
+            "FSPT",
+            "*NAME!ORNT!USAG!MASK",
+            "(b15,b11,b11,b11)",
+            dataStructure: 1)));
+
+        // FFPT - Feature Record to Feature Object Pointer Field (repeating)
+        // Format: *LNAM(b18), RIND(b11), COMT(A)
+        // LNAM is 8 bytes (AGEN=2 + FIDN=4 + FIDS=2)
+        fields.Add(("FFPT", CreateDdrFieldData(
+            "FFPT",
+            "*LNAM!RIND!COMT",
+            "(b18,b11,A)",
+            dataStructure: 1)));
+
+        // VRID - Vector Record Identifier Field
+        // Format: RCNM(b11), RCID(b14), RVER(b12), RUIN(b11)
+        fields.Add(("VRID", CreateDdrFieldData(
+            "VRID",
+            "RCNM!RCID!RVER!RUIN",
+            "(b11,b14,b12,b11)")));
+
+        // ATTV - Vector Record Attribute Field (repeating)
+        // Format: *ATTL(b12), ATVL(A)
+        fields.Add(("ATTV", CreateDdrFieldData(
+            "ATTV",
+            "*ATTL!ATVL",
+            "(b12,A)",
+            dataStructure: 1)));
+
+        // VRPT - Vector Record Pointer Field (repeating)
+        // Format: *NAME(b15), ORNT(b11), USAG(b11), TOPI(b11), MASK(b11)
+        fields.Add(("VRPT", CreateDdrFieldData(
+            "VRPT",
+            "*NAME!ORNT!USAG!TOPI!MASK",
+            "(b15,b11,b11,b11,b11)",
+            dataStructure: 1)));
+
+        // SG2D - 2-D Coordinate Field (repeating)
+        // Format: *YCOO(b24), XCOO(b24)
+        fields.Add(("SG2D", CreateDdrFieldData(
+            "SG2D",
+            "*YCOO!XCOO",
+            "(b24,b24)",
+            dataStructure: 1)));
+
+        // SG3D - 3-D Coordinate (Sounding Array) Field (repeating)
+        // Format: *YCOO(b24), XCOO(b24), VE3D(b24)
+        fields.Add(("SG3D", CreateDdrFieldData(
+            "SG3D",
+            "*YCOO!XCOO!VE3D",
+            "(b24,b24,b24)",
+            dataStructure: 1)));
+
+        return CreateDdrRecord(fields.ToArray());
+    }
+
+    /// <summary>
+    /// Creates DDR field data with the standard ISO 8211 structure.
+    /// </summary>
+    private static byte[] CreateDdrFieldData(string fieldName, string subfieldDescriptors, string formatControls, int dataStructure = 0, int dataType = 6)
+    {
+        using var ms = new MemoryStream();
+
+        // Field controls: data structure code + data type code (2 chars)
+        ms.WriteByte((byte)('0' + dataStructure));
+        ms.WriteByte((byte)('0' + dataType));
+
+        // Field name and subfield descriptors
+        var descriptors = string.IsNullOrEmpty(fieldName) 
+            ? subfieldDescriptors 
+            : (string.IsNullOrEmpty(subfieldDescriptors) ? fieldName : $"{fieldName}!{subfieldDescriptors}");
+        
+        if (!string.IsNullOrEmpty(descriptors))
+        {
+            ms.Write(Encoding.ASCII.GetBytes(descriptors));
+        }
+        ms.WriteByte(UnitTerminator);
+
+        // Format controls
+        ms.Write(Encoding.ASCII.GetBytes(formatControls));
+        ms.WriteByte(FieldTerminator);
+
+        return ms.ToArray();
+    }
+
+    /// <summary>
+    /// Creates a DDR record from field definitions.
+    /// </summary>
+    private static byte[] CreateDdrRecord((string tag, byte[] data)[] fields)
+    {
+        // Calculate directory entries
+        var directoryEntries = new List<byte[]>();
+        var currentPosition = 0;
+        
+        foreach (var (tag, data) in fields)
+        {
+            var entry = Encoding.ASCII.GetBytes($"{tag}{data.Length:D3}{currentPosition:D3}");
+            directoryEntries.Add(entry);
+            currentPosition += data.Length;
+        }
+        
+        var directorySize = directoryEntries.Sum(e => e.Length);
+        var baseAddress = 24 + directorySize + 1;
+        var totalFieldSize = fields.Sum(f => f.data.Length);
+        var recordLength = baseAddress + totalFieldSize;
+        
+        // DDR leader: 'L' for leader identifier, field control length = 2
         var leader = Encoding.ASCII.GetBytes(
-            $"{recordLength:D5}3LE1 00{baseAddress:D5}   3304"
+            $"{recordLength:D5}3LE1 02{baseAddress:D5}   3304"
         );
-
+        
         var record = new byte[recordLength];
         var offset = 0;
-
+        
+        // Copy leader
         Array.Copy(leader, 0, record, offset, leader.Length);
         offset += leader.Length;
-
-        Array.Copy(directoryEntry, 0, record, offset, directoryEntry.Length);
-        offset += directoryEntry.Length;
-
-        record[offset++] = fieldTerminator;
-
-        Array.Copy(fieldData, 0, record, offset, fieldData.Length);
-        offset += fieldData.Length;
-
-        record[offset] = fieldTerminator;
-
+        
+        // Copy directory entries
+        foreach (var entry in directoryEntries)
+        {
+            Array.Copy(entry, 0, record, offset, entry.Length);
+            offset += entry.Length;
+        }
+        
+        // Directory terminator
+        record[offset++] = FieldTerminator;
+        
+        // Copy field data
+        foreach (var (_, data) in fields)
+        {
+            Array.Copy(data, 0, record, offset, data.Length);
+            offset += data.Length;
+        }
+        
         return record;
     }
 
@@ -1144,7 +1316,7 @@ public class S57ReaderTests
         var featureRecord3 = CreateFeatureRecord(rcnm: 100, rcid: 3, objl: 30);
         var data = CreateS57Document(featureRecord1, featureRecord2, featureRecord3);
         
-        // Act
+        // Act - Call S57Reader.Read FIRST
         var document = S57Reader.Read(data);
         
         // Assert

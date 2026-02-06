@@ -316,10 +316,32 @@ public sealed class Iso8211FieldReader
         int groupCount = 0;
         bool inRepeatingGroup = false;
 
-        while (offset < data.Length && data[offset] != FieldTerminator)
+        while (offset < data.Length)
         {
             var subfieldDef = subfields[subfieldIndex];
             var format = subfieldDef.Format;
+
+            // For variable-length subfields, check if we've hit a field terminator.
+            // Fixed-width binary subfields may contain 0x1E (30) as valid data, so we
+            // must not treat it as a terminator.
+            // HOWEVER, for repeating groups, if we're at the field terminator position
+            // (last byte and it's 0x1E), that IS the real terminator even for fixed-width.
+            if (!format.IsFixedWidth && data[offset] == FieldTerminator)
+            {
+                break;
+            }
+            
+            // For fixed-width subfields in repeating groups, check if we've hit the end:
+            // If the remaining data is just the field terminator, we're done.
+            if (format.IsFixedWidth && _fieldDefinition.HasRepeatingGroup)
+            {
+                // If remaining bytes < expected width AND the first remaining byte is FT, stop
+                int remaining = data.Length - offset;
+                if (remaining < format.Width && remaining > 0 && data[offset] == FieldTerminator)
+                {
+                    break;
+                }
+            }
 
             // Calculate the length of this subfield
             int length = CalculateSubfieldLength(data, offset, format);
@@ -334,8 +356,9 @@ public sealed class Iso8211FieldReader
 
             offset += length;
 
-            // Skip unit terminator if present (for variable-length subfields)
-            if (offset < data.Length && data[offset] == UnitTerminator)
+            // Skip unit terminator if present - only for variable-length subfields
+            // Fixed-width binary subfields (b11, b12, b14, b21, b22, b24) don't have UTs
+            if (!format.IsFixedWidth && offset < data.Length && data[offset] == UnitTerminator)
             {
                 offset++;
             }

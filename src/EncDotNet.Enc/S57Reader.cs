@@ -1,5 +1,5 @@
+using System.Buffers.Binary;
 using System.Collections.Immutable;
-using System.Text;
 using EncDotNet.Iso8211;
 
 namespace EncDotNet.Enc;
@@ -14,7 +14,9 @@ namespace EncDotNet.Enc;
 /// </para>
 /// <para>
 /// This reader parses the ISO 8211 encoded data and constructs an S-57 document model
-/// containing features, vectors (spatial objects), and associated metadata.
+/// containing features, vectors (spatial objects), and associated metadata. The reader
+/// uses the Data Descriptive Record (DDR) to understand field structures rather than
+/// assuming a fixed binary layout.
 /// </para>
 /// </remarks>
 public static class S57Reader
@@ -92,6 +94,11 @@ public static class S57Reader
     /// </summary>
     private static S57Document ParseDocument(Iso8211Document iso8211Document)
     {
+        // Parse the Data Descriptive Record (DDR) to get field definitions
+        var ddr = iso8211Document.DataDescriptiveRecord is not null
+            ? Iso8211DdrParser.Parse(iso8211Document.DataDescriptiveRecord)
+            : null;
+
         S57DataSetIdentification? dsid = null;
         S57DataSetParameters? dspm = null;
         var featureRecords = ImmutableArray.CreateBuilder<S57FeatureRecord>();
@@ -103,7 +110,7 @@ public static class S57Reader
             var dsidField = record.GetFieldByTag(S57FieldTags.DSID);
             if (dsidField != null)
             {
-                dsid = ParseDataSetIdentification(record);
+                dsid = ParseDataSetIdentification(record, ddr);
                 continue;
             }
 
@@ -111,7 +118,7 @@ public static class S57Reader
             var dspmField = record.GetFieldByTag(S57FieldTags.DSPM);
             if (dspmField != null)
             {
-                dspm = ParseDataSetParameters(record);
+                dspm = ParseDataSetParameters(record, ddr);
                 continue;
             }
 
@@ -119,7 +126,7 @@ public static class S57Reader
             var fridField = record.GetFieldByTag(S57FieldTags.FRID);
             if (fridField != null)
             {
-                var featureRecord = ParseFeatureRecord(record);
+                var featureRecord = ParseFeatureRecord(record, ddr);
                 if (featureRecord != null)
                 {
                     featureRecords.Add(featureRecord);
@@ -131,7 +138,7 @@ public static class S57Reader
             var vridField = record.GetFieldByTag(S57FieldTags.VRID);
             if (vridField != null)
             {
-                var vectorRecord = ParseVectorRecord(record);
+                var vectorRecord = ParseVectorRecord(record, ddr);
                 if (vectorRecord != null)
                 {
                     vectorRecords.Add(vectorRecord);
@@ -152,11 +159,11 @@ public static class S57Reader
     /// Parses a Data Set Identification record.
     /// </summary>
     /// <remarks>
-    /// DSID fields contain 16 subfields encoded in binary field data according to the
-    /// DDR field definition. This method reads all subfields from the raw binary data
-    /// using the S-57 specification format.
+    /// DSID fields contain 16 subfields encoded according to the DDR field definition.
+    /// This method reads all subfields using the field reader which interprets the data
+    /// based on the DDR-specified formats.
     /// </remarks>
-    private static S57DataSetIdentification ParseDataSetIdentification(Iso8211Record record)
+    private static S57DataSetIdentification ParseDataSetIdentification(Iso8211Record record, Iso8211DataDescriptiveRecord? ddr)
     {
         var dsidField = record.GetFieldByTag(S57FieldTags.DSID);
         if (dsidField == null)
@@ -164,40 +171,37 @@ public static class S57Reader
             throw new InvalidOperationException("DSID field not found in record.");
         }
 
-        var reader = new S57BinaryFieldReader(dsidField.Data);
-
-        // Ensure we have enough data - DSID needs at least 7 bytes for RCNM+RCID+EXPP+INTU
-        if (dsidField.Data.Length < 7)
-        {
-            throw new InvalidOperationException($"DSID field data too short: {dsidField.Data.Length} bytes (expected at least 7)");
-        }
-
-        // Parse first 10 DSID fields from binary data according to S-57 specification:
-        // RCNM(b11), RCID(b14), EXPP(b11), INTU(b11), DSNM(A), EDTN(A), UPDN(A), UADT(A), ISDT(A), STED(A)
-        var rcnm = reader.ReadUInt8();
-        var rcid = reader.ReadUInt32();
-        _ = reader.ReadUInt8();  // EXPP - exchange purpose
-        var intu = reader.ReadUInt8();
-        var dsnm = reader.ReadString();
-        var edtn = reader.ReadString();
-        var updn = reader.ReadString();
-        var uadt = reader.ReadString();
-        var isdt = reader.ReadString();
-        var sted = reader.ReadString();
-
-        // Remaining 6 fields: PRSP(b11), PSDN(A), PRED(A), PROF(b11), AGEN(b12), COMT(A)
+        byte rcnm;
+        uint rcid;
+        byte intu;
+        string dsnm, edtn, updn, uadt, isdt, sted;
         ushort agen = 0;
         string comt = "";
 
-        if (!reader.IsAtEnd)
+        var fieldDef = ddr?.GetFieldDefinition(S57FieldTags.DSID)
+            ?? throw new InvalidOperationException("DDR is required but not available. DSID field definition not found.");
+
+        // Use DDR-based field reader for proper subfield interpretation
+        var reader = new Iso8211FieldReader(fieldDef, dsidField.Data);
+
+        rcnm = reader.GetSubfield<byte>(S57SubfieldNames.RCNM);
+        rcid = reader.GetSubfield<uint>(S57SubfieldNames.RCID);
+        _ = reader.TryGetSubfield<byte>(S57SubfieldNames.EXPP, out _);  // EXPP - exchange purpose (not used)
+        intu = reader.GetSubfield<byte>(S57SubfieldNames.INTU);
+        dsnm = reader.GetSubfield<string>(S57SubfieldNames.DSNM);
+        edtn = reader.GetSubfield<string>(S57SubfieldNames.EDTN);
+        updn = reader.GetSubfield<string>(S57SubfieldNames.UPDN);
+        uadt = reader.GetSubfield<string>(S57SubfieldNames.UADT);
+        isdt = reader.GetSubfield<string>(S57SubfieldNames.ISDT);
+        sted = reader.GetSubfield<string>(S57SubfieldNames.STED);
+
+        if (reader.TryGetSubfield<ushort>(S57SubfieldNames.AGEN, out var agenValue))
         {
-            // Continue reading from binary data
-            _ = reader.ReadUInt8();   // PRSP - product specification (not used)
-            _ = reader.ReadString();  // PSDN - product specification description (not used)
-            _ = reader.ReadString();  // PRED - product specification edition number (not used)
-            _ = reader.ReadUInt8();   // PROF - application profile identification (not used)
-            agen = reader.ReadUInt16();
-            comt = reader.ReadString();
+            agen = agenValue;
+        }
+        if (reader.TryGetSubfield<string>(S57SubfieldNames.COMT, out var comtValue))
+        {
+            comt = comtValue;
         }
 
         // Read DSSI field if present for additional info (data structure, lexical levels)
@@ -205,10 +209,12 @@ public static class S57Reader
         int dstr = 0, aall = 0, nall = 0;
         if (dssiField != null)
         {
-            var dssiReader = new S57BinaryFieldReader(dssiField.Data);
-            dstr = dssiReader.ReadUInt8();
-            aall = dssiReader.ReadUInt8();
-            nall = dssiReader.ReadUInt8();
+            var dssiFieldDef = ddr?.GetFieldDefinition(S57FieldTags.DSSI)
+                ?? throw new InvalidOperationException("DDR is required but not available. DSSI field definition not found.");
+            var dssiReader = new Iso8211FieldReader(dssiFieldDef, dssiField.Data);
+            dstr = dssiReader.GetSubfield<byte>(S57SubfieldNames.DSTR);
+            aall = dssiReader.GetSubfield<byte>(S57SubfieldNames.AALL);
+            nall = dssiReader.GetSubfield<byte>(S57SubfieldNames.NALL);
         }
 
         return new S57DataSetIdentification
@@ -232,7 +238,7 @@ public static class S57Reader
     /// <summary>
     /// Parses a Data Set Parameters record.
     /// </summary>
-    private static S57DataSetParameters ParseDataSetParameters(Iso8211Record record)
+    private static S57DataSetParameters ParseDataSetParameters(Iso8211Record record, Iso8211DataDescriptiveRecord? ddr)
     {
         var dspmField = record.GetFieldByTag(S57FieldTags.DSPM);
         if (dspmField == null)
@@ -240,22 +246,29 @@ public static class S57Reader
             throw new InvalidOperationException("DSPM field not found in record.");
         }
 
-        var reader = new S57BinaryFieldReader(dspmField.Data);
+        byte rcnm, hdat, vdat, sdat, duni, huni, puni, coun;
+        uint rcid, cscl, comf, somf;
+        string comt;
 
-        // Parse DSPM subfields according to S-57 specification
-        var rcnm = reader.ReadUInt8();
-        var rcid = reader.ReadUInt32();
-        var hdat = reader.ReadUInt8();
-        var vdat = reader.ReadUInt8();
-        var sdat = reader.ReadUInt8();
-        var cscl = reader.ReadUInt32();
-        var duni = reader.ReadUInt8();
-        var huni = reader.ReadUInt8();
-        var puni = reader.ReadUInt8();
-        var coun = reader.ReadUInt8();
-        var comf = reader.ReadUInt32();
-        var somf = reader.ReadUInt32();
-        var comt = reader.ReadString();
+        var fieldDef = ddr?.GetFieldDefinition(S57FieldTags.DSPM)
+            ?? throw new InvalidOperationException("DDR is required but not available. DSPM field definition not found.");
+
+        // Use DDR-based field reader
+        var reader = new Iso8211FieldReader(fieldDef, dspmField.Data);
+
+        rcnm = reader.GetSubfield<byte>(S57SubfieldNames.RCNM);
+        rcid = reader.GetSubfield<uint>(S57SubfieldNames.RCID);
+        hdat = reader.GetSubfield<byte>(S57SubfieldNames.HDAT);
+        vdat = reader.GetSubfield<byte>(S57SubfieldNames.VDAT);
+        sdat = reader.GetSubfield<byte>(S57SubfieldNames.SDAT);
+        cscl = reader.GetSubfield<uint>(S57SubfieldNames.CSCL);
+        duni = reader.GetSubfield<byte>(S57SubfieldNames.DUNI);
+        huni = reader.GetSubfield<byte>(S57SubfieldNames.HUNI);
+        puni = reader.GetSubfield<byte>(S57SubfieldNames.PUNI);
+        coun = reader.GetSubfield<byte>(S57SubfieldNames.COUN);
+        comf = reader.GetSubfield<uint>(S57SubfieldNames.COMF);
+        somf = reader.GetSubfield<uint>(S57SubfieldNames.SOMF);
+        comt = reader.TryGetSubfield<string>(S57SubfieldNames.COMT, out var c) ? c : "";
 
         return new S57DataSetParameters
         {
@@ -277,7 +290,7 @@ public static class S57Reader
     /// <summary>
     /// Parses a Feature Record.
     /// </summary>
-    private static S57FeatureRecord? ParseFeatureRecord(Iso8211Record record)
+    private static S57FeatureRecord? ParseFeatureRecord(Iso8211Record record, Iso8211DataDescriptiveRecord? ddr)
     {
         var fridField = record.GetFieldByTag(S57FieldTags.FRID);
         if (fridField == null)
@@ -285,16 +298,23 @@ public static class S57Reader
             return null;
         }
 
-        var reader = new S57BinaryFieldReader(fridField.Data);
+        byte rcnm, prim, grup, ruin;
+        uint rcid;
+        ushort objl, rver;
 
-        // Parse FRID subfields
-        var rcnm = reader.ReadUInt8();
-        var rcid = reader.ReadUInt32();
-        var prim = reader.ReadUInt8();
-        var grup = reader.ReadUInt8();
-        var objl = reader.ReadUInt16();
-        var rver = reader.ReadUInt16();
-        var ruin = reader.ReadUInt8();
+        var fieldDef = ddr?.GetFieldDefinition(S57FieldTags.FRID)
+            ?? throw new InvalidOperationException("DDR is required but not available. FRID field definition not found.");
+
+        // Use DDR-based field reader
+        var reader = new Iso8211FieldReader(fieldDef, fridField.Data);
+
+        rcnm = reader.GetSubfield<byte>(S57SubfieldNames.RCNM);
+        rcid = reader.GetSubfield<uint>(S57SubfieldNames.RCID);
+        prim = reader.GetSubfield<byte>(S57SubfieldNames.PRIM);
+        grup = reader.GetSubfield<byte>(S57SubfieldNames.GRUP);
+        objl = reader.GetSubfield<ushort>(S57SubfieldNames.OBJL);
+        rver = reader.GetSubfield<ushort>(S57SubfieldNames.RVER);
+        ruin = reader.GetSubfield<byte>(S57SubfieldNames.RUIN);
 
         var recordName = S57RecordName.FromRcnmRcid(rcnm, (int)rcid);
 
@@ -302,10 +322,17 @@ public static class S57Reader
         var foidField = record.GetFieldByTag(S57FieldTags.FOID);
         if (foidField != null)
         {
-            var foidReader = new S57BinaryFieldReader(foidField.Data);
-            var agen = foidReader.ReadUInt16();
-            var fidn = foidReader.ReadUInt32();
-            var fids = foidReader.ReadUInt16();
+            var foidFieldDef = ddr?.GetFieldDefinition(S57FieldTags.FOID)
+                ?? throw new InvalidOperationException("DDR is required but not available. FOID field definition not found.");
+            ushort agen;
+            uint fidn;
+            ushort fids;
+
+            var foidReader = new Iso8211FieldReader(foidFieldDef, foidField.Data);
+            agen = foidReader.GetSubfield<ushort>(S57SubfieldNames.AGEN);
+            fidn = foidReader.GetSubfield<uint>(S57SubfieldNames.FIDN);
+            fids = foidReader.GetSubfield<ushort>(S57SubfieldNames.FIDS);
+
             recordName = new S57RecordName
             {
                 RecordNameCode = rcnm,
@@ -317,16 +344,16 @@ public static class S57Reader
         }
 
         // Parse ATTF (attributes)
-        var attributes = ParseAttributes(record, S57FieldTags.ATTF);
+        var attributes = ParseAttributes(record, S57FieldTags.ATTF, ddr);
 
         // Parse NATF (national attributes)
-        var nationalAttributes = ParseAttributes(record, S57FieldTags.NATF);
+        var nationalAttributes = ParseAttributes(record, S57FieldTags.NATF, ddr);
 
         // Parse FSPT (spatial pointers)
-        var spatialPointers = ParseSpatialPointers(record);
+        var spatialPointers = ParseSpatialPointers(record, ddr);
 
         // Parse FFPT (feature pointers)
-        var featurePointers = ParseFeaturePointers(record);
+        var featurePointers = ParseFeaturePointers(record, ddr);
 
         return new S57FeatureRecord
         {
@@ -346,7 +373,7 @@ public static class S57Reader
     /// <summary>
     /// Parses a Vector Record.
     /// </summary>
-    private static S57VectorRecord? ParseVectorRecord(Iso8211Record record)
+    private static S57VectorRecord? ParseVectorRecord(Iso8211Record record, Iso8211DataDescriptiveRecord? ddr)
     {
         var vridField = record.GetFieldByTag(S57FieldTags.VRID);
         if (vridField == null)
@@ -354,25 +381,32 @@ public static class S57Reader
             return null;
         }
 
-        var reader = new S57BinaryFieldReader(vridField.Data);
+        byte rcnm, ruin;
+        uint rcid;
+        ushort rver;
 
-        // Parse VRID subfields
-        var rcnm = reader.ReadUInt8();
-        var rcid = reader.ReadUInt32();
-        var rver = reader.ReadUInt16();
-        var ruin = reader.ReadUInt8();
+        var fieldDef = ddr?.GetFieldDefinition(S57FieldTags.VRID)
+            ?? throw new InvalidOperationException("DDR is required but not available. VRID field definition not found.");
+
+        // Use DDR-based field reader
+        var reader = new Iso8211FieldReader(fieldDef, vridField.Data);
+
+        rcnm = reader.GetSubfield<byte>(S57SubfieldNames.RCNM);
+        rcid = reader.GetSubfield<uint>(S57SubfieldNames.RCID);
+        rver = reader.GetSubfield<ushort>(S57SubfieldNames.RVER);
+        ruin = reader.GetSubfield<byte>(S57SubfieldNames.RUIN);
 
         // Parse ATTV (vector attributes)
-        var attributes = ParseVectorAttributes(record);
+        var attributes = ParseVectorAttributes(record, ddr);
 
         // Parse VRPT (vector pointers)
-        var vectorPointers = ParseVectorPointers(record);
+        var vectorPointers = ParseVectorPointers(record, ddr);
 
         // Parse SG2D (2D coordinates)
-        var coordinates2D = ParseCoordinates2D(record);
+        var coordinates2D = ParseCoordinates2D(record, ddr);
 
         // Parse SG3D (3D soundings)
-        var soundings = ParseSoundings(record);
+        var soundings = ParseSoundings(record, ddr);
 
         return new S57VectorRecord
         {
@@ -389,20 +423,27 @@ public static class S57Reader
     /// <summary>
     /// Parses attributes from ATTF or NATF fields.
     /// </summary>
-    private static ImmutableArray<S57AttributeValue> ParseAttributes(Iso8211Record record, string fieldTag)
+    private static ImmutableArray<S57AttributeValue> ParseAttributes(Iso8211Record record, string fieldTag, Iso8211DataDescriptiveRecord? ddr)
     {
         var attributes = ImmutableArray.CreateBuilder<S57AttributeValue>();
+        var fieldDef = ddr?.GetFieldDefinition(fieldTag);
         
         foreach (var field in record.GetFieldsByTag(fieldTag))
         {
-            var reader = new S57BinaryFieldReader(field.Data);
+            if (fieldDef == null || !fieldDef.HasRepeatingGroup)
+            {
+                continue; // No field definition or not a repeating field - skip
+            }
+
+            // Use DDR-based field reader with repeating groups
+            var reader = new Iso8211FieldReader(fieldDef, field.Data);
             
-            while (!reader.IsAtEnd)
+            foreach (var group in reader.GetSubfieldGroups())
             {
                 try
                 {
-                    var attl = reader.ReadUInt16();
-                    var atvl = reader.ReadString();
+                    var attl = group.GetSubfield<ushort>(S57SubfieldNames.ATTL);
+                    var atvl = group.GetSubfield<string>(S57SubfieldNames.ATVL);
                     attributes.Add(new S57AttributeValue(attl, atvl));
                 }
                 catch
@@ -418,20 +459,27 @@ public static class S57Reader
     /// <summary>
     /// Parses vector attributes from ATTV fields.
     /// </summary>
-    private static ImmutableArray<S57AttributeValue> ParseVectorAttributes(Iso8211Record record)
+    private static ImmutableArray<S57AttributeValue> ParseVectorAttributes(Iso8211Record record, Iso8211DataDescriptiveRecord? ddr)
     {
         var attributes = ImmutableArray.CreateBuilder<S57AttributeValue>();
+        var fieldDef = ddr?.GetFieldDefinition(S57FieldTags.ATTV);
         
         foreach (var field in record.GetFieldsByTag(S57FieldTags.ATTV))
         {
-            var reader = new S57BinaryFieldReader(field.Data);
+            if (fieldDef == null || !fieldDef.HasRepeatingGroup)
+            {
+                continue; // No field definition or not a repeating field - skip
+            }
+
+            // Use DDR-based field reader with repeating groups
+            var reader = new Iso8211FieldReader(fieldDef, field.Data);
             
-            while (!reader.IsAtEnd)
+            foreach (var group in reader.GetSubfieldGroups())
             {
                 try
                 {
-                    var attl = reader.ReadUInt16();
-                    var atvl = reader.ReadString();
+                    var attl = group.GetSubfield<ushort>(S57SubfieldNames.ATTL);
+                    var atvl = group.GetSubfield<string>(S57SubfieldNames.ATVL);
                     attributes.Add(new S57AttributeValue(attl, atvl));
                 }
                 catch
@@ -447,24 +495,33 @@ public static class S57Reader
     /// <summary>
     /// Parses spatial pointers from FSPT fields.
     /// </summary>
-    private static ImmutableArray<S57SpatialPointer> ParseSpatialPointers(Iso8211Record record)
+    private static ImmutableArray<S57SpatialPointer> ParseSpatialPointers(Iso8211Record record, Iso8211DataDescriptiveRecord? ddr)
     {
         var pointers = ImmutableArray.CreateBuilder<S57SpatialPointer>();
+        var fieldDef = ddr?.GetFieldDefinition(S57FieldTags.FSPT);
         
         foreach (var field in record.GetFieldsByTag(S57FieldTags.FSPT))
         {
-            var reader = new S57BinaryFieldReader(field.Data);
+            if (fieldDef == null || !fieldDef.HasRepeatingGroup)
+            {
+                continue; // No field definition or not a repeating field - skip
+            }
+
+            // Use DDR-based field reader with repeating groups
+            var reader = new Iso8211FieldReader(fieldDef, field.Data);
             
-            // FSPT contains repeating groups of NAME(8) + ORNT(1) + USAG(1) + MASK(1)
-            while (reader.BytesRemaining >= 11)
+            foreach (var group in reader.GetSubfieldGroups())
             {
                 try
                 {
-                    // NAME is 8 bytes: RCNM(1) + RCID(4) + reserved(3)
-                    var name = reader.ReadName();
-                    var ornt = reader.ReadUInt8();
-                    var usag = reader.ReadUInt8();
-                    var mask = reader.ReadUInt8();
+                    // NAME is a composite subfield (5 bytes: RCNM(1) + RCID(4))
+                    // Read it as raw bytes and decompose
+                    var nameBytes = reader.GetSubfieldBytes(S57SubfieldNames.NAME);
+                    var name = DecomposeNameField(nameBytes);
+                    
+                    var ornt = group.GetSubfield<byte>(S57SubfieldNames.ORNT);
+                    var usag = group.GetSubfield<byte>(S57SubfieldNames.USAG);
+                    var mask = group.GetSubfield<byte>(S57SubfieldNames.MASK);
 
                     pointers.Add(new S57SpatialPointer
                     {
@@ -487,23 +544,31 @@ public static class S57Reader
     /// <summary>
     /// Parses feature pointers from FFPT fields.
     /// </summary>
-    private static ImmutableArray<S57FeaturePointer> ParseFeaturePointers(Iso8211Record record)
+    private static ImmutableArray<S57FeaturePointer> ParseFeaturePointers(Iso8211Record record, Iso8211DataDescriptiveRecord? ddr)
     {
         var pointers = ImmutableArray.CreateBuilder<S57FeaturePointer>();
+        var fieldDef = ddr?.GetFieldDefinition(S57FieldTags.FFPT);
         
         foreach (var field in record.GetFieldsByTag(S57FieldTags.FFPT))
         {
-            var reader = new S57BinaryFieldReader(field.Data);
+            if (fieldDef == null || !fieldDef.HasRepeatingGroup)
+            {
+                continue; // No field definition or not a repeating field - skip
+            }
+
+            // Use DDR-based field reader with repeating groups
+            var reader = new Iso8211FieldReader(fieldDef, field.Data);
             
-            // FFPT contains LNAM(8) + RIND(1) + COMT(variable)
-            while (reader.BytesRemaining >= 9)
+            foreach (var group in reader.GetSubfieldGroups())
             {
                 try
                 {
-                    // LNAM is 8 bytes: AGEN(2) + FIDN(4) + FIDS(2)
-                    var lnam = reader.ReadLongName();
-                    var rind = reader.ReadUInt8();
-                    var comt = reader.ReadString();
+                    // LNAM is a composite subfield (8 bytes: AGEN(2) + FIDN(4) + FIDS(2))
+                    var lnamBytes = reader.GetSubfieldBytes(S57SubfieldNames.LNAM);
+                    var lnam = DecomposeLongNameField(lnamBytes);
+                    
+                    var rind = group.GetSubfield<byte>(S57SubfieldNames.RIND);
+                    var comt = group.GetSubfield<string>(S57SubfieldNames.COMT);
 
                     pointers.Add(new S57FeaturePointer
                     {
@@ -525,24 +590,33 @@ public static class S57Reader
     /// <summary>
     /// Parses vector pointers from VRPT fields.
     /// </summary>
-    private static ImmutableArray<S57VectorPointer> ParseVectorPointers(Iso8211Record record)
+    private static ImmutableArray<S57VectorPointer> ParseVectorPointers(Iso8211Record record, Iso8211DataDescriptiveRecord? ddr)
     {
         var pointers = ImmutableArray.CreateBuilder<S57VectorPointer>();
+        var fieldDef = ddr?.GetFieldDefinition(S57FieldTags.VRPT);
         
         foreach (var field in record.GetFieldsByTag(S57FieldTags.VRPT))
         {
-            var reader = new S57BinaryFieldReader(field.Data);
+            if (fieldDef == null || !fieldDef.HasRepeatingGroup)
+            {
+                continue; // No field definition or not a repeating field - skip
+            }
+
+            // Use DDR-based field reader with repeating groups
+            var reader = new Iso8211FieldReader(fieldDef, field.Data);
             
-            // VRPT contains repeating groups
-            while (reader.BytesRemaining >= 9)
+            foreach (var group in reader.GetSubfieldGroups())
             {
                 try
                 {
-                    var name = reader.ReadName();
-                    var ornt = reader.ReadUInt8();
-                    var usag = reader.ReadUInt8();
-                    var topi = reader.ReadUInt8();
-                    var mask = reader.ReadUInt8();
+                    // NAME is a composite subfield (5 bytes: RCNM(1) + RCID(4))
+                    var nameBytes = reader.GetSubfieldBytes(S57SubfieldNames.NAME);
+                    var name = DecomposeNameField(nameBytes);
+                    
+                    var ornt = group.GetSubfield<byte>(S57SubfieldNames.ORNT);
+                    var usag = group.GetSubfield<byte>(S57SubfieldNames.USAG);
+                    var topi = group.GetSubfield<byte>(S57SubfieldNames.TOPI);
+                    var mask = group.GetSubfield<byte>(S57SubfieldNames.MASK);
 
                     pointers.Add(new S57VectorPointer
                     {
@@ -566,21 +640,27 @@ public static class S57Reader
     /// <summary>
     /// Parses 2D coordinates from SG2D fields.
     /// </summary>
-    private static ImmutableArray<S57Coordinate2D> ParseCoordinates2D(Iso8211Record record)
+    private static ImmutableArray<S57Coordinate2D> ParseCoordinates2D(Iso8211Record record, Iso8211DataDescriptiveRecord? ddr)
     {
         var coordinates = ImmutableArray.CreateBuilder<S57Coordinate2D>();
+        var fieldDef = ddr?.GetFieldDefinition(S57FieldTags.SG2D);
         
         foreach (var field in record.GetFieldsByTag(S57FieldTags.SG2D))
         {
-            var reader = new S57BinaryFieldReader(field.Data);
+            if (fieldDef == null || !fieldDef.HasRepeatingGroup)
+            {
+                continue; // No field definition or not a repeating field - skip
+            }
+
+            // Use DDR-based field reader with repeating groups
+            var reader = new Iso8211FieldReader(fieldDef, field.Data);
             
-            // SG2D contains repeating groups of YCOO(4) + XCOO(4)
-            while (reader.BytesRemaining >= 8)
+            foreach (var group in reader.GetSubfieldGroups())
             {
                 try
                 {
-                    var ycoo = reader.ReadInt32();
-                    var xcoo = reader.ReadInt32();
+                    var ycoo = group.GetSubfield<int>(S57SubfieldNames.YCOO);
+                    var xcoo = group.GetSubfield<int>(S57SubfieldNames.XCOO);
 
                     coordinates.Add(new S57Coordinate2D
                     {
@@ -601,22 +681,28 @@ public static class S57Reader
     /// <summary>
     /// Parses 3D sounding coordinates from SG3D fields.
     /// </summary>
-    private static ImmutableArray<S57Sounding> ParseSoundings(Iso8211Record record)
+    private static ImmutableArray<S57Sounding> ParseSoundings(Iso8211Record record, Iso8211DataDescriptiveRecord? ddr)
     {
         var soundings = ImmutableArray.CreateBuilder<S57Sounding>();
+        var fieldDef = ddr?.GetFieldDefinition(S57FieldTags.SG3D);
         
         foreach (var field in record.GetFieldsByTag(S57FieldTags.SG3D))
         {
-            var reader = new S57BinaryFieldReader(field.Data);
+            if (fieldDef == null || !fieldDef.HasRepeatingGroup)
+            {
+                continue; // No field definition or not a repeating field - skip
+            }
+
+            // Use DDR-based field reader with repeating groups
+            var reader = new Iso8211FieldReader(fieldDef, field.Data);
             
-            // SG3D contains repeating groups of YCOO(4) + XCOO(4) + VE3D(4)
-            while (reader.BytesRemaining >= 12)
+            foreach (var group in reader.GetSubfieldGroups())
             {
                 try
                 {
-                    var ycoo = reader.ReadInt32();
-                    var xcoo = reader.ReadInt32();
-                    var ve3d = reader.ReadInt32();
+                    var ycoo = group.GetSubfield<int>(S57SubfieldNames.YCOO);
+                    var xcoo = group.GetSubfield<int>(S57SubfieldNames.XCOO);
+                    var ve3d = group.GetSubfield<int>(S57SubfieldNames.VE3D);
 
                     soundings.Add(new S57Sounding
                     {
@@ -634,145 +720,35 @@ public static class S57Reader
 
         return soundings.ToImmutable();
     }
-}
-
-/// <summary>
-/// Helper class for reading binary S-57 field data.
-/// </summary>
-internal ref struct S57BinaryFieldReader
-{
-    private readonly ReadOnlySpan<byte> _data;
-    private int _position;
-
-    private const byte UnitTerminator = 0x1F;
-    private const byte FieldTerminator = 0x1E;
-
-    public S57BinaryFieldReader(byte[] data)
-    {
-        _data = data.AsSpan();
-        _position = 0;
-    }
-
-    public S57BinaryFieldReader(ReadOnlySpan<byte> data)
-    {
-        _data = data;
-        _position = 0;
-    }
-
-    public bool IsAtEnd => _position >= _data.Length || 
-                           (_position < _data.Length && (_data[_position] == FieldTerminator || _data[_position] == UnitTerminator && _position == _data.Length - 1));
-
-    public int BytesRemaining => _data.Length - _position;
-
-    public byte ReadUInt8()
-    {
-        if (_position >= _data.Length)
-        {
-            throw new InvalidOperationException("End of data reached.");
-        }
-        return _data[_position++];
-    }
-
-    public ushort ReadUInt16()
-    {
-        if (_position + 2 > _data.Length)
-        {
-            throw new InvalidOperationException("Not enough data for UInt16.");
-        }
-        var value = BitConverter.ToUInt16(_data.Slice(_position, 2));
-        _position += 2;
-        return value;
-    }
-
-    public uint ReadUInt32()
-    {
-        if (_position + 4 > _data.Length)
-        {
-            throw new InvalidOperationException("Not enough data for UInt32.");
-        }
-        var value = BitConverter.ToUInt32(_data.Slice(_position, 4));
-        _position += 4;
-        return value;
-    }
-
-    public int ReadInt32()
-    {
-        if (_position + 4 > _data.Length)
-        {
-            throw new InvalidOperationException("Not enough data for Int32.");
-        }
-        var value = BitConverter.ToInt32(_data.Slice(_position, 4));
-        _position += 4;
-        return value;
-    }
-
-    public string ReadString()
-    {
-        var start = _position;
-        while (_position < _data.Length && 
-               _data[_position] != UnitTerminator && 
-               _data[_position] != FieldTerminator)
-        {
-            _position++;
-        }
-
-        var length = _position - start;
-        var result = length > 0 
-            ? Encoding.ASCII.GetString(_data.Slice(start, length)) 
-            : string.Empty;
-
-        // Skip the terminator if present
-        if (_position < _data.Length && 
-            (_data[_position] == UnitTerminator || _data[_position] == FieldTerminator))
-        {
-            _position++;
-        }
-
-        return result;
-    }
 
     /// <summary>
-    /// Reads an S-57 NAME field (8 bytes: RCNM(1) + RCID(4) + reserved(3)).
+    /// Decomposes a NAME composite subfield (5 bytes: RCNM(1) + RCID(4)) into an S57RecordName.
     /// </summary>
-    public S57RecordName ReadName()
+    private static S57RecordName DecomposeNameField(ReadOnlySpan<byte> data)
     {
-        if (_position + 5 > _data.Length)
+        if (data.Length < 5)
         {
-            throw new InvalidOperationException("Not enough data for NAME field.");
+            return default;
         }
-
-        var rcnm = ReadUInt8();
-        var rcid = ReadUInt32();
-
+        
+        var rcnm = data[0];
+        var rcid = BinaryPrimitives.ReadUInt32LittleEndian(data.Slice(1, 4));
         return S57RecordName.FromRcnmRcid(rcnm, (int)rcid);
     }
 
     /// <summary>
-    /// Reads an S-57 long name field (8 bytes: AGEN(2) + FIDN(4) + FIDS(2)).
+    /// Decomposes a LNAM composite subfield (8 bytes: AGEN(2) + FIDN(4) + FIDS(2)) into an S57RecordName.
     /// </summary>
-    public S57RecordName ReadLongName()
+    private static S57RecordName DecomposeLongNameField(ReadOnlySpan<byte> data)
     {
-        if (_position + 8 > _data.Length)
+        if (data.Length < 8)
         {
-            throw new InvalidOperationException("Not enough data for LNAM field.");
+            return default;
         }
-
-        var agen = ReadUInt16();
-        var fidn = ReadUInt32();
-        var fids = ReadUInt16();
-
+        
+        var agen = BinaryPrimitives.ReadUInt16LittleEndian(data.Slice(0, 2));
+        var fidn = BinaryPrimitives.ReadUInt32LittleEndian(data.Slice(2, 4));
+        var fids = BinaryPrimitives.ReadUInt16LittleEndian(data.Slice(6, 2));
         return S57RecordName.FromLongName(agen, (int)fidn, fids);
-    }
-
-    /// <summary>
-    /// Skips the specified number of bytes.
-    /// </summary>
-    public void Skip(int count)
-    {
-        _position += count;
-        if (_position > _data.Length)
-        {
-            _position = _data.Length;
-        }
     }
 }
