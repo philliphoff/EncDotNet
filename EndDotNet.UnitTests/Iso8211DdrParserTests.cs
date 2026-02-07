@@ -326,13 +326,14 @@ public class Iso8211DdrParserTests
     public void FieldDefinition_SubfieldDefinitions_AreCreated()
     {
         // Arrange
-        var record = CreateDdrRecord(subfieldNames: "RCNM!RCID!EXPP", formatControls: "(b11,b14,b11)");
+        //var record = CreateDdrRecord(subfieldNames: "RCNM!RCID!EXPP", formatControls: "(b11,b14,b11)");
+        var record = CreateDdrRecord(subfieldNames: "RCNM!RCID!EXPP!INTU!DSNM!EDTN!UPDN!UADT!ISDT!STED!PRSP!PSDN!PRED!PROF!AGEN!COMT", formatControls: "(b11,b14,2b11,3A,2A(8),R(4),b11,2A,b11,b12,A)");
 
         // Act
         var ddr = Iso8211DdrParser.Parse(record);
 
         // Assert
-        Assert.Equal(3, ddr.FieldDefinitions[0].SubfieldDefinitions.Length);
+        Assert.Equal(16, ddr.FieldDefinitions[0].SubfieldDefinitions.Length);
     }
 
     [Fact]
@@ -1108,6 +1109,207 @@ public class Iso8211DdrParserTests
         Assert.Equal(Iso8211SubfieldFormatType.UnsignedInteger, subfields[0].Format.FormatType);
         Assert.Equal(Iso8211SubfieldFormatType.UnsignedInteger, subfields[1].Format.FormatType);
         Assert.Equal(Iso8211SubfieldFormatType.CharacterData, subfields[2].Format.FormatType);
+    }
+
+    #endregion
+
+    #region Two-UT Format Tests (Real S-57 File Format)
+
+    /// <summary>
+    /// Creates a DDR record using the two-UT format found in real S-57 files:
+    /// [FieldControls][FieldName] UT [SubfieldLabels] UT [FormatControls]
+    /// </summary>
+    private static Iso8211Record CreateDdrRecordTwoUt(
+        string tag = "DSID",
+        int fieldControlLength = 2,
+        char dataStructureCode = '1',
+        char dataTypeCode = '6',
+        string fieldName = "Data Set Identification",
+        string? subfieldLabels = "RCNM!RCID!EXPP",
+        string formatControls = "(b11,b14,b11)")
+    {
+        var sb = new StringBuilder();
+
+        if (fieldControlLength >= 2)
+        {
+            sb.Append(dataStructureCode);
+            sb.Append(dataTypeCode);
+        }
+
+        // Field name in first section
+        sb.Append(fieldName);
+        sb.Append('\x1F'); // First UT — separates field name from subfield labels
+
+        // Subfield labels in second section
+        if (!string.IsNullOrEmpty(subfieldLabels))
+        {
+            sb.Append(subfieldLabels);
+        }
+
+        sb.Append('\x1F'); // Second UT — separates subfield labels from format controls
+        sb.Append(formatControls);
+
+        var fieldData = Encoding.ASCII.GetBytes(sb.ToString());
+
+        var field = new Iso8211Field
+        {
+            Tag = tag,
+            Data = fieldData
+        };
+
+        return new Iso8211Record
+        {
+            Leader = new Iso8211RecordLeader
+            {
+                LeaderIdentifier = 'L',
+                FieldControlLength = fieldControlLength,
+                SizeOfFieldTagField = 4,
+                SizeOfFieldLengthField = 3,
+                SizeOfFieldPositionField = 3,
+                RecordLength = 100,
+                BaseAddressOfFieldArea = 35,
+                InterchangeLevel = '3',
+                VersionNumber = '1',
+                ExtendedCharacterSetIndicator = "   "
+            },
+            Directory = ImmutableArray.Create(new Iso8211DirectoryEntry
+            {
+                Tag = tag,
+                Length = fieldData.Length + 1,
+                Position = 0
+            }),
+            Fields = ImmutableArray.Create(field)
+        };
+    }
+
+    [Fact]
+    public void Parse_TwoUtFormat_ParsesSubfieldDefinitions()
+    {
+        // Arrange — two-UT format: [FieldName] UT [SubfieldLabels] UT [FormatControls]
+        var record = CreateDdrRecordTwoUt(
+            subfieldLabels: "RCNM!RCID!EXPP",
+            formatControls: "(b11,b14,b11)");
+
+        // Act
+        var ddr = Iso8211DdrParser.Parse(record);
+        var fieldDef = ddr.FieldDefinitions[0];
+
+        // Assert
+        Assert.Equal("Data Set Identification", fieldDef.FieldName);
+        Assert.Equal(3, fieldDef.SubfieldDefinitions.Length);
+        Assert.Equal("RCNM", fieldDef.SubfieldDefinitions[0].Name);
+        Assert.Equal("RCID", fieldDef.SubfieldDefinitions[1].Name);
+        Assert.Equal("EXPP", fieldDef.SubfieldDefinitions[2].Name);
+    }
+
+    [Fact]
+    public void Parse_TwoUtFormat_SubfieldFormatsArePairedCorrectly()
+    {
+        // Arrange
+        var record = CreateDdrRecordTwoUt(
+            subfieldLabels: "RCNM!RCID!EXPP",
+            formatControls: "(b11,b14,b11)");
+
+        // Act
+        var ddr = Iso8211DdrParser.Parse(record);
+        var subfields = ddr.FieldDefinitions[0].SubfieldDefinitions;
+
+        // Assert
+        Assert.Equal(Iso8211SubfieldFormatType.UnsignedInteger, subfields[0].Format.FormatType);
+        Assert.Equal(1, subfields[0].Format.Width);
+
+        Assert.Equal(Iso8211SubfieldFormatType.UnsignedInteger, subfields[1].Format.FormatType);
+        Assert.Equal(4, subfields[1].Format.Width);
+
+        Assert.Equal(Iso8211SubfieldFormatType.UnsignedInteger, subfields[2].Format.FormatType);
+        Assert.Equal(1, subfields[2].Format.Width);
+    }
+
+    [Fact]
+    public void Parse_TwoUtFormat_S57DsidField_FullParse()
+    {
+        // Arrange — simulate a real S-57 DSID DDR field with two-UT format
+        var record = CreateDdrRecordTwoUt(
+            tag: "DSID",
+            dataStructureCode: '1',
+            dataTypeCode: '6',
+            fieldName: "Data Set Identification",
+            subfieldLabels: "RCNM!RCID!EXPP!INTU!DSNM!EDTN!UPDN!UADT!ISDT!STED!PRSP!PSDN!PRED!PROF!AGEN!COMT",
+            formatControls: "(b11,b14,b11,b11,A,A,A,A,A,A,b11,A,A,b11,b12,A)");
+
+        // Act
+        var ddr = Iso8211DdrParser.Parse(record);
+        var dsid = ddr.FieldDefinitions[0];
+
+        // Assert
+        Assert.Equal("DSID", dsid.Tag);
+        Assert.Equal(Iso8211DataStructureCode.Vector, dsid.DataStructureCode);
+        Assert.Equal(Iso8211DataTypeCode.MixedDataTypes, dsid.DataTypeCode);
+        Assert.Equal("Data Set Identification", dsid.FieldName);
+        Assert.Equal(16, dsid.SubfieldDefinitions.Length);
+
+        Assert.False(dsid.HasRepeatingGroup);
+        Assert.Null(dsid.ArrayDescriptor);
+
+        var rcnm = dsid.GetSubfieldDefinition("RCNM")!;
+        Assert.Equal(Iso8211SubfieldFormatType.UnsignedInteger, rcnm.Format.FormatType);
+        Assert.Equal(1, rcnm.Format.Width);
+
+        var rcid = dsid.GetSubfieldDefinition("RCID")!;
+        Assert.Equal(Iso8211SubfieldFormatType.UnsignedInteger, rcid.Format.FormatType);
+        Assert.Equal(4, rcid.Format.Width);
+
+        var agen = dsid.GetSubfieldDefinition("AGEN")!;
+        Assert.Equal(Iso8211SubfieldFormatType.UnsignedInteger, agen.Format.FormatType);
+        Assert.Equal(2, agen.Format.Width);
+    }
+
+    [Fact]
+    public void Parse_TwoUtFormat_RepeatingGroup_ParsesCorrectly()
+    {
+        // Arrange — two-UT format with repeating group marker
+        var record = CreateDdrRecordTwoUt(
+            tag: "SG2D",
+            dataStructureCode: '1',
+            dataTypeCode: '5',
+            fieldName: "2-D Coordinate Field",
+            subfieldLabels: "*YCOO!XCOO",
+            formatControls: "(2b24)");
+
+        // Act
+        var ddr = Iso8211DdrParser.Parse(record);
+        var sg2d = ddr.FieldDefinitions[0];
+
+        // Assert
+        Assert.Equal(2, sg2d.SubfieldDefinitions.Length);
+        Assert.Equal("YCOO", sg2d.SubfieldDefinitions[0].Name);
+        Assert.Equal("XCOO", sg2d.SubfieldDefinitions[1].Name);
+
+        Assert.True(sg2d.HasRepeatingGroup);
+        Assert.Equal(0, sg2d.RepeatingSubfieldStartIndex);
+        Assert.True(sg2d.SubfieldDefinitions[0].IsRepeating);
+        Assert.True(sg2d.SubfieldDefinitions[1].IsRepeating);
+
+        Assert.Equal(Iso8211SubfieldFormatType.SignedInteger, sg2d.SubfieldDefinitions[0].Format.FormatType);
+        Assert.Equal(4, sg2d.SubfieldDefinitions[0].Format.Width);
+    }
+
+    [Fact]
+    public void Parse_TwoUtFormat_NoArrayDescriptorForVectorFields()
+    {
+        // Arrange — vector field should not produce an array descriptor
+        var record = CreateDdrRecordTwoUt(
+            dataStructureCode: '1',
+            subfieldLabels: "RCNM!RCID",
+            formatControls: "(b11,b14)");
+
+        // Act
+        var ddr = Iso8211DdrParser.Parse(record);
+        var fieldDef = ddr.FieldDefinitions[0];
+
+        // Assert — subfield labels should NOT be stored as array descriptor
+        Assert.Null(fieldDef.ArrayDescriptor);
+        Assert.Equal(2, fieldDef.SubfieldDefinitions.Length);
     }
 
     #endregion

@@ -120,14 +120,27 @@ public static class Iso8211DdrParser
             }
             else
             {
-                // Two or more UTs: [NameAndSubfields] UT [ArrayDescriptor] UT [FormatControls]
-                var descriptorSpan = remaining.Slice(0, utPositions[0]);
-                var arraySpan = remaining.Slice(utPositions[0] + 1, utPositions[1] - utPositions[0] - 1);
+                // Two or more UTs.
+                // For vector/elementary fields: [FieldName] UT [SubfieldLabels] UT [FormatControls]
+                // For array/concatenated-array fields: [FieldName] UT [ArrayDescriptor] UT [FormatControls]
+                var nameSpan = remaining.Slice(0, utPositions[0]);
+                var middleSpan = remaining.Slice(utPositions[0] + 1, utPositions[1] - utPositions[0] - 1);
                 var formatSpan = remaining.Slice(utPositions[1] + 1);
 
-                ParseDescriptors(descriptorSpan, out fieldName, out subfieldNames, out repeatingGroupStartIndex);
-                arrayDescriptor = Encoding.ASCII.GetString(arraySpan);
+                fieldName = Encoding.ASCII.GetString(nameSpan);
                 formatControls = Encoding.ASCII.GetString(formatSpan).TrimEnd((char)FieldTerminator);
+
+                if (dataStructureCode == Iso8211DataStructureCode.Array
+                    || dataStructureCode == Iso8211DataStructureCode.ConcatenatedArray)
+                {
+                    // Middle section is the array descriptor
+                    arrayDescriptor = Encoding.ASCII.GetString(middleSpan);
+                }
+                else
+                {
+                    // Middle section contains subfield labels (e.g., "RCNM!RCID!EXPP!...")
+                    ParseSubfieldLabels(Encoding.ASCII.GetString(middleSpan), out subfieldNames, out repeatingGroupStartIndex);
+                }
             }
         }
 
@@ -150,6 +163,51 @@ public static class Iso8211DdrParser
             SubfieldDefinitions = subfieldDefinitions,
             RepeatingSubfieldStartIndex = repeatingGroupStartIndex
         };
+    }
+
+    /// <summary>
+    /// Parses subfield labels from a string containing names separated by '!' delimiters.
+    /// </summary>
+    /// <remarks>
+    /// This method handles the case where subfield labels appear in a separate section
+    /// (after the first unit terminator) in the DDR field data. Unlike <see cref="ParseDescriptors"/>,
+    /// all parts are treated as subfield names — there is no leading field name.
+    /// The special <c>*</c> prefix indicates the start of a repeating group.
+    /// </remarks>
+    private static void ParseSubfieldLabels(
+        string labelsStr,
+        out ImmutableArray<string> subfieldNames,
+        out int repeatingGroupStartIndex)
+    {
+        repeatingGroupStartIndex = -1;
+
+        if (string.IsNullOrEmpty(labelsStr))
+        {
+            subfieldNames = ImmutableArray<string>.Empty;
+            return;
+        }
+
+        var parts = labelsStr.Split('!');
+        var names = ImmutableArray.CreateBuilder<string>(parts.Length);
+        int subfieldIndex = 0;
+
+        for (int i = 0; i < parts.Length; i++)
+        {
+            var rawName = parts[i];
+            if (rawName.StartsWith('*'))
+            {
+                repeatingGroupStartIndex = subfieldIndex;
+                rawName = rawName.Substring(1);
+            }
+
+            if (!string.IsNullOrEmpty(rawName))
+            {
+                names.Add(rawName);
+                subfieldIndex++;
+            }
+        }
+
+        subfieldNames = names.ToImmutable();
     }
 
     /// <summary>
