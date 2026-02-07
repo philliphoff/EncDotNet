@@ -440,6 +440,7 @@ public sealed class Iso8211FieldReader
             Iso8211SubfieldFormatType.Real => ConvertAsciiReal<T>(span),
             Iso8211SubfieldFormatType.UnsignedInteger => ConvertUnsignedBinary<T>(span, format.Width),
             Iso8211SubfieldFormatType.SignedInteger => ConvertSignedBinary<T>(span, format.Width),
+            Iso8211SubfieldFormatType.BitString => ConvertBitString<T>(span),
             _ => throw new InvalidOperationException($"Unknown format type: {format.FormatType}")
         };
 
@@ -476,6 +477,22 @@ public sealed class Iso8211FieldReader
         if (typeof(T) == typeof(byte[]))
         {
             return data.ToArray();
+        }
+        if (typeof(T) == typeof(byte))
+        {
+            return byte.Parse(str, CultureInfo.InvariantCulture);
+        }
+        if (typeof(T) == typeof(sbyte))
+        {
+            return sbyte.Parse(str, CultureInfo.InvariantCulture);
+        }
+        if (typeof(T) == typeof(short))
+        {
+            return short.Parse(str, CultureInfo.InvariantCulture);
+        }
+        if (typeof(T) == typeof(ushort))
+        {
+            return ushort.Parse(str, CultureInfo.InvariantCulture);
         }
 
         throw new InvalidOperationException($"Cannot convert character data to type {typeof(T).Name}.");
@@ -709,6 +726,29 @@ public sealed class Iso8211FieldReader
         }
 
         throw new InvalidOperationException($"Cannot convert signed binary to type {typeof(T).Name}.");
+    }
+
+    /// <summary>
+    /// Converts bit string data (ISO 8211 <c>B(n)</c> format) to the requested type.
+    /// </summary>
+    /// <remarks>
+    /// Bit strings are fixed-width binary data. They can be returned as <c>byte[]</c>
+    /// for raw access, or as integer types when the width matches.
+    /// </remarks>
+    private static object ConvertBitString<T>(ReadOnlySpan<byte> data)
+    {
+        if (typeof(T) == typeof(byte[]))
+        {
+            return data.ToArray();
+        }
+        if (typeof(T) == typeof(string))
+        {
+            // Return hex representation
+            return Convert.ToHexString(data);
+        }
+
+        // For integer types, delegate to unsigned binary conversion
+        return ConvertUnsignedBinary<T>(data, data.Length);
     }
 
     /// <summary>

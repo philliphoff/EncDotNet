@@ -130,16 +130,26 @@ public static class Iso8211DdrParser
                 fieldName = Encoding.ASCII.GetString(nameSpan);
                 formatControls = Encoding.ASCII.GetString(formatSpan).TrimEnd((char)FieldTerminator);
 
-                if (dataStructureCode == Iso8211DataStructureCode.Array
+                var middleStr = Encoding.ASCII.GetString(middleSpan);
+
+                // The middle section may be subfield labels (e.g., "*YCOO!XCOO") or an
+                // array descriptor. In S-57 files, even Array-typed fields (DataStructureCode=2)
+                // can encode subfield labels in this section. Detect subfield labels by the
+                // presence of '!' delimiters or a leading '*' marker.
+                if (middleStr.Contains('!') || middleStr.StartsWith('*'))
+                {
+                    ParseSubfieldLabels(middleStr, out subfieldNames, out repeatingGroupStartIndex);
+                }
+                else if (dataStructureCode == Iso8211DataStructureCode.Array
                     || dataStructureCode == Iso8211DataStructureCode.ConcatenatedArray)
                 {
-                    // Middle section is the array descriptor
-                    arrayDescriptor = Encoding.ASCII.GetString(middleSpan);
+                    // Middle section is a true array descriptor (no subfield labels)
+                    arrayDescriptor = middleStr;
                 }
                 else
                 {
-                    // Middle section contains subfield labels (e.g., "RCNM!RCID!EXPP!...")
-                    ParseSubfieldLabels(Encoding.ASCII.GetString(middleSpan), out subfieldNames, out repeatingGroupStartIndex);
+                    // Single subfield label with no '!' or '*' — still parse as subfield labels
+                    ParseSubfieldLabels(middleStr, out subfieldNames, out repeatingGroupStartIndex);
                 }
             }
         }
@@ -148,6 +158,17 @@ public static class Iso8211DdrParser
         var formats = !string.IsNullOrEmpty(formatControls)
             ? ParseFormatControls(formatControls)
             : ImmutableArray<Iso8211SubfieldFormat>.Empty;
+
+        // For Vector fields (DataStructureCode=1), the ISO 8211 standard says the field is
+        // a one-dimensional array of subfield groups — all subfields implicitly repeat.
+        // Some DDRs include an explicit '*' marker for the repeating group, but others rely
+        // solely on the DataStructureCode. When no '*' is present, infer repeating from index 0.
+        if (dataStructureCode == Iso8211DataStructureCode.Vector
+            && repeatingGroupStartIndex < 0
+            && !subfieldNames.IsDefaultOrEmpty)
+        {
+            repeatingGroupStartIndex = 0;
+        }
 
         // Build subfield definitions by pairing names with formats
         var subfieldDefinitions = BuildSubfieldDefinitions(subfieldNames, formats, repeatingGroupStartIndex);
@@ -409,6 +430,8 @@ public static class Iso8211DdrParser
                 return ParseCharacterFormat(format, pos, Iso8211SubfieldFormatType.Real);
 
             case 'B':
+                return ParseBitStringFormat(format, pos);
+
             case 'b':
                 return ParseBinaryFormat(format, pos);
 
@@ -442,6 +465,39 @@ public static class Iso8211DdrParser
         {
             FormatType = formatType,
             Width = width
+        };
+    }
+
+    /// <summary>
+    /// Parses a bit string format like <c>B(40)</c>.
+    /// </summary>
+    /// <remarks>
+    /// The ISO 8211 <c>B(n)</c> format represents a bit string of <c>n</c> bits.
+    /// The width is stored in bytes (n / 8).
+    /// </remarks>
+    private static Iso8211SubfieldFormat ParseBitStringFormat(string format, int pos)
+    {
+        // Parse B(n) using the same parenthesized-width logic as character formats,
+        // but the width is in bits — convert to bytes.
+        pos++; // Skip 'B'
+
+        int widthInBits = 0;
+
+        if (pos < format.Length && format[pos] == '(')
+        {
+            pos++; // Skip '('
+            while (pos < format.Length && char.IsDigit(format[pos]))
+            {
+                widthInBits = widthInBits * 10 + (format[pos] - '0');
+                pos++;
+            }
+            // Skip closing ')'
+        }
+
+        return new Iso8211SubfieldFormat
+        {
+            FormatType = Iso8211SubfieldFormatType.BitString,
+            Width = (widthInBits + 7) / 8  // Round up to whole bytes
         };
     }
 

@@ -227,6 +227,7 @@ public readonly struct Iso8211SubfieldFormat : IEquatable<Iso8211SubfieldFormat>
     {
         Iso8211SubfieldFormatType.UnsignedInteger => Width,
         Iso8211SubfieldFormatType.SignedInteger => Width,
+        Iso8211SubfieldFormatType.BitString => Width,
         _ => Width
     };
 
@@ -250,6 +251,7 @@ public readonly struct Iso8211SubfieldFormat : IEquatable<Iso8211SubfieldFormat>
         Iso8211SubfieldFormatType.Real => Width > 0 ? $"R({Width})" : "R",
         Iso8211SubfieldFormatType.UnsignedInteger => $"b1{Width}",
         Iso8211SubfieldFormatType.SignedInteger => $"b2{Width}",
+        Iso8211SubfieldFormatType.BitString => $"B({Width * 8})",
         _ => $"?({Width})"
     };
 
@@ -360,5 +362,11 @@ public enum Iso8211SubfieldFormatType : byte
     /// <summary>
     /// Signed binary integer data. Corresponds to format code <c>b2x</c> where x is the byte width.
     /// </summary>
-    SignedInteger = 4
+    SignedInteger = 4,
+
+    /// <summary>
+    /// Bit string data. Corresponds to format code <c>B(n)</c> where n is the width in bits.
+    /// The <see cref="Iso8211SubfieldFormat.Width"/> is stored in bytes (n / 8).
+    /// </summary>
+    BitString = 5
 }

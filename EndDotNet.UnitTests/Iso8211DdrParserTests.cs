@@ -722,10 +722,10 @@ public class Iso8211DdrParserTests
         Assert.Equal("Data Set Identification", dsid.FieldName);
         Assert.Equal(16, dsid.SubfieldDefinitions.Length);
 
-        // Assert — no repeating group (no '*' in descriptors)
-        Assert.False(dsid.HasRepeatingGroup);
-        Assert.Equal(-1, dsid.RepeatingSubfieldStartIndex);
-        Assert.All(dsid.SubfieldDefinitions, sf => Assert.False(sf.IsRepeating));
+        // Assert — Vector field implicitly repeats all subfields (no explicit '*' needed)
+        Assert.True(dsid.HasRepeatingGroup);
+        Assert.Equal(0, dsid.RepeatingSubfieldStartIndex);
+        Assert.All(dsid.SubfieldDefinitions, sf => Assert.True(sf.IsRepeating));
 
         // Verify specific subfields
         var rcnm = dsid.GetSubfieldDefinition("RCNM")!;
@@ -928,8 +928,9 @@ public class Iso8211DdrParserTests
     [Fact]
     public void RepeatingGroupStartIndex_NoRepeatingGroup_IsNegativeOne()
     {
-        // Arrange — no '*' marker
+        // Arrange — Elementary field (DataStructureCode=0) with no '*' marker
         var record = CreateDdrRecord(
+            dataStructureCode: '0',
             subfieldNames: "RCNM!RCID!EXPP",
             formatControls: "(b11,b14,b11)");
 
@@ -1021,12 +1022,12 @@ public class Iso8211DdrParserTests
         // Act
         var ddr = Iso8211DdrParser.Parse(record);
 
-        // Assert — DSID and DSPM should not have repeating groups
+        // Assert — DSID and DSPM are Vector fields, so they implicitly have repeating groups
         var dsid = ddr.GetFieldDefinition("DSID")!;
-        Assert.False(dsid.HasRepeatingGroup);
+        Assert.True(dsid.HasRepeatingGroup);
 
         var dspm = ddr.GetFieldDefinition("DSPM")!;
-        Assert.False(dspm.HasRepeatingGroup);
+        Assert.True(dspm.HasRepeatingGroup);
 
         // Assert — SG2D should have a repeating group
         var sg2d = ddr.GetFieldDefinition("SG2D")!;
@@ -1248,7 +1249,8 @@ public class Iso8211DdrParserTests
         Assert.Equal("Data Set Identification", dsid.FieldName);
         Assert.Equal(16, dsid.SubfieldDefinitions.Length);
 
-        Assert.False(dsid.HasRepeatingGroup);
+        // Vector field implicitly repeats all subfields
+        Assert.True(dsid.HasRepeatingGroup);
         Assert.Null(dsid.ArrayDescriptor);
 
         var rcnm = dsid.GetSubfieldDefinition("RCNM")!;
@@ -1310,6 +1312,118 @@ public class Iso8211DdrParserTests
         // Assert — subfield labels should NOT be stored as array descriptor
         Assert.Null(fieldDef.ArrayDescriptor);
         Assert.Equal(2, fieldDef.SubfieldDefinitions.Length);
+    }
+
+    #endregion
+
+    #region Array-Coded Fields With Subfield Labels Tests
+
+    [Fact]
+    public void Parse_TwoUtFormat_ArrayStructureWithSubfieldLabels_ParsesAsSubfields()
+    {
+        // Arrange — some real S-57 DDR files encode SG2D with DataStructureCode=Array ('2')
+        // but still use the middle section for subfield labels (e.g., "*YCOO!XCOO").
+        // Previously this was stored as ArrayDescriptor and SubfieldDefinitions was empty.
+        var record = CreateDdrRecordTwoUt(
+            tag: "SG2D",
+            dataStructureCode: '2',
+            dataTypeCode: '5',
+            fieldName: "2-D Coordinate Field",
+            subfieldLabels: "*YCOO!XCOO",
+            formatControls: "(2b24)");
+
+        // Act
+        var ddr = Iso8211DdrParser.Parse(record);
+        var sg2d = ddr.FieldDefinitions[0];
+
+        // Assert — middle section parsed as subfield labels, not array descriptor
+        Assert.Null(sg2d.ArrayDescriptor);
+        Assert.Equal(2, sg2d.SubfieldDefinitions.Length);
+        Assert.Equal("YCOO", sg2d.SubfieldDefinitions[0].Name);
+        Assert.Equal("XCOO", sg2d.SubfieldDefinitions[1].Name);
+
+        // Assert — repeating group from '*' marker
+        Assert.True(sg2d.HasRepeatingGroup);
+        Assert.Equal(0, sg2d.RepeatingSubfieldStartIndex);
+        Assert.True(sg2d.SubfieldDefinitions[0].IsRepeating);
+        Assert.True(sg2d.SubfieldDefinitions[1].IsRepeating);
+
+        // Assert — formats paired correctly
+        Assert.Equal(Iso8211SubfieldFormatType.SignedInteger, sg2d.SubfieldDefinitions[0].Format.FormatType);
+        Assert.Equal(4, sg2d.SubfieldDefinitions[0].Format.Width);
+    }
+
+    [Fact]
+    public void Parse_TwoUtFormat_ArrayStructureWithSubfieldLabelsNoAsterisk_ParsesAsSubfields()
+    {
+        // Arrange — Array-coded field with subfield labels but no '*' marker
+        var record = CreateDdrRecordTwoUt(
+            tag: "VRID",
+            dataStructureCode: '2',
+            dataTypeCode: '6',
+            fieldName: "Vector Record Identifier",
+            subfieldLabels: "RCNM!RCID!RVER!RUIN",
+            formatControls: "(b11,b14,b12,b11)");
+
+        // Act
+        var ddr = Iso8211DdrParser.Parse(record);
+        var vrid = ddr.FieldDefinitions[0];
+
+        // Assert — parsed as subfield labels, not array descriptor
+        Assert.Null(vrid.ArrayDescriptor);
+        Assert.Equal(4, vrid.SubfieldDefinitions.Length);
+        Assert.Equal("RCNM", vrid.SubfieldDefinitions[0].Name);
+        Assert.Equal("RCID", vrid.SubfieldDefinitions[1].Name);
+        Assert.Equal("RVER", vrid.SubfieldDefinitions[2].Name);
+        Assert.Equal("RUIN", vrid.SubfieldDefinitions[3].Name);
+    }
+
+    [Fact]
+    public void Parse_TwoUtFormat_ArrayStructureWithTrueArrayDescriptor_StoresAsArrayDescriptor()
+    {
+        // Arrange — a genuine array descriptor (no '!' or '*') should still be stored as ArrayDescriptor
+        var record = CreateDdrRecordTwoUt(
+            tag: "TEST",
+            dataStructureCode: '2',
+            dataTypeCode: '0',
+            fieldName: "Test Array",
+            subfieldLabels: "3x5",
+            formatControls: "(A)");
+
+        // Act
+        var ddr = Iso8211DdrParser.Parse(record);
+        var fieldDef = ddr.FieldDefinitions[0];
+
+        // Assert — no '!' or '*', so treated as array descriptor
+        Assert.Equal("3x5", fieldDef.ArrayDescriptor);
+        Assert.Empty(fieldDef.SubfieldDefinitions);
+    }
+
+    [Fact]
+    public void Parse_TwoUtFormat_ConcatenatedArrayWithSubfieldLabels_ParsesAsSubfields()
+    {
+        // Arrange — ConcatenatedArray (DataStructureCode=3) with subfield labels
+        var record = CreateDdrRecordTwoUt(
+            tag: "SG3D",
+            dataStructureCode: '3',
+            dataTypeCode: '5',
+            fieldName: "3-D Coordinate Field",
+            subfieldLabels: "*YCOO!XCOO!VE3D",
+            formatControls: "(3b24)");
+
+        // Act
+        var ddr = Iso8211DdrParser.Parse(record);
+        var sg3d = ddr.FieldDefinitions[0];
+
+        // Assert
+        Assert.Null(sg3d.ArrayDescriptor);
+        Assert.Equal(3, sg3d.SubfieldDefinitions.Length);
+        Assert.Equal("YCOO", sg3d.SubfieldDefinitions[0].Name);
+        Assert.Equal("XCOO", sg3d.SubfieldDefinitions[1].Name);
+        Assert.Equal("VE3D", sg3d.SubfieldDefinitions[2].Name);
+
+        Assert.True(sg3d.HasRepeatingGroup);
+        Assert.Equal(0, sg3d.RepeatingSubfieldStartIndex);
     }
 
     #endregion
