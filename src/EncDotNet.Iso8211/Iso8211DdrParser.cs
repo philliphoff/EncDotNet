@@ -34,9 +34,6 @@ namespace EncDotNet.Iso8211;
 /// </remarks>
 public static class Iso8211DdrParser
 {
-    private const byte UnitTerminator = 0x1F;
-    private const byte FieldTerminator = 0x1E;
-
     /// <summary>
     /// Parses an <see cref="Iso8211Record"/> that represents a DDR and returns a
     /// strongly-typed <see cref="Iso8211DataDescriptiveRecord"/>.
@@ -51,12 +48,17 @@ public static class Iso8211DdrParser
             throw new ArgumentException("The record is not a Data Descriptive Record (DDR).", nameof(record));
         }
 
-        var fieldControlLength = record.Leader.FieldControlLength;
+        // Create a meta-DDR field definition that describes the structure of DDR field
+        // entries themselves. Since the DDR is a standard ISO 8211 record, we can use the
+        // same Iso8211FieldReader infrastructure to parse its fields. Every DDR field shares
+        // the same internal layout, determined solely by the leader's FieldControlLength.
+        var ddrFieldDefinition = CreateDdrFieldDefinition(record.Leader.FieldControlLength);
         var definitions = ImmutableArray.CreateBuilder<Iso8211FieldDefinition>();
 
         foreach (var field in record.Fields)
         {
-            var definition = ParseFieldDefinition(field, fieldControlLength);
+            var reader = new Iso8211FieldReader(ddrFieldDefinition, field.Data);
+            var definition = ParseFieldDefinition(field.Tag, reader);
             definitions.Add(definition);
         }
 
@@ -67,94 +69,217 @@ public static class Iso8211DdrParser
     }
 
     /// <summary>
-    /// Parses a single DDR field into an <see cref="Iso8211FieldDefinition"/>.
+    /// Creates an <see cref="Iso8211FieldDefinition"/> that describes the internal structure
+    /// of any DDR field entry.
     /// </summary>
-    private static Iso8211FieldDefinition ParseFieldDefinition(Iso8211Field field, int fieldControlLength)
+    /// <remarks>
+    /// <para>
+    /// Since the DDR is itself a standard ISO 8211 record, its fields follow a known structure
+    /// defined by the ISO 8211 standard. This method creates a meta-DDR field definition —
+    /// a single definition that describes the layout shared by all DDR fields — enabling the
+    /// use of <see cref="Iso8211FieldReader"/> to parse DDR field data.
+    /// </para>
+    /// <para>
+    /// Every DDR field has the same internal layout, determined solely by
+    /// <paramref name="fieldControlLength"/>:
+    /// </para>
+    /// <list type="bullet">
+    /// <item><description>Field controls (fixed-width, size determined by
+    /// <paramref name="fieldControlLength"/>): data structure code (1 byte) and data type code
+    /// (1 byte), plus any additional control bytes.</description></item>
+    /// <item><description>Field name / descriptors (variable-length, unit-terminated).</description></item>
+    /// <item><description>Subfield labels or array descriptor (variable-length, unit-terminated).</description></item>
+    /// <item><description>Format controls (variable-length, terminated by end of field).</description></item>
+    /// </list>
+    /// </remarks>
+    /// <param name="fieldControlLength">The field control length from the DDR leader.</param>
+    /// <returns>An <see cref="Iso8211FieldDefinition"/> describing the DDR's own field structure.</returns>
+    public static Iso8211FieldDefinition CreateDdrFieldDefinition(int fieldControlLength)
     {
-        var data = field.Data.AsSpan();
+        var subfieldDefinitions = CreateDdrSubfieldDefinitions(fieldControlLength);
 
-        // Parse field controls (if present)
+        return new Iso8211FieldDefinition
+        {
+            Tag = string.Empty,
+            DataStructureCode = Iso8211DataStructureCode.Elementary,
+            DataTypeCode = Iso8211DataTypeCode.CharacterString,
+            FieldName = string.Empty,
+            SubfieldDefinitions = subfieldDefinitions,
+            FormatControls = string.Empty
+        };
+    }
+
+    /// <summary>
+    /// Creates the subfield definitions that describe the internal structure of a DDR field entry.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The subfield layout depends on the <paramref name="fieldControlLength"/> from the DDR leader:
+    /// </para>
+    /// <list type="bullet">
+    /// <item><description><c>FCDS</c> (1 byte): data structure code — present when <paramref name="fieldControlLength"/> ≥ 1.</description></item>
+    /// <item><description><c>FCDT</c> (1 byte): data type code — present when <paramref name="fieldControlLength"/> ≥ 2.</description></item>
+    /// <item><description><c>FCEX</c> (remaining bytes): extended field controls — present when <paramref name="fieldControlLength"/> &gt; 2.</description></item>
+    /// <item><description><c>NAME</c> (variable): field name, or combined field name and subfield descriptors.</description></item>
+    /// <item><description><c>LBLS</c> (variable): subfield labels, array descriptor, or format controls.</description></item>
+    /// <item><description><c>FMTS</c> (variable): format controls string.</description></item>
+    /// </list>
+    /// </remarks>
+    private static ImmutableArray<Iso8211SubfieldDefinition> CreateDdrSubfieldDefinitions(int fieldControlLength)
+    {
+        var builder = ImmutableArray.CreateBuilder<Iso8211SubfieldDefinition>();
+        int index = 0;
+
+        if (fieldControlLength >= 1)
+        {
+            builder.Add(new Iso8211SubfieldDefinition
+            {
+                Name = "FCDS",
+                Format = new Iso8211SubfieldFormat { FormatType = Iso8211SubfieldFormatType.CharacterData, Width = 1 },
+                Index = index++
+            });
+        }
+
+        if (fieldControlLength >= 2)
+        {
+            builder.Add(new Iso8211SubfieldDefinition
+            {
+                Name = "FCDT",
+                Format = new Iso8211SubfieldFormat { FormatType = Iso8211SubfieldFormatType.CharacterData, Width = 1 },
+                Index = index++
+            });
+        }
+
+        if (fieldControlLength > 2)
+        {
+            builder.Add(new Iso8211SubfieldDefinition
+            {
+                Name = "FCEX",
+                Format = new Iso8211SubfieldFormat { FormatType = Iso8211SubfieldFormatType.CharacterData, Width = fieldControlLength - 2 },
+                Index = index++
+            });
+        }
+
+        // Variable-length sections, each terminated by unit terminator (0x1F).
+        // NAME: field name and/or combined descriptors.
+        // LBLS: subfield labels, array descriptor, or (in the 1-UT case) format controls.
+        // FMTS: format controls string (populated only in the 2-UT case).
+        builder.Add(new Iso8211SubfieldDefinition
+        {
+            Name = "NAME",
+            Format = new Iso8211SubfieldFormat { FormatType = Iso8211SubfieldFormatType.CharacterData, Width = 0 },
+            Index = index++
+        });
+
+        builder.Add(new Iso8211SubfieldDefinition
+        {
+            Name = "LBLS",
+            Format = new Iso8211SubfieldFormat { FormatType = Iso8211SubfieldFormatType.CharacterData, Width = 0 },
+            Index = index++
+        });
+
+        builder.Add(new Iso8211SubfieldDefinition
+        {
+            Name = "FMTS",
+            Format = new Iso8211SubfieldFormat { FormatType = Iso8211SubfieldFormatType.CharacterData, Width = 0 },
+            Index = index++
+        });
+
+        return builder.ToImmutable();
+    }
+
+    /// <summary>
+    /// Parses a single DDR field into an <see cref="Iso8211FieldDefinition"/> using the
+    /// provided <see cref="Iso8211FieldReader"/> that has been configured with the DDR's
+    /// own field definition.
+    /// </summary>
+    /// <param name="tag">The field tag.</param>
+    /// <param name="reader">
+    /// A field reader configured with the meta-DDR field definition produced by
+    /// <see cref="CreateDdrSubfieldDefinitions"/>.
+    /// </param>
+    private static Iso8211FieldDefinition ParseFieldDefinition(string tag, Iso8211FieldReader reader)
+    {
+        // Extract data structure code and data type code from field controls.
         var dataStructureCode = Iso8211DataStructureCode.Elementary;
         var dataTypeCode = Iso8211DataTypeCode.CharacterString;
 
-        if (fieldControlLength >= 2 && data.Length >= 2)
+        if (reader.TryGetSubfield<string>("FCDS", out var dsStr) && dsStr.Length > 0)
         {
-            dataStructureCode = (Iso8211DataStructureCode)(data[0] - '0');
-            dataTypeCode = (Iso8211DataTypeCode)(data[1] - '0');
+            dataStructureCode = (Iso8211DataStructureCode)(dsStr[0] - '0');
         }
 
-        // Skip past field controls
-        var remaining = fieldControlLength < data.Length ? data.Slice(fieldControlLength) : ReadOnlySpan<byte>.Empty;
+        if (reader.TryGetSubfield<string>("FCDT", out var dtStr) && dtStr.Length > 0)
+        {
+            dataTypeCode = (Iso8211DataTypeCode)(dtStr[0] - '0');
+        }
 
-        // Find the unit terminator that separates the descriptor area from the format controls.
-        // The descriptor area contains: FieldName [! SubfieldName1 ! SubfieldName2 ...] UT FormatControls
+        // Extract the three variable-length sections from the DDR field.
         //
-        // For a field like "0000" (record directory entry), the field may just contain raw data
-        // without the standard descriptor/format structure.
-        string fieldName = string.Empty;
+        // Depending on the number of unit terminators (UTs) in the original data,
+        // these reader subfields map differently:
+        //
+        //   2-UT case: NAME = fieldName, LBLS = labels/descriptor, FMTS = formatControls
+        //   1-UT case: NAME = combined name+labels, LBLS = formatControls, FMTS = (not read)
+        //   0-UT case: NAME = fieldName, LBLS = (not read), FMTS = (not read)
+        //
+        // The Iso8211FieldReader reads variable-length subfields sequentially, consuming
+        // up to the next UT or end of data. When the original data has only one UT, NAME
+        // captures everything before it (including any '!' delimited subfield names), and
+        // LBLS captures the format controls after it.
+        reader.TryGetSubfield<string>("NAME", out var namePart);
+        reader.TryGetSubfield<string>("LBLS", out var lblsPart);
+        reader.TryGetSubfield<string>("FMTS", out var fmtsPart);
+
+        namePart ??= string.Empty;
+        lblsPart ??= string.Empty;
+        fmtsPart ??= string.Empty;
+
+        string fieldName;
         string? arrayDescriptor = null;
-        string formatControls = string.Empty;
+        string formatControls;
         var subfieldNames = ImmutableArray<string>.Empty;
         int repeatingGroupStartIndex = -1;
 
-        if (!remaining.IsEmpty)
+        if (!string.IsNullOrEmpty(fmtsPart))
         {
-            // Find the unit terminator(s) in the remaining data.
-            // Structure: [FieldName!SF1!SF2!...] UT [FormatControls]
-            // Or for arrays: [FieldName] UT [ArrayDescriptor] UT [FormatControls]
-            var utPositions = FindAllPositions(remaining, UnitTerminator);
+            // 2-UT case: NAME = field name, LBLS = labels/descriptor, FMTS = format controls.
+            fieldName = namePart;
+            formatControls = fmtsPart;
 
-            if (utPositions.Length == 0)
+            if (lblsPart.Contains('!') || lblsPart.StartsWith('*'))
             {
-                // No unit terminators — treat entire remaining data as field name
-                fieldName = Encoding.ASCII.GetString(remaining).TrimEnd((char)FieldTerminator);
+                ParseSubfieldLabels(lblsPart, out subfieldNames, out repeatingGroupStartIndex);
             }
-            else if (utPositions.Length == 1)
+            else if ((dataStructureCode == Iso8211DataStructureCode.Array
+                || dataStructureCode == Iso8211DataStructureCode.ConcatenatedArray)
+                && !string.IsNullOrEmpty(lblsPart))
             {
-                // One UT: [NameAndSubfields] UT [FormatControls]
-                var descriptorSpan = remaining.Slice(0, utPositions[0]);
-                var formatSpan = remaining.Slice(utPositions[0] + 1);
-
-                ParseDescriptors(descriptorSpan, out fieldName, out subfieldNames, out repeatingGroupStartIndex);
-                formatControls = Encoding.ASCII.GetString(formatSpan).TrimEnd((char)FieldTerminator);
+                // Middle section is a true array descriptor (no subfield labels).
+                arrayDescriptor = lblsPart;
             }
-            else
+            else if (!string.IsNullOrEmpty(lblsPart))
             {
-                // Two or more UTs.
-                // For vector/elementary fields: [FieldName] UT [SubfieldLabels] UT [FormatControls]
-                // For array/concatenated-array fields: [FieldName] UT [ArrayDescriptor] UT [FormatControls]
-                var nameSpan = remaining.Slice(0, utPositions[0]);
-                var middleSpan = remaining.Slice(utPositions[0] + 1, utPositions[1] - utPositions[0] - 1);
-                var formatSpan = remaining.Slice(utPositions[1] + 1);
-
-                fieldName = Encoding.ASCII.GetString(nameSpan);
-                formatControls = Encoding.ASCII.GetString(formatSpan).TrimEnd((char)FieldTerminator);
-
-                var middleStr = Encoding.ASCII.GetString(middleSpan);
-
-                // The middle section may be subfield labels (e.g., "*YCOO!XCOO") or an
-                // array descriptor. In S-57 files, even Array-typed fields (DataStructureCode=2)
-                // can encode subfield labels in this section. Detect subfield labels by the
-                // presence of '!' delimiters or a leading '*' marker.
-                if (middleStr.Contains('!') || middleStr.StartsWith('*'))
-                {
-                    ParseSubfieldLabels(middleStr, out subfieldNames, out repeatingGroupStartIndex);
-                }
-                else if (dataStructureCode == Iso8211DataStructureCode.Array
-                    || dataStructureCode == Iso8211DataStructureCode.ConcatenatedArray)
-                {
-                    // Middle section is a true array descriptor (no subfield labels)
-                    arrayDescriptor = middleStr;
-                }
-                else
-                {
-                    // Single subfield label with no '!' or '*' — still parse as subfield labels
-                    ParseSubfieldLabels(middleStr, out subfieldNames, out repeatingGroupStartIndex);
-                }
+                // Single subfield label with no '!' or '*' — still parse as subfield labels.
+                ParseSubfieldLabels(lblsPart, out subfieldNames, out repeatingGroupStartIndex);
             }
         }
+        else if (namePart.Contains('!') || namePart.StartsWith('*'))
+        {
+            // NAME contains descriptor markers ('!' or '*'). This covers both the 1-UT case
+            // (where LBLS holds format controls) and the trailing-UT-with-empty-format case
+            // (where LBLS was not read because no data followed the UT).
+            formatControls = lblsPart;
+            ParseDescriptors(namePart, out fieldName, out subfieldNames, out repeatingGroupStartIndex);
+        }
+        else
+        {
+            // Simple case: NAME is field name only, LBLS (if present) holds format controls.
+            fieldName = namePart;
+            formatControls = lblsPart;
+        }
 
-        // Parse format controls into subfield formats
+        // Parse format controls into subfield formats.
         var formats = !string.IsNullOrEmpty(formatControls)
             ? ParseFormatControls(formatControls)
             : ImmutableArray<Iso8211SubfieldFormat>.Empty;
@@ -170,12 +295,12 @@ public static class Iso8211DdrParser
             repeatingGroupStartIndex = 0;
         }
 
-        // Build subfield definitions by pairing names with formats
+        // Build subfield definitions by pairing names with formats.
         var subfieldDefinitions = BuildSubfieldDefinitions(subfieldNames, formats, repeatingGroupStartIndex);
 
         return new Iso8211FieldDefinition
         {
-            Tag = field.Tag,
+            Tag = tag,
             DataStructureCode = dataStructureCode,
             DataTypeCode = dataTypeCode,
             FieldName = fieldName,
@@ -235,17 +360,16 @@ public static class Iso8211DdrParser
     /// Parses the descriptor portion of a DDR field into a field name and subfield names.
     /// </summary>
     /// <remarks>
-    /// The descriptor has the form: <c>FieldName</c> or <c>SF1!SF2!SF3</c> (where the field
-    /// name may be empty). Subfield names are separated by <c>!</c> delimiters. The special
+    /// The descriptor has the form: <c>FieldName</c> or <c>FieldName!SF1!SF2!SF3</c>.
+    /// Subfield names are separated by <c>!</c> delimiters. The special
     /// <c>*</c> prefix indicates a repeating group of subfields.
     /// </remarks>
     private static void ParseDescriptors(
-        ReadOnlySpan<byte> descriptorSpan,
+        string descriptorStr,
         out string fieldName,
         out ImmutableArray<string> subfieldNames,
         out int repeatingGroupStartIndex)
     {
-        var descriptorStr = Encoding.ASCII.GetString(descriptorSpan);
         repeatingGroupStartIndex = -1;
 
         // Split by '!' delimiter
@@ -589,19 +713,4 @@ public static class Iso8211DdrParser
         return definitions.ToImmutable();
     }
 
-    /// <summary>
-    /// Finds all positions of the specified byte value in a span.
-    /// </summary>
-    private static int[] FindAllPositions(ReadOnlySpan<byte> span, byte value)
-    {
-        var positions = new List<int>();
-        for (int i = 0; i < span.Length; i++)
-        {
-            if (span[i] == value)
-            {
-                positions.Add(i);
-            }
-        }
-        return positions.ToArray();
-    }
 }
