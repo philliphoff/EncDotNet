@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Text;
 
@@ -35,6 +36,13 @@ namespace EncDotNet.Iso8211;
 public static class Iso8211DdrParser
 {
     /// <summary>
+    /// Cache of DDR field definitions keyed by field control length.
+    /// Since every DDR field shares the same internal layout for a given field control length,
+    /// we avoid repeated allocations by caching the definition.
+    /// </summary>
+    private static readonly ConcurrentDictionary<int, Iso8211FieldDefinition> s_ddrFieldDefinitionCache = new();
+
+    /// <summary>
     /// Parses an <see cref="Iso8211Record"/> that represents a DDR and returns a
     /// strongly-typed <see cref="Iso8211DataDescriptiveRecord"/>.
     /// </summary>
@@ -52,7 +60,7 @@ public static class Iso8211DdrParser
         // entries themselves. Since the DDR is a standard ISO 8211 record, we can use the
         // same Iso8211FieldReader infrastructure to parse its fields. Every DDR field shares
         // the same internal layout, determined solely by the leader's FieldControlLength.
-        var ddrFieldDefinition = CreateDdrFieldDefinition(record.Leader.FieldControlLength);
+        var ddrFieldDefinition = GetDdrFieldDefinition(record.Leader.FieldControlLength);
         var definitions = ImmutableArray.CreateBuilder<Iso8211FieldDefinition>();
 
         foreach (var field in record.Fields)
@@ -69,13 +77,13 @@ public static class Iso8211DdrParser
     }
 
     /// <summary>
-    /// Creates an <see cref="Iso8211FieldDefinition"/> that describes the internal structure
-    /// of any DDR field entry.
+    /// Gets (or creates and caches) an <see cref="Iso8211FieldDefinition"/> that describes
+    /// the internal structure of any DDR field entry for the given field control length.
     /// </summary>
     /// <remarks>
     /// <para>
     /// Since the DDR is itself a standard ISO 8211 record, its fields follow a known structure
-    /// defined by the ISO 8211 standard. This method creates a meta-DDR field definition —
+    /// defined by the ISO 8211 standard. This method returns a meta-DDR field definition —
     /// a single definition that describes the layout shared by all DDR fields — enabling the
     /// use of <see cref="Iso8211FieldReader"/> to parse DDR field data.
     /// </para>
@@ -91,22 +99,29 @@ public static class Iso8211DdrParser
     /// <item><description>Subfield labels or array descriptor (variable-length, unit-terminated).</description></item>
     /// <item><description>Format controls (variable-length, terminated by end of field).</description></item>
     /// </list>
+    /// <para>
+    /// The returned definition is cached by <paramref name="fieldControlLength"/>, so repeated
+    /// calls with the same value return the same instance without additional allocations.
+    /// </para>
     /// </remarks>
     /// <param name="fieldControlLength">The field control length from the DDR leader.</param>
     /// <returns>An <see cref="Iso8211FieldDefinition"/> describing the DDR's own field structure.</returns>
-    public static Iso8211FieldDefinition CreateDdrFieldDefinition(int fieldControlLength)
+    public static Iso8211FieldDefinition GetDdrFieldDefinition(int fieldControlLength)
     {
-        var subfieldDefinitions = CreateDdrSubfieldDefinitions(fieldControlLength);
-
-        return new Iso8211FieldDefinition
+        return s_ddrFieldDefinitionCache.GetOrAdd(fieldControlLength, static fcl =>
         {
-            Tag = string.Empty,
-            DataStructureCode = Iso8211DataStructureCode.Elementary,
-            DataTypeCode = Iso8211DataTypeCode.CharacterString,
-            FieldName = string.Empty,
-            SubfieldDefinitions = subfieldDefinitions,
-            FormatControls = string.Empty
-        };
+            var subfieldDefinitions = CreateDdrSubfieldDefinitions(fcl);
+
+            return new Iso8211FieldDefinition
+            {
+                Tag = string.Empty,
+                DataStructureCode = Iso8211DataStructureCode.Elementary,
+                DataTypeCode = Iso8211DataTypeCode.CharacterString,
+                FieldName = string.Empty,
+                SubfieldDefinitions = subfieldDefinitions,
+                FormatControls = string.Empty
+            };
+        });
     }
 
     /// <summary>
