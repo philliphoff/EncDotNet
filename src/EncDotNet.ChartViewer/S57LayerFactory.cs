@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using EncDotNet.Enc;
 using EncDotNet.Enc.Charts;
 using Mapsui;
@@ -26,17 +27,17 @@ public static class S57LayerFactory
         var features = new List<IFeature>();
 
         // Add area features (polygons)
-        foreach (var areaFeature in chart.AreaFeatures)
-        {
-            var polygon = CreatePolygonFromAreaFeature(chart, areaFeature);
-            if (polygon != null)
-            {
-                var feature = new GeometryFeature(polygon);
-                feature["ObjectCode"] = areaFeature.ObjectCode;
-                feature.Styles.Add(CreateAreaStyle(areaFeature.ObjectCode));
-                features.Add(feature);
-            }
-        }
+        // foreach (var areaFeature in chart.AreaFeatures)
+        // {
+        //     var polygon = CreatePolygonFromAreaFeature(chart, areaFeature);
+        //     if (polygon != null)
+        //     {
+        //         var feature = new GeometryFeature(polygon);
+        //         feature["ObjectCode"] = areaFeature.ObjectCode;
+        //         feature.Styles.Add(CreateAreaStyle(areaFeature.ObjectCode));
+        //         features.Add(feature);
+        //     }
+        // }
 
         // Add line features
         foreach (var lineFeature in chart.LineFeatures)
@@ -52,17 +53,17 @@ public static class S57LayerFactory
         }
 
         // Add point features
-        foreach (var pointFeature in chart.PointFeatures)
-        {
-            var point = CreatePointFromPointFeature(chart, pointFeature);
-            if (point != null)
-            {
-                var feature = new GeometryFeature(point);
-                feature["ObjectCode"] = pointFeature.ObjectCode;
-                feature.Styles.Add(CreatePointStyle(pointFeature.ObjectCode));
-                features.Add(feature);
-            }
-        }
+        // foreach (var pointFeature in chart.PointFeatures)
+        // {
+        //     var point = CreatePointFromPointFeature(chart, pointFeature);
+        //     if (point != null)
+        //     {
+        //         var feature = new GeometryFeature(point);
+        //         feature["ObjectCode"] = pointFeature.ObjectCode;
+        //         feature.Styles.Add(CreatePointStyle(pointFeature.ObjectCode));
+        //         features.Add(feature);
+        //     }
+        // }
 
         return new MemoryLayer
         {
@@ -100,33 +101,122 @@ public static class S57LayerFactory
         return null;
     }
 
-    private static LineString? CreateLineStringFromLineFeature(S57Chart chart, S57LineFeature lineFeature)
+    private static Geometry? CreateLineStringFromLineFeature(S57Chart chart, S57LineFeature lineFeature)
     {
         if (!lineFeature.HasEdgeReferences)
             return null;
 
-        var coordinates = new List<Coordinate>();
+        // Pre-determine if the edges form a topologically closed ring by comparing
+        // the starting node of the first edge with the ending node of the last edge.
+        bool isClosedRing = IsClosedEdgeRing(chart, lineFeature);
+
+        var allSegments = new List<List<Coordinate>>();
+        var currentSegment = new List<Coordinate>();
+        int edgeIndex = 0;
 
         foreach (var edgeRef in lineFeature.EdgeReferences)
         {
             var edge = chart.GetEdge(edgeRef.Name);
             if (edge == null)
-                continue;
-
-            var edgeCoords = GetEdgeCoordinates(chart, edge, edgeRef.Orientation == S57Orientation.Reverse);
-            
-            // Skip first coordinate if we already have coordinates (to avoid duplicates at edge joins)
-            var startIndex = coordinates.Count > 0 ? 1 : 0;
-            for (var i = startIndex; i < edgeCoords.Count; i++)
             {
-                coordinates.Add(edgeCoords[i]);
+                edgeIndex++;
+                continue;
             }
+
+            bool reverse = edgeRef.Orientation == S57Orientation.Reverse;
+
+            // For the last edge in a closed ring, exclude the oriented end node
+            // to avoid drawing a line segment back to the starting point.
+            bool isLastEdge = edgeIndex == lineFeature.EdgeCount - 1;
+            bool excludeEndNode = isClosedRing && isLastEdge;
+
+            var edgeCoords = GetEdgeCoordinates(chart, edge, reverse, excludeEndNode);
+            if (edgeCoords.Count == 0)
+            {
+                edgeIndex++;
+                continue;
+            }
+
+            if (currentSegment.Count > 0)
+            {
+                // Check if this edge is contiguous with the current segment
+                var lastCoord = currentSegment[^1];
+                var firstEdgeCoord = edgeCoords[0];
+
+                if (lastCoord.Equals2D(firstEdgeCoord))
+                {
+                    // Contiguous — skip the duplicate first coordinate and append
+                    for (var i = 1; i < edgeCoords.Count; i++)
+                    {
+                        currentSegment.Add(edgeCoords[i]);
+                    }
+                }
+                else
+                {
+                    // Not contiguous — start a new segment
+                    if (currentSegment.Count >= 2)
+                    {
+                        allSegments.Add(currentSegment);
+                    }
+                    currentSegment = new List<Coordinate>(edgeCoords);
+                }
+            }
+            else
+            {
+                currentSegment.AddRange(edgeCoords);
+            }
+
+            edgeIndex++;
         }
 
-        if (coordinates.Count < 2)
+        // Add the final segment
+        if (currentSegment.Count >= 2)
+        {
+            allSegments.Add(currentSegment);
+        }
+
+        if (allSegments.Count == 0)
             return null;
 
-        return new LineString(coordinates.ToArray());
+        if (allSegments.Count == 1)
+            return new LineString(allSegments[0].ToArray());
+
+        return new MultiLineString(
+            allSegments.Select(s => new LineString(s.ToArray())).ToArray());
+    }
+
+    /// <summary>
+    /// Determines whether a line feature's edges form a topologically closed ring
+    /// by comparing the oriented starting node of the first edge with the oriented
+    /// ending node of the last edge.
+    /// </summary>
+    private static bool IsClosedEdgeRing(S57Chart chart, S57LineFeature lineFeature)
+    {
+        if (lineFeature.EdgeCount < 1)
+            return false;
+
+        var firstRef = lineFeature.EdgeReferences[0];
+        var lastRef = lineFeature.EdgeReferences[^1];
+
+        var firstEdge = chart.GetEdge(firstRef.Name);
+        var lastEdge = chart.GetEdge(lastRef.Name);
+        if (firstEdge == null || lastEdge == null)
+            return false;
+
+        // Get the starting node of the first edge (respecting orientation)
+        var firstStartNode = firstRef.Orientation == S57Orientation.Reverse
+            ? firstEdge.EndNode
+            : firstEdge.BeginningNode;
+
+        // Get the ending node of the last edge (respecting orientation)
+        var lastEndNode = lastRef.Orientation == S57Orientation.Reverse
+            ? lastEdge.BeginningNode
+            : lastEdge.EndNode;
+
+        if (!firstStartNode.HasValue || !lastEndNode.HasValue)
+            return false;
+
+        return firstStartNode.Value == lastEndNode.Value;
     }
 
     private static Polygon? CreatePolygonFromAreaFeature(S57Chart chart, S57AreaFeature areaFeature)
@@ -188,7 +278,7 @@ public static class S57LayerFactory
         return coordinates;
     }
 
-    private static List<Coordinate> GetEdgeCoordinates(S57Chart chart, S57Edge edge, bool reverse)
+    private static List<Coordinate> GetEdgeCoordinates(S57Chart chart, S57Edge edge, bool reverse, bool excludeEndNode = false)
     {
         var coords = new List<Coordinate>();
 
@@ -230,6 +320,13 @@ public static class S57LayerFactory
         if (reverse)
         {
             coords.Reverse();
+        }
+
+        // After orientation is applied, remove the last coordinate (the oriented end node)
+        // if the caller requested it (e.g. to avoid closing a ring).
+        if (excludeEndNode && coords.Count > 0)
+        {
+            coords.RemoveAt(coords.Count - 1);
         }
 
         return coords;
