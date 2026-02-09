@@ -48,10 +48,14 @@ public partial class MainWindow : Window
             var s57Layer = S57LayerFactory.CreateLayer(chart, "Puget Sound Chart");
             MyMapControl.Map?.Layers.Add(s57Layer);
 
-            // Navigate to the chart area (Puget Sound approximate center)
-            // Seattle area: approximately -122.35, 47.6
-            var (x, y) = SphericalMercator.FromLonLat(-122.35, 47.6);
-            MyMapControl.Map?.Navigator.CenterOnAndZoomTo(new MPoint(x, y), 50000);
+            // Defer navigation until the window is fully loaded and the map control has a valid size
+            Loaded += (_, _) =>
+            {
+                // Navigate to the chart area (Puget Sound approximate center)
+                // Seattle area: approximately -122.35, 47.6
+                var (x, y) = SphericalMercator.FromLonLat(-122.35, 47.6);
+                MyMapControl.Map?.Navigator.CenterOnAndZoomTo(new MPoint(x, y), 150);
+            };
         }
         catch (Exception ex)
         {
