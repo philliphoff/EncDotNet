@@ -4,9 +4,9 @@ using EncDotNet.Enc;
 namespace EndDotNet.UnitTests;
 
 /// <summary>
-/// Unit tests for the <see cref="S57Reader"/> class and related S-57 types.
+/// Unit tests for the <see cref="S57DocumentReader"/> class and related S-57 types.
 /// </summary>
-public class S57ReaderTests
+public class S57DocumentReaderTests
 {
     #region Test Data Helpers
 
@@ -550,7 +550,7 @@ public class S57ReaderTests
         var data = CreateS57Document();
         
         // Act
-        var document = S57Reader.Read(data);
+        var document = S57DocumentReader.Read(data);
         
         // Assert
         Assert.NotNull(document);
@@ -579,7 +579,7 @@ public class S57ReaderTests
         var data = CreateS57Document(dsidRecord);
         
         // Act
-        var document = S57Reader.Read(data);
+        var document = S57DocumentReader.Read(data);
         
         // Assert
         Assert.NotNull(document.DataSetIdentification);
@@ -616,7 +616,7 @@ public class S57ReaderTests
         var data = CreateS57Document(dspmRecord);
         
         // Act
-        var document = S57Reader.Read(data);
+        var document = S57DocumentReader.Read(data);
         
         // Assert
         Assert.NotNull(document.DataSetParameters);
@@ -650,7 +650,7 @@ public class S57ReaderTests
         var data = CreateS57Document(featureRecord);
         
         // Act
-        var document = S57Reader.Read(data);
+        var document = S57DocumentReader.Read(data);
         
         // Assert
         Assert.Single(document.FeatureRecords);
@@ -687,7 +687,7 @@ public class S57ReaderTests
         var data = CreateS57Document(featureRecord);
         
         // Act
-        var document = S57Reader.Read(data);
+        var document = S57DocumentReader.Read(data);
         
         // Assert
         Assert.Single(document.FeatureRecords);
@@ -714,7 +714,7 @@ public class S57ReaderTests
         var data = CreateS57Document(vectorRecord);
         
         // Act
-        var document = S57Reader.Read(data);
+        var document = S57DocumentReader.Read(data);
         
         // Assert
         Assert.Single(document.VectorRecords);
@@ -744,7 +744,7 @@ public class S57ReaderTests
         var data = CreateS57Document(vectorRecord);
         
         // Act
-        var document = S57Reader.Read(data);
+        var document = S57DocumentReader.Read(data);
         
         // Assert
         Assert.Single(document.VectorRecords);
@@ -775,7 +775,7 @@ public class S57ReaderTests
         var data = CreateS57Document(vectorRecord);
         
         // Act
-        var document = S57Reader.Read(data);
+        var document = S57DocumentReader.Read(data);
         
         // Assert
         Assert.Single(document.VectorRecords);
@@ -807,7 +807,7 @@ public class S57ReaderTests
         );
         
         // Act
-        var document = S57Reader.Read(data);
+        var document = S57DocumentReader.Read(data);
         
         // Assert
         Assert.NotNull(document.DataSetIdentification);
@@ -829,7 +829,7 @@ public class S57ReaderTests
         var featureRecord1 = CreateFeatureRecord(rcnm: 100, rcid: 1, objl: 75);
         var featureRecord2 = CreateFeatureRecord(rcnm: 100, rcid: 2, objl: 159);
         var data = CreateS57Document(featureRecord1, featureRecord2);
-        var document = S57Reader.Read(data);
+        var document = S57DocumentReader.Read(data);
         
         // Act
         var targetName = S57RecordName.FromRcnmRcid(100, 2);
@@ -847,7 +847,7 @@ public class S57ReaderTests
         // Arrange
         var featureRecord = CreateFeatureRecord(rcnm: 100, rcid: 1, objl: 75);
         var data = CreateS57Document(featureRecord);
-        var document = S57Reader.Read(data);
+        var document = S57DocumentReader.Read(data);
         
         // Act
         var targetName = S57RecordName.FromRcnmRcid(100, 999);
@@ -864,7 +864,7 @@ public class S57ReaderTests
         var vectorRecord1 = CreateVectorRecord(rcnm: S57RecordNameCodes.IsolatedNode, rcid: 1);
         var vectorRecord2 = CreateVectorRecord(rcnm: S57RecordNameCodes.Edge, rcid: 2);
         var data = CreateS57Document(vectorRecord1, vectorRecord2);
-        var document = S57Reader.Read(data);
+        var document = S57DocumentReader.Read(data);
         
         // Act
         var targetName = S57RecordName.FromRcnmRcid(S57RecordNameCodes.Edge, 2);
@@ -884,7 +884,7 @@ public class S57ReaderTests
         var featureRecord2 = CreateFeatureRecord(rcnm: 100, rcid: 2, objl: 159);
         var featureRecord3 = CreateFeatureRecord(rcnm: 100, rcid: 3, objl: 75);
         var data = CreateS57Document(featureRecord1, featureRecord2, featureRecord3);
-        var document = S57Reader.Read(data);
+        var document = S57DocumentReader.Read(data);
         
         // Act
         var results = document.GetFeaturesByObjectCode(75).ToArray();
@@ -900,7 +900,7 @@ public class S57ReaderTests
         // Arrange
         var dspmRecord = CreateDspmRecord(comf: 10000000);
         var data = CreateS57Document(dspmRecord);
-        var document = S57Reader.Read(data);
+        var document = S57DocumentReader.Read(data);
         
         // Act
         var result = document.CoordinateMultiplicationFactor;
@@ -914,7 +914,7 @@ public class S57ReaderTests
     {
         // Arrange
         var data = CreateS57Document();
-        var document = S57Reader.Read(data);
+        var document = S57DocumentReader.Read(data);
         
         // Act
         var result = document.CoordinateMultiplicationFactor;
@@ -929,7 +929,7 @@ public class S57ReaderTests
         // Arrange
         var dspmRecord = CreateDspmRecord(somf: 100);
         var data = CreateS57Document(dspmRecord);
-        var document = S57Reader.Read(data);
+        var document = S57DocumentReader.Read(data);
         
         // Act
         var result = document.SoundingMultiplicationFactor;
@@ -943,7 +943,7 @@ public class S57ReaderTests
     {
         // Arrange
         var data = CreateS57Document();
-        var document = S57Reader.Read(data);
+        var document = S57DocumentReader.Read(data);
         
         // Act
         var result = document.SoundingMultiplicationFactor;
@@ -1153,7 +1153,7 @@ public class S57ReaderTests
         var data = CreateS57Document(dsidRecord);
         
         // Act
-        var document = S57Reader.Read(data);
+        var document = S57DocumentReader.Read(data);
         
         // Assert
         Assert.NotNull(document.DataSetIdentification);
@@ -1168,7 +1168,7 @@ public class S57ReaderTests
         var data = CreateS57Document(dsidRecord);
         
         // Act
-        var document = S57Reader.Read(data.AsSpan());
+        var document = S57DocumentReader.Read(data.AsSpan());
         
         // Assert
         Assert.NotNull(document.DataSetIdentification);
@@ -1186,7 +1186,7 @@ public class S57ReaderTests
         S57Document document;
         using (var stream = new MemoryStream(data))
         {
-            document = S57Reader.Read(stream);
+            document = S57DocumentReader.Read(stream);
         }
         
         // Assert
@@ -1205,7 +1205,7 @@ public class S57ReaderTests
         S57Document document;
         using (var stream = new MemoryStream(data))
         {
-            document = await S57Reader.ReadAsync(stream);
+            document = await S57DocumentReader.ReadAsync(stream);
         }
         
         // Assert
@@ -1226,7 +1226,7 @@ public class S57ReaderTests
             File.WriteAllBytes(tempFile, data);
             
             // Act
-            var document = S57Reader.ReadFromFile(tempFile);
+            var document = S57DocumentReader.ReadFromFile(tempFile);
             
             // Assert
             Assert.NotNull(document.DataSetIdentification);
@@ -1251,7 +1251,7 @@ public class S57ReaderTests
             await File.WriteAllBytesAsync(tempFile, data);
             
             // Act
-            var document = await S57Reader.ReadFromFileAsync(tempFile);
+            var document = await S57DocumentReader.ReadFromFileAsync(tempFile);
             
             // Assert
             Assert.NotNull(document.DataSetIdentification);
@@ -1280,7 +1280,7 @@ public class S57ReaderTests
         var data = CreateS57Document(featureRecord);
         
         // Act
-        var document = S57Reader.Read(data);
+        var document = S57DocumentReader.Read(data);
         
         // Assert
         Assert.Single(document.FeatureRecords);
@@ -1299,7 +1299,7 @@ public class S57ReaderTests
         var data = CreateS57Document(vectorRecord);
         
         // Act
-        var document = S57Reader.Read(data);
+        var document = S57DocumentReader.Read(data);
         
         // Assert
         Assert.Single(document.VectorRecords);
@@ -1317,7 +1317,7 @@ public class S57ReaderTests
         var data = CreateS57Document(featureRecord1, featureRecord2, featureRecord3);
         
         // Act - Call S57Reader.Read FIRST
-        var document = S57Reader.Read(data);
+        var document = S57DocumentReader.Read(data);
         
         // Assert
         Assert.Equal(3, document.FeatureRecords.Length);
@@ -1337,7 +1337,7 @@ public class S57ReaderTests
         var data = CreateS57Document(isolatedNode, connectedNode, edge, face);
         
         // Act
-        var document = S57Reader.Read(data);
+        var document = S57DocumentReader.Read(data);
         
         // Assert
         Assert.Equal(4, document.VectorRecords.Length);

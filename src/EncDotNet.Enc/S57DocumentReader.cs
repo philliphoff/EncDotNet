@@ -19,7 +19,7 @@ namespace EncDotNet.Enc;
 /// assuming a fixed binary layout.
 /// </para>
 /// </remarks>
-public static class S57Reader
+public static class S57DocumentReader
 {
     /// <summary>
     /// Reads an S-57 document from a byte array.
@@ -96,7 +96,7 @@ public static class S57Reader
     {
         // Parse the Data Descriptive Record (DDR) to get field definitions
         var ddr = iso8211Document.DataDescriptiveRecord is not null
-            ? Iso8211DdrParser.Parse(iso8211Document.DataDescriptiveRecord)
+            ? Iso8211DataDescriptiveRecordReader.Read(iso8211Document.DataDescriptiveRecord)
             : null;
 
         S57DataSetIdentification? dsid = null;

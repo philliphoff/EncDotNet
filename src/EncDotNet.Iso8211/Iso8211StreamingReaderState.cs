@@ -1,7 +1,7 @@
 namespace EncDotNet.Iso8211;
 
 /// <summary>
-/// Captures the current state of a <see cref="Iso8211Parser"/> to support resuming
+/// Captures the current state of a <see cref="Iso8211Reader"/> to support resuming
 /// reading after getting more data.
 /// </summary>
 /// <remarks>

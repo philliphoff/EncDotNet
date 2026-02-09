@@ -33,7 +33,7 @@ namespace EncDotNet.Iso8211;
 /// </description></item>
 /// </list>
 /// </remarks>
-public static class Iso8211DdrParser
+public static class Iso8211DataDescriptiveRecordReader
 {
     /// <summary>
     /// Cache of DDR field definitions keyed by field control length.
@@ -49,7 +49,7 @@ public static class Iso8211DdrParser
     /// <param name="record">The ISO 8211 record to parse. Must be a DDR (leader identifier <c>'L'</c>).</param>
     /// <returns>The parsed DDR containing all field definitions.</returns>
     /// <exception cref="ArgumentException">Thrown when the record is not a DDR.</exception>
-    public static Iso8211DataDescriptiveRecord Parse(Iso8211Record record)
+    public static Iso8211DataDescriptiveRecord Read(Iso8211Record record)
     {
         if (!record.IsDataDescriptiveRecord)
         {

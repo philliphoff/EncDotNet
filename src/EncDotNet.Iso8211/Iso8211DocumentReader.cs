@@ -7,7 +7,7 @@ namespace EncDotNet.Iso8211;
 /// Provides methods to read ISO 8211 formatted data and return structured objects.
 /// </summary>
 /// <remarks>
-/// This reader uses <see cref="Iso8211Parser"/> internally for parsing
+/// This reader uses <see cref="Iso8211Reader"/> internally for parsing
 /// and builds a complete object model of the ISO 8211 data.
 /// </remarks>
 public static class Iso8211DocumentReader
@@ -29,7 +29,7 @@ public static class Iso8211DocumentReader
     /// <returns>The parsed ISO 8211 document.</returns>
     public static Iso8211Document Read(ReadOnlySpan<byte> data)
     {
-        var reader = new Iso8211Parser(data);
+        var reader = new Iso8211Reader(data);
         return Read(ref reader);
     }
 
@@ -86,7 +86,7 @@ public static class Iso8211DocumentReader
     /// </summary>
     /// <param name="parser">The forward-only reader to use for parsing.</param>
     /// <returns>The parsed ISO 8211 document.</returns>
-    public static Iso8211Document Read(ref Iso8211Parser parser)
+    public static Iso8211Document Read(ref Iso8211Reader parser)
     {
         var records = ImmutableArray.CreateBuilder<Iso8211Record>();
 
@@ -114,7 +114,7 @@ public static class Iso8211DocumentReader
     /// </summary>
     /// <param name="parser">The forward-only reader positioned at a StartRecord token.</param>
     /// <returns>The parsed record.</returns>
-    private static Iso8211Record ReadRecord(ref Iso8211Parser parser)
+    private static Iso8211Record ReadRecord(ref Iso8211Reader parser)
     {
         if (parser.TokenType != Iso8211TokenType.StartRecord)
         {
@@ -179,7 +179,7 @@ public static class Iso8211DocumentReader
     /// </summary>
     /// <param name="parser">The forward-only reader positioned at a Field token.</param>
     /// <returns>The parsed field.</returns>
-    private static Iso8211Field ReadField(ref Iso8211Parser parser)
+    private static Iso8211Field ReadField(ref Iso8211Reader parser)
     {
         if (parser.TokenType != Iso8211TokenType.Field)
         {

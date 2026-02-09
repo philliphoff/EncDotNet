@@ -1,7 +1,7 @@
 namespace EncDotNet.Iso8211;
 
 /// <summary>
-/// Options for configuring the <see cref="Iso8211Parser"/>.
+/// Options for configuring the <see cref="Iso8211Reader"/>.
 /// </summary>
 public sealed class Iso8211ReaderOptions
 {

@@ -12,7 +12,7 @@ namespace EncDotNet.Iso8211;
 /// and formats of subfields within each field.
 /// </para>
 /// <para>
-/// Use <see cref="Iso8211DdrParser.Parse(Iso8211Record)"/> to create an instance from
+/// Use <see cref="Iso8211DataDescriptiveRecordReader.Read(Iso8211Record)"/> to create an instance from
 /// a raw <see cref="Iso8211Record"/>.
 /// </para>
 /// </remarks>

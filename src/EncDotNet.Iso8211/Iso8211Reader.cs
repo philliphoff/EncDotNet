@@ -16,10 +16,9 @@ namespace EncDotNet.Iso8211;
 /// and use the various value accessors to retrieve data.
 /// </para>
 /// </remarks>
-public ref struct Iso8211Parser
+public ref struct Iso8211Reader
 {
     private const int LeaderLength = 24;
-    private const byte UnitTerminator = 0x1F;
 
     private ReadOnlySpan<byte> _buffer;
     private int _consumed;
@@ -48,20 +47,20 @@ public ref struct Iso8211Parser
     private ReadOnlySpan<byte> _currentFieldData;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="Iso8211Parser"/> struct with a span of bytes.
+    /// Initializes a new instance of the <see cref="Iso8211Reader"/> struct with a span of bytes.
     /// </summary>
     /// <param name="data">The ISO 8211 data to read.</param>
-    public Iso8211Parser(ReadOnlySpan<byte> data) : this(data, isFinalBlock: true)
+    public Iso8211Reader(ReadOnlySpan<byte> data) : this(data, isFinalBlock: true)
     {
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="Iso8211Parser"/> struct with a span of bytes
+    /// Initializes a new instance of the <see cref="Iso8211Reader"/> struct with a span of bytes
     /// and an indication of whether this is the final block of data.
     /// </summary>
     /// <param name="data">The ISO 8211 data to read.</param>
     /// <param name="isFinalBlock"><c>true</c> if this is the final block of data; otherwise, <c>false</c>.</param>
-    public Iso8211Parser(ReadOnlySpan<byte> data, bool isFinalBlock)
+    public Iso8211Reader(ReadOnlySpan<byte> data, bool isFinalBlock)
     {
         _buffer = data;
         _consumed = 0;
@@ -87,7 +86,7 @@ public ref struct Iso8211Parser
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="Iso8211Parser"/> struct with a span of bytes,
+    /// Initializes a new instance of the <see cref="Iso8211Reader"/> struct with a span of bytes,
     /// an indication of whether this is the final block of data, and a previous reader state.
     /// </summary>
     /// <param name="data">The ISO 8211 data to read.</param>
@@ -97,7 +96,7 @@ public ref struct Iso8211Parser
     /// This constructor is used in streaming scenarios where data arrives incrementally.
     /// The <paramref name="data"/> should contain only the unprocessed portion of the stream.
     /// </remarks>
-    public Iso8211Parser(ReadOnlySpan<byte> data, bool isFinalBlock, Iso8211StreamingReaderState state)
+    public Iso8211Reader(ReadOnlySpan<byte> data, bool isFinalBlock, Iso8211StreamingReaderState state)
     {
         _buffer = data;
         _consumed = 0;

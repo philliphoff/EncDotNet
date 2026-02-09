@@ -4,9 +4,9 @@ using EncDotNet.Iso8211;
 namespace EndDotNet.UnitTests;
 
 /// <summary>
-/// Unit tests for the <see cref="Iso8211Parser"/> class.
+/// Unit tests for the <see cref="Iso8211Reader"/> class.
 /// </summary>
-public class Iso8211ParserTests
+public class Iso8211ReaderTests
 {
     #region Test Data Helpers
 
@@ -223,7 +223,7 @@ public class Iso8211ParserTests
         var data = CreateMinimalRecord();
 
         // Act
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
 
         // Assert
         Assert.Equal(Iso8211TokenType.None, parser.TokenType);
@@ -239,7 +239,7 @@ public class Iso8211ParserTests
         var data = CreateMinimalRecord();
 
         // Act
-        var parser = new Iso8211Parser(data, isFinalBlock: false);
+        var parser = new Iso8211Reader(data, isFinalBlock: false);
 
         // Assert
         Assert.False(parser.IsFinalBlock);
@@ -252,7 +252,7 @@ public class Iso8211ParserTests
         var data = CreateMinimalRecord();
 
         // Act
-        var parser = new Iso8211Parser(data, isFinalBlock: true);
+        var parser = new Iso8211Reader(data, isFinalBlock: true);
 
         // Assert
         Assert.True(parser.IsFinalBlock);
@@ -263,13 +263,13 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMinimalRecord();
-        var parser1 = new Iso8211Parser(data);
+        var parser1 = new Iso8211Reader(data);
         parser1.Read(); // Read StartRecord
 
         var state = parser1.GetCurrentState();
 
         // Act - Create new parser with saved state (simulating continuation)
-        var parser2 = new Iso8211Parser(data, isFinalBlock: true, state);
+        var parser2 = new Iso8211Reader(data, isFinalBlock: true, state);
 
         // Assert
         Assert.Equal(Iso8211ReaderState.InLeader, parser2.CurrentState);
@@ -282,7 +282,7 @@ public class Iso8211ParserTests
         var data = ReadOnlySpan<byte>.Empty;
 
         // Act
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
 
         // Assert
         Assert.Equal(Iso8211TokenType.None, parser.TokenType);
@@ -298,7 +298,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMinimalRecord();
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
 
         // Act
         var result = parser.Read();
@@ -314,7 +314,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMinimalRecord();
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
         parser.Read(); // StartRecord
 
         // Act
@@ -331,7 +331,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMinimalRecord();
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
         parser.Read(); // StartRecord
         parser.Read(); // DirectoryEntry
 
@@ -349,7 +349,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMinimalRecord();
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
         parser.Read(); // StartRecord
         parser.Read(); // DirectoryEntry
         parser.Read(); // Field
@@ -368,7 +368,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMinimalRecord();
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
         parser.Read(); // StartRecord
         parser.Read(); // DirectoryEntry
         parser.Read(); // Field
@@ -387,7 +387,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = ReadOnlySpan<byte>.Empty;
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
 
         // Act
         var result = parser.Read();
@@ -406,7 +406,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMinimalRecord(isDataDescriptiveRecord: true);
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
 
         // Act
         parser.Read();
@@ -426,7 +426,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMinimalRecord(isDataDescriptiveRecord: false);
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
 
         // Act
         parser.Read();
@@ -442,7 +442,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMinimalRecord();
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
 
         // Act
         parser.Read();
@@ -463,7 +463,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMinimalRecord();
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
         parser.Read(); // StartRecord
 
         // Act
@@ -479,7 +479,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMinimalRecord();
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
         parser.Read(); // StartRecord
         parser.Read(); // DirectoryEntry
 
@@ -492,7 +492,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMinimalRecord();
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
         parser.Read(); // StartRecord
         parser.Read(); // DirectoryEntry
 
@@ -505,7 +505,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMultiFieldRecord();
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
 
         // Act
         parser.Read(); // StartRecord
@@ -519,7 +519,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMultiFieldRecord();
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
         parser.Read(); // StartRecord
 
         // Act & Assert
@@ -543,7 +543,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMinimalRecord();
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
         parser.Read(); // StartRecord
         parser.Read(); // DirectoryEntry
         parser.Read(); // Field
@@ -560,7 +560,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMinimalRecord();
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
         parser.Read(); // StartRecord
         parser.Read(); // DirectoryEntry
         parser.Read(); // Field
@@ -574,7 +574,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMultiFieldRecord();
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
         parser.Read(); // StartRecord
         parser.Read(); // Dir 1
         parser.Read(); // Dir 2
@@ -597,7 +597,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMultiFieldRecord();
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
         parser.Read(); // StartRecord
         parser.Read(); // Dir 1
         parser.Read(); // Dir 2
@@ -619,7 +619,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMinimalRecord();
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
         // Don't read any fields
 
         // Act
@@ -635,7 +635,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMinimalRecord();
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
         parser.Read(); // StartRecord
         parser.Read(); // DirectoryEntry
         parser.Read(); // Field
@@ -655,7 +655,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMinimalRecord();
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
         parser.Read(); // StartRecord
         parser.Read(); // DirectoryEntry
         parser.Read(); // Field
@@ -679,7 +679,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMinimalRecord();
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
 
         // Assert
         Assert.Equal(0, parser.CurrentDepth);
@@ -690,7 +690,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMinimalRecord();
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
         parser.Read(); // StartRecord
 
         // Assert
@@ -702,7 +702,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMinimalRecord();
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
         parser.Read(); // StartRecord
         parser.Read(); // DirectoryEntry
 
@@ -715,7 +715,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMinimalRecord();
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
         parser.Read(); // StartRecord
         parser.Read(); // DirectoryEntry
         parser.Read(); // Field
@@ -729,7 +729,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMinimalRecord();
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
         parser.Read(); // StartRecord
         parser.Read(); // DirectoryEntry
         parser.Read(); // Field
@@ -748,7 +748,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMultiFieldRecord();
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
         parser.Read(); // StartRecord
         parser.Read(); // First DirectoryEntry - transitions to InDirectory state
 
@@ -765,7 +765,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMultipleRecords();
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
         parser.Read(); // StartRecord of first record
 
         // Act
@@ -786,7 +786,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMinimalRecord();
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
         parser.Read(); // StartRecord
 
         // Act
@@ -802,7 +802,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMinimalRecord();
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
         parser.Read(); // StartRecord
 
         // Act & Assert - Should not throw
@@ -818,7 +818,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMultipleRecords();
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
 
         // Act & Assert - First record
         Assert.True(parser.Read()); // StartRecord
@@ -852,7 +852,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMinimalRecord();
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
 
         // Act & Assert
         Assert.Equal(0, parser.BytesConsumed);
@@ -866,7 +866,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMinimalRecord();
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
         var expectedLength = data.Length;
 
         // Act
@@ -888,7 +888,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMinimalRecord();
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
         parser.Read(); // StartRecord
         parser.Read(); // DirectoryEntry
 
@@ -896,7 +896,7 @@ public class Iso8211ParserTests
         var state = parser.GetCurrentState();
 
         // Assert - verify we can create a new parser with the state
-        var parser2 = new Iso8211Parser(data, isFinalBlock: true, state);
+        var parser2 = new Iso8211Reader(data, isFinalBlock: true, state);
         Assert.Equal(Iso8211ReaderState.InDirectory, parser2.CurrentState);
         Assert.Equal(1, parser2.CurrentDirectoryIndex);
     }
@@ -910,7 +910,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMinimalRecord();
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
 
         // Act
         var result = parser.TryGetTagString(out var tag);
@@ -925,7 +925,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMinimalRecord();
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
 
         // Act & Assert
         InvalidOperationException? exception = null;
@@ -946,7 +946,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMinimalRecord();
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
         parser.Read(); // StartRecord
         parser.Read(); // DirectoryEntry
 
@@ -967,7 +967,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMinimalRecord();
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
         parser.Read(); // StartRecord
         parser.Read(); // DirectoryEntry
         parser.Read(); // Field
@@ -986,7 +986,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMinimalRecord();
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
         parser.Read(); // StartRecord
         parser.Read(); // DirectoryEntry
         parser.Read(); // Field
@@ -1008,7 +1008,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = new byte[10]; // Less than 24 bytes needed for leader
-        var parser = new Iso8211Parser(data, isFinalBlock: false);
+        var parser = new Iso8211Reader(data, isFinalBlock: false);
 
         // Act
         var result = parser.Read();
@@ -1022,7 +1022,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = new byte[10]; // Less than 24 bytes needed for leader
-        var parser = new Iso8211Parser(data, isFinalBlock: true);
+        var parser = new Iso8211Reader(data, isFinalBlock: true);
 
         // Act
         var result = parser.Read();
@@ -1037,7 +1037,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMinimalRecord();
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
 
         // Read to end
         while (parser.Read()) { }
@@ -1054,7 +1054,7 @@ public class Iso8211ParserTests
     {
         // Arrange
         var data = CreateMinimalRecord();
-        var parser = new Iso8211Parser(data);
+        var parser = new Iso8211Reader(data);
         var destination = new byte[10];
 
         // Act

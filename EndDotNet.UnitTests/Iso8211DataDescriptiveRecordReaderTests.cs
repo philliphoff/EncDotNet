@@ -5,10 +5,10 @@ using EncDotNet.Iso8211;
 namespace EndDotNet.UnitTests;
 
 /// <summary>
-/// Unit tests for <see cref="Iso8211DataDescriptiveRecord"/>, <see cref="Iso8211DdrParser"/>,
+/// Unit tests for <see cref="Iso8211DataDescriptiveRecord"/>, <see cref="Iso8211DataDescriptiveRecordReader"/>,
 /// and related DDR types.
 /// </summary>
-public class Iso8211DdrParserTests
+public class Iso8211DataDescriptiveRecordReaderTests
 {
     #region Test Data Helpers
 
@@ -188,7 +188,7 @@ public class Iso8211DdrParserTests
         var record = CreateDdrRecord();
 
         // Act
-        var ddr = Iso8211DdrParser.Parse(record);
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
 
         // Assert
         Assert.NotNull(ddr);
@@ -202,7 +202,7 @@ public class Iso8211DdrParserTests
         var record = CreateDataRecord();
 
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => Iso8211DdrParser.Parse(record));
+        Assert.Throws<ArgumentException>(() => Iso8211DataDescriptiveRecordReader.Read(record));
     }
 
     [Fact]
@@ -212,7 +212,7 @@ public class Iso8211DdrParserTests
         var record = CreateMultiFieldDdrRecord();
 
         // Act
-        var ddr = Iso8211DdrParser.Parse(record);
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
 
         // Assert
         Assert.Equal(4, ddr.FieldDefinitions.Length);
@@ -229,7 +229,7 @@ public class Iso8211DdrParserTests
         var record = CreateDdrRecord(tag: "DSID");
 
         // Act
-        var ddr = Iso8211DdrParser.Parse(record);
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
 
         // Assert
         Assert.Equal("DSID", ddr.FieldDefinitions[0].Tag);
@@ -242,7 +242,7 @@ public class Iso8211DdrParserTests
         var record = CreateDdrRecord(dataStructureCode: '1');
 
         // Act
-        var ddr = Iso8211DdrParser.Parse(record);
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
 
         // Assert
         Assert.Equal(Iso8211DataStructureCode.Vector, ddr.FieldDefinitions[0].DataStructureCode);
@@ -259,7 +259,7 @@ public class Iso8211DdrParserTests
         var record = CreateDdrRecord(dataStructureCode: code);
 
         // Act
-        var ddr = Iso8211DdrParser.Parse(record);
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
 
         // Assert
         Assert.Equal(expected, ddr.FieldDefinitions[0].DataStructureCode);
@@ -272,7 +272,7 @@ public class Iso8211DdrParserTests
         var record = CreateDdrRecord(dataTypeCode: '6');
 
         // Act
-        var ddr = Iso8211DdrParser.Parse(record);
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
 
         // Assert
         Assert.Equal(Iso8211DataTypeCode.MixedDataTypes, ddr.FieldDefinitions[0].DataTypeCode);
@@ -290,7 +290,7 @@ public class Iso8211DdrParserTests
         var record = CreateDdrRecord(dataTypeCode: code);
 
         // Act
-        var ddr = Iso8211DdrParser.Parse(record);
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
 
         // Assert
         Assert.Equal(expected, ddr.FieldDefinitions[0].DataTypeCode);
@@ -303,7 +303,7 @@ public class Iso8211DdrParserTests
         var record = CreateDdrRecord(fieldName: "Data Set Identification");
 
         // Act
-        var ddr = Iso8211DdrParser.Parse(record);
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
 
         // Assert
         Assert.Equal("Data Set Identification", ddr.FieldDefinitions[0].FieldName);
@@ -316,7 +316,7 @@ public class Iso8211DdrParserTests
         var record = CreateDdrRecord(formatControls: "(b11,b14,b11)");
 
         // Act
-        var ddr = Iso8211DdrParser.Parse(record);
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
 
         // Assert
         Assert.Equal("(b11,b14,b11)", ddr.FieldDefinitions[0].FormatControls);
@@ -330,7 +330,7 @@ public class Iso8211DdrParserTests
         var record = CreateDdrRecord(subfieldNames: "RCNM!RCID!EXPP!INTU!DSNM!EDTN!UPDN!UADT!ISDT!STED!PRSP!PSDN!PRED!PROF!AGEN!COMT", formatControls: "(b11,b14,2b11,3A,2A(8),R(4),b11,2A,b11,b12,A)");
 
         // Act
-        var ddr = Iso8211DdrParser.Parse(record);
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
 
         // Assert
         Assert.Equal(16, ddr.FieldDefinitions[0].SubfieldDefinitions.Length);
@@ -341,7 +341,7 @@ public class Iso8211DdrParserTests
     {
         // Arrange
         var record = CreateMultiFieldDdrRecord();
-        var ddr = Iso8211DdrParser.Parse(record);
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
 
         // Act
         var dsid = ddr.GetFieldDefinition("DSID");
@@ -367,7 +367,7 @@ public class Iso8211DdrParserTests
         var record = CreateDdrRecord(subfieldNames: "RCNM!RCID!EXPP", formatControls: "(b11,b14,b11)");
 
         // Act
-        var ddr = Iso8211DdrParser.Parse(record);
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
         var subfields = ddr.FieldDefinitions[0].SubfieldDefinitions;
 
         // Assert
@@ -383,7 +383,7 @@ public class Iso8211DdrParserTests
         var record = CreateDdrRecord(subfieldNames: "RCNM!RCID!EXPP", formatControls: "(b11,b14,b11)");
 
         // Act
-        var ddr = Iso8211DdrParser.Parse(record);
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
         var subfields = ddr.FieldDefinitions[0].SubfieldDefinitions;
 
         // Assert
@@ -399,7 +399,7 @@ public class Iso8211DdrParserTests
         var record = CreateDdrRecord(subfieldNames: "RCNM!RCID!EXPP", formatControls: "(b11,b14,b11)");
 
         // Act
-        var ddr = Iso8211DdrParser.Parse(record);
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
         var subfields = ddr.FieldDefinitions[0].SubfieldDefinitions;
 
         // Assert
@@ -418,7 +418,7 @@ public class Iso8211DdrParserTests
     {
         // Arrange
         var record = CreateDdrRecord(subfieldNames: "RCNM!RCID!EXPP", formatControls: "(b11,b14,b11)");
-        var ddr = Iso8211DdrParser.Parse(record);
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
         var fieldDef = ddr.FieldDefinitions[0];
 
         // Act
@@ -443,7 +443,7 @@ public class Iso8211DdrParserTests
             formatControls: "(2b24)");
 
         // Act
-        var ddr = Iso8211DdrParser.Parse(record);
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
         var fieldDef = ddr.FieldDefinitions[0];
         var subfields = fieldDef.SubfieldDefinitions;
 
@@ -473,7 +473,7 @@ public class Iso8211DdrParserTests
     public void ParseFormatControls_SingleCharacterFormat()
     {
         // Act
-        var formats = Iso8211DdrParser.ParseFormatControls("(A)");
+        var formats = Iso8211DataDescriptiveRecordReader.ParseFormatControls("(A)");
 
         // Assert
         Assert.Single(formats);
@@ -486,7 +486,7 @@ public class Iso8211DdrParserTests
     public void ParseFormatControls_CharacterFormatWithWidth()
     {
         // Act
-        var formats = Iso8211DdrParser.ParseFormatControls("(A(20))");
+        var formats = Iso8211DataDescriptiveRecordReader.ParseFormatControls("(A(20))");
 
         // Assert
         Assert.Single(formats);
@@ -499,7 +499,7 @@ public class Iso8211DdrParserTests
     public void ParseFormatControls_IntegerFormat()
     {
         // Act
-        var formats = Iso8211DdrParser.ParseFormatControls("(I(10))");
+        var formats = Iso8211DataDescriptiveRecordReader.ParseFormatControls("(I(10))");
 
         // Assert
         Assert.Single(formats);
@@ -511,7 +511,7 @@ public class Iso8211DdrParserTests
     public void ParseFormatControls_RealFormat()
     {
         // Act
-        var formats = Iso8211DdrParser.ParseFormatControls("(R)");
+        var formats = Iso8211DataDescriptiveRecordReader.ParseFormatControls("(R)");
 
         // Assert
         Assert.Single(formats);
@@ -523,7 +523,7 @@ public class Iso8211DdrParserTests
     public void ParseFormatControls_UnsignedBinaryFormats()
     {
         // Act
-        var formats = Iso8211DdrParser.ParseFormatControls("(b11,b12,b14)");
+        var formats = Iso8211DataDescriptiveRecordReader.ParseFormatControls("(b11,b12,b14)");
 
         // Assert
         Assert.Equal(3, formats.Length);
@@ -545,7 +545,7 @@ public class Iso8211DdrParserTests
     public void ParseFormatControls_SignedBinaryFormats()
     {
         // Act
-        var formats = Iso8211DdrParser.ParseFormatControls("(b21,b22,b24)");
+        var formats = Iso8211DataDescriptiveRecordReader.ParseFormatControls("(b21,b22,b24)");
 
         // Assert
         Assert.Equal(3, formats.Length);
@@ -564,7 +564,7 @@ public class Iso8211DdrParserTests
     public void ParseFormatControls_MixedFormats()
     {
         // Act
-        var formats = Iso8211DdrParser.ParseFormatControls("(b11,b14,b11,b11,A,A)");
+        var formats = Iso8211DataDescriptiveRecordReader.ParseFormatControls("(b11,b14,b11,b11,A,A)");
 
         // Assert
         Assert.Equal(6, formats.Length);
@@ -592,7 +592,7 @@ public class Iso8211DdrParserTests
     public void ParseFormatControls_EmptyString_ReturnsEmpty()
     {
         // Act
-        var formats = Iso8211DdrParser.ParseFormatControls("");
+        var formats = Iso8211DataDescriptiveRecordReader.ParseFormatControls("");
 
         // Assert
         Assert.Empty(formats);
@@ -602,7 +602,7 @@ public class Iso8211DdrParserTests
     public void ParseFormatControls_EmptyParentheses_ReturnsEmpty()
     {
         // Act
-        var formats = Iso8211DdrParser.ParseFormatControls("()");
+        var formats = Iso8211DataDescriptiveRecordReader.ParseFormatControls("()");
 
         // Assert
         Assert.Empty(formats);
@@ -612,7 +612,7 @@ public class Iso8211DdrParserTests
     public void ParseFormatControls_WithoutParentheses_StillParses()
     {
         // Act
-        var formats = Iso8211DdrParser.ParseFormatControls("b11,b14");
+        var formats = Iso8211DataDescriptiveRecordReader.ParseFormatControls("b11,b14");
 
         // Assert
         Assert.Equal(2, formats.Length);
@@ -712,7 +712,7 @@ public class Iso8211DdrParserTests
             formatControls: "(b11,b14,b11,b11,A,A,A,A,A,A,b11,A,A,b11,b12,A)");
 
         // Act
-        var ddr = Iso8211DdrParser.Parse(record);
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
         var dsid = ddr.FieldDefinitions[0];
 
         // Assert
@@ -758,7 +758,7 @@ public class Iso8211DdrParserTests
             formatControls: "(2b24)");
 
         // Act
-        var ddr = Iso8211DdrParser.Parse(record);
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
         var sg2d = ddr.FieldDefinitions[0];
 
         // Assert
@@ -795,7 +795,7 @@ public class Iso8211DdrParserTests
             formatControls: "(b12,A)");
 
         // Act
-        var ddr = Iso8211DdrParser.Parse(record);
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
         var attf = ddr.FieldDefinitions[0];
 
         // Assert
@@ -824,7 +824,7 @@ public class Iso8211DdrParserTests
     public void ParseFormatControls_RepeatCount_ExpandsToMultipleFormats()
     {
         // Act — "2b24" should expand to two b24 entries
-        var formats = Iso8211DdrParser.ParseFormatControls("(2b24)");
+        var formats = Iso8211DataDescriptiveRecordReader.ParseFormatControls("(2b24)");
 
         // Assert
         Assert.Equal(2, formats.Length);
@@ -839,7 +839,7 @@ public class Iso8211DdrParserTests
     public void ParseFormatControls_RepeatCountThree_ExpandsToThreeFormats()
     {
         // Act — "3A" should expand to three A entries
-        var formats = Iso8211DdrParser.ParseFormatControls("(3A)");
+        var formats = Iso8211DataDescriptiveRecordReader.ParseFormatControls("(3A)");
 
         // Assert
         Assert.Equal(3, formats.Length);
@@ -854,7 +854,7 @@ public class Iso8211DdrParserTests
     public void ParseFormatControls_RepeatCountWithWidth_ExpandsCorrectly()
     {
         // Act — "3I(5)" should expand to three I(5) entries
-        var formats = Iso8211DdrParser.ParseFormatControls("(3I(5))");
+        var formats = Iso8211DataDescriptiveRecordReader.ParseFormatControls("(3I(5))");
 
         // Assert
         Assert.Equal(3, formats.Length);
@@ -869,7 +869,7 @@ public class Iso8211DdrParserTests
     public void ParseFormatControls_MixedRepeatAndSingle_ExpandsCorrectly()
     {
         // Act — "b11,2b24,A" should produce: b11, b24, b24, A
-        var formats = Iso8211DdrParser.ParseFormatControls("(b11,2b24,A)");
+        var formats = Iso8211DataDescriptiveRecordReader.ParseFormatControls("(b11,2b24,A)");
 
         // Assert
         Assert.Equal(4, formats.Length);
@@ -891,7 +891,7 @@ public class Iso8211DdrParserTests
     public void ParseFormatControls_RepeatCountOne_ProducesSingleFormat()
     {
         // Act — "1b24" should produce exactly one b24
-        var formats = Iso8211DdrParser.ParseFormatControls("(1b24)");
+        var formats = Iso8211DataDescriptiveRecordReader.ParseFormatControls("(1b24)");
 
         // Assert
         Assert.Single(formats);
@@ -903,7 +903,7 @@ public class Iso8211DdrParserTests
     public void ParseFormatControls_MultipleRepeatCounts_ExpandAll()
     {
         // Act — "2b11,3b24" should produce: b11, b11, b24, b24, b24
-        var formats = Iso8211DdrParser.ParseFormatControls("(2b11,3b24)");
+        var formats = Iso8211DataDescriptiveRecordReader.ParseFormatControls("(2b11,3b24)");
 
         // Assert
         Assert.Equal(5, formats.Length);
@@ -935,7 +935,7 @@ public class Iso8211DdrParserTests
             formatControls: "(b11,b14,b11)");
 
         // Act
-        var ddr = Iso8211DdrParser.Parse(record);
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
         var fieldDef = ddr.FieldDefinitions[0];
 
         // Assert
@@ -953,7 +953,7 @@ public class Iso8211DdrParserTests
             formatControls: "(2b24)");
 
         // Act
-        var ddr = Iso8211DdrParser.Parse(record);
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
         var fieldDef = ddr.FieldDefinitions[0];
 
         // Assert
@@ -972,7 +972,7 @@ public class Iso8211DdrParserTests
             formatControls: "(b11,b14,b12,A)");
 
         // Act
-        var ddr = Iso8211DdrParser.Parse(record);
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
         var fieldDef = ddr.FieldDefinitions[0];
 
         // Assert
@@ -998,7 +998,7 @@ public class Iso8211DdrParserTests
             formatControls: "(b12,b11,b11,b11)");
 
         // Act
-        var ddr = Iso8211DdrParser.Parse(record);
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
         var fspt = ddr.FieldDefinitions[0];
 
         // Assert
@@ -1020,7 +1020,7 @@ public class Iso8211DdrParserTests
         var record = CreateMultiFieldDdrRecord();
 
         // Act
-        var ddr = Iso8211DdrParser.Parse(record);
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
 
         // Assert — DSID and DSPM are Vector fields, so they implicitly have repeating groups
         var dsid = ddr.GetFieldDefinition("DSID")!;
@@ -1049,7 +1049,7 @@ public class Iso8211DdrParserTests
         var record = CreateDdrRecord(fieldControlLength: 0);
 
         // Act
-        var ddr = Iso8211DdrParser.Parse(record);
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
 
         // Assert — should default to Elementary/CharacterString
         Assert.Equal(Iso8211DataStructureCode.Elementary, ddr.FieldDefinitions[0].DataStructureCode);
@@ -1069,7 +1069,7 @@ public class Iso8211DdrParserTests
             formatControls: "(A)");
 
         // Act
-        var ddr = Iso8211DdrParser.Parse(record);
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
 
         // Assert
         Assert.Empty(ddr.FieldDefinitions[0].SubfieldDefinitions);
@@ -1084,7 +1084,7 @@ public class Iso8211DdrParserTests
             formatControls: "");
 
         // Act
-        var ddr = Iso8211DdrParser.Parse(record);
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
         var subfields = ddr.FieldDefinitions[0].SubfieldDefinitions;
 
         // Assert — subfields get default format (A, width 0)
@@ -1102,7 +1102,7 @@ public class Iso8211DdrParserTests
             formatControls: "(b11,b14)");
 
         // Act
-        var ddr = Iso8211DdrParser.Parse(record);
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
         var subfields = ddr.FieldDefinitions[0].SubfieldDefinitions;
 
         // Assert
@@ -1192,7 +1192,7 @@ public class Iso8211DdrParserTests
             formatControls: "(b11,b14,b11)");
 
         // Act
-        var ddr = Iso8211DdrParser.Parse(record);
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
         var fieldDef = ddr.FieldDefinitions[0];
 
         // Assert
@@ -1212,7 +1212,7 @@ public class Iso8211DdrParserTests
             formatControls: "(b11,b14,b11)");
 
         // Act
-        var ddr = Iso8211DdrParser.Parse(record);
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
         var subfields = ddr.FieldDefinitions[0].SubfieldDefinitions;
 
         // Assert
@@ -1239,7 +1239,7 @@ public class Iso8211DdrParserTests
             formatControls: "(b11,b14,b11,b11,A,A,A,A,A,A,b11,A,A,b11,b12,A)");
 
         // Act
-        var ddr = Iso8211DdrParser.Parse(record);
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
         var dsid = ddr.FieldDefinitions[0];
 
         // Assert
@@ -1279,7 +1279,7 @@ public class Iso8211DdrParserTests
             formatControls: "(2b24)");
 
         // Act
-        var ddr = Iso8211DdrParser.Parse(record);
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
         var sg2d = ddr.FieldDefinitions[0];
 
         // Assert
@@ -1306,7 +1306,7 @@ public class Iso8211DdrParserTests
             formatControls: "(b11,b14)");
 
         // Act
-        var ddr = Iso8211DdrParser.Parse(record);
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
         var fieldDef = ddr.FieldDefinitions[0];
 
         // Assert — subfield labels should NOT be stored as array descriptor
@@ -1333,7 +1333,7 @@ public class Iso8211DdrParserTests
             formatControls: "(2b24)");
 
         // Act
-        var ddr = Iso8211DdrParser.Parse(record);
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
         var sg2d = ddr.FieldDefinitions[0];
 
         // Assert — middle section parsed as subfield labels, not array descriptor
@@ -1366,7 +1366,7 @@ public class Iso8211DdrParserTests
             formatControls: "(b11,b14,b12,b11)");
 
         // Act
-        var ddr = Iso8211DdrParser.Parse(record);
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
         var vrid = ddr.FieldDefinitions[0];
 
         // Assert — parsed as subfield labels, not array descriptor
@@ -1391,7 +1391,7 @@ public class Iso8211DdrParserTests
             formatControls: "(A)");
 
         // Act
-        var ddr = Iso8211DdrParser.Parse(record);
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
         var fieldDef = ddr.FieldDefinitions[0];
 
         // Assert — no '!' or '*', so treated as array descriptor
@@ -1412,7 +1412,7 @@ public class Iso8211DdrParserTests
             formatControls: "(3b24)");
 
         // Act
-        var ddr = Iso8211DdrParser.Parse(record);
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
         var sg3d = ddr.FieldDefinitions[0];
 
         // Assert

@@ -162,7 +162,7 @@ public sealed class S57Chart
     /// <returns>A strongly-typed chart model.</returns>
     public static S57Chart FromFile(string path)
     {
-        var document = S57Reader.ReadFromFile(path);
+        var document = S57DocumentReader.ReadFromFile(path);
         return FromDocument(document);
     }
 
@@ -174,7 +174,7 @@ public sealed class S57Chart
     /// <returns>A task that represents the asynchronous load operation.</returns>
     public static async Task<S57Chart> FromFileAsync(string path, CancellationToken cancellationToken = default)
     {
-        var document = await S57Reader.ReadFromFileAsync(path, cancellationToken).ConfigureAwait(false);
+        var document = await S57DocumentReader.ReadFromFileAsync(path, cancellationToken).ConfigureAwait(false);
         return FromDocument(document);
     }
 
@@ -185,7 +185,7 @@ public sealed class S57Chart
     /// <returns>A strongly-typed chart model.</returns>
     public static S57Chart FromStream(Stream stream)
     {
-        var document = S57Reader.Read(stream);
+        var document = S57DocumentReader.Read(stream);
         return FromDocument(document);
     }
 
@@ -197,7 +197,7 @@ public sealed class S57Chart
     /// <returns>A task that represents the asynchronous load operation.</returns>
     public static async Task<S57Chart> FromStreamAsync(Stream stream, CancellationToken cancellationToken = default)
     {
-        var document = await S57Reader.ReadAsync(stream, cancellationToken).ConfigureAwait(false);
+        var document = await S57DocumentReader.ReadAsync(stream, cancellationToken).ConfigureAwait(false);
         return FromDocument(document);
     }
 
