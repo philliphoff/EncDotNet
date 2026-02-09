@@ -7,7 +7,7 @@ namespace EncDotNet.Enc.Charts;
 /// Edge references describe how an edge is used within a face's boundary,
 /// including its orientation and whether it should be masked during display.
 /// </remarks>
-public readonly struct S57EdgeReference
+public readonly record struct S57EdgeReference
 {
     /// <summary>Gets the record name of the referenced edge.</summary>
     public S57RecordName EdgeName { get; }

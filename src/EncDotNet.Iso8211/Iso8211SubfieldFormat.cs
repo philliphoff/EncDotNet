@@ -20,7 +20,7 @@ namespace EncDotNet.Iso8211;
 /// <item><description><c>b24</c> — Signed 32-bit integer (4 bytes)</description></item>
 /// </list>
 /// </remarks>
-public readonly struct Iso8211SubfieldFormat : IEquatable<Iso8211SubfieldFormat>
+public readonly record struct Iso8211SubfieldFormat
 {
     /// <summary>
     /// Gets the format type of this subfield.
@@ -71,18 +71,6 @@ public readonly struct Iso8211SubfieldFormat : IEquatable<Iso8211SubfieldFormat>
     };
 
     /// <inheritdoc/>
-    public readonly bool Equals(Iso8211SubfieldFormat other) =>
-        FormatType == other.FormatType && Width == other.Width;
-
-    /// <inheritdoc/>
-    public override readonly bool Equals(object? obj) =>
-        obj is Iso8211SubfieldFormat other && Equals(other);
-
-    /// <inheritdoc/>
-    public override readonly int GetHashCode() =>
-        HashCode.Combine(FormatType, Width);
-
-    /// <inheritdoc/>
     public override readonly string ToString() => FormatType switch
     {
         Iso8211SubfieldFormatType.CharacterData => Width > 0 ? $"A({Width})" : "A",
@@ -93,16 +81,4 @@ public readonly struct Iso8211SubfieldFormat : IEquatable<Iso8211SubfieldFormat>
         Iso8211SubfieldFormatType.BitString => $"B({Width * 8})",
         _ => $"?({Width})"
     };
-
-    /// <summary>
-    /// Determines whether two <see cref="Iso8211SubfieldFormat"/> values are equal.
-    /// </summary>
-    public static bool operator ==(Iso8211SubfieldFormat left, Iso8211SubfieldFormat right) =>
-        left.Equals(right);
-
-    /// <summary>
-    /// Determines whether two <see cref="Iso8211SubfieldFormat"/> values are not equal.
-    /// </summary>
-    public static bool operator !=(Iso8211SubfieldFormat left, Iso8211SubfieldFormat right) =>
-        !left.Equals(right);
 }

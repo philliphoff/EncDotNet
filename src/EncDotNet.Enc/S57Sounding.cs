@@ -3,7 +3,7 @@ namespace EncDotNet.Enc;
 /// <summary>
 /// Represents a 3D sounding coordinate in S-57.
 /// </summary>
-public readonly struct S57Sounding
+public readonly record struct S57Sounding
 {
     /// <summary>Gets the X coordinate (XCOO) or longitude.</summary>
     public int X { get; init; }

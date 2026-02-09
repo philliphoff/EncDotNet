@@ -3,7 +3,7 @@ namespace EncDotNet.Enc;
 /// <summary>
 /// Represents a feature-to-spatial object pointer (FSPT) in S-57.
 /// </summary>
-public readonly struct S57SpatialPointer
+public readonly record struct S57SpatialPointer
 {
     /// <summary>Gets the name of the spatial record.</summary>
     public S57RecordName Name { get; init; }

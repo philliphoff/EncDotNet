@@ -10,7 +10,7 @@ namespace EncDotNet.Iso8211;
 /// This reader uses <see cref="Iso8211Parser"/> internally for parsing
 /// and builds a complete object model of the ISO 8211 data.
 /// </remarks>
-public static class Iso8211Reader
+public static class Iso8211DocumentReader
 {
     /// <summary>
     /// Reads an ISO 8211 document from a byte array.

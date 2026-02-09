@@ -3,7 +3,7 @@ namespace EncDotNet.Enc;
 /// <summary>
 /// Represents an S-57 attribute value.
 /// </summary>
-public readonly struct S57AttributeValue
+public readonly record struct S57AttributeValue
 {
     /// <summary>Gets the attribute code (ATTL).</summary>
     public int AttributeCode { get; init; }

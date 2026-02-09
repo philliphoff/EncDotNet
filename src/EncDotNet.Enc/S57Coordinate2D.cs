@@ -3,7 +3,7 @@ namespace EncDotNet.Enc;
 /// <summary>
 /// Represents a 2D coordinate in S-57.
 /// </summary>
-public readonly struct S57Coordinate2D
+public readonly record struct S57Coordinate2D
 {
     /// <summary>Gets the X coordinate (XCOO) or longitude.</summary>
     public int X { get; init; }

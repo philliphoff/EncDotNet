@@ -7,7 +7,7 @@ namespace EncDotNet.Iso8211;
 /// <remarks>
 /// This is used in streaming scenarios where data arrives incrementally.
 /// </remarks>
-public readonly struct Iso8211StreamingReaderState
+public readonly record struct Iso8211StreamingReaderState
 {
     internal Iso8211StreamingReaderState(
         Iso8211ReaderState state,

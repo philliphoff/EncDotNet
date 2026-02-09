@@ -3,7 +3,7 @@ namespace EncDotNet.Enc;
 /// <summary>
 /// Represents a feature-to-feature object pointer (FFPT) in S-57.
 /// </summary>
-public readonly struct S57FeaturePointer
+public readonly record struct S57FeaturePointer
 {
     /// <summary>Gets the name of the related feature record.</summary>
     public S57RecordName Name { get; init; }

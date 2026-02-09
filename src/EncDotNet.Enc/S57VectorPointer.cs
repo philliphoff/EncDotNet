@@ -3,7 +3,7 @@ namespace EncDotNet.Enc;
 /// <summary>
 /// Represents a spatial record pointer (VRPT) in S-57.
 /// </summary>
-public readonly struct S57VectorPointer
+public readonly record struct S57VectorPointer
 {
     /// <summary>Gets the name of the spatial record.</summary>
     public S57RecordName Name { get; init; }

@@ -7,7 +7,7 @@ namespace EncDotNet.Enc;
 /// A record name consists of a record identification number (RCID), a record name (RCNM),
 /// and optionally an agency code and feature ID.
 /// </remarks>
-public readonly struct S57RecordName : IEquatable<S57RecordName>
+public readonly record struct S57RecordName
 {
     /// <summary>
     /// Gets the record identification number (RCID).
@@ -60,33 +60,8 @@ public readonly struct S57RecordName : IEquatable<S57RecordName>
     }
 
     /// <inheritdoc/>
-    public bool Equals(S57RecordName other)
-    {
-        return RecordId == other.RecordId &&
-               RecordNameCode == other.RecordNameCode &&
-               AgencyCode == other.AgencyCode &&
-               FeatureId == other.FeatureId &&
-               FeatureSubdivision == other.FeatureSubdivision;
-    }
-
-    /// <inheritdoc/>
-    public override bool Equals(object? obj)
-    {
-        return obj is S57RecordName other && Equals(other);
-    }
-
-    /// <inheritdoc/>
-    public override int GetHashCode()
-    {
-        return HashCode.Combine(RecordId, RecordNameCode, AgencyCode, FeatureId, FeatureSubdivision);
-    }
-
-    /// <inheritdoc/>
     public override string ToString()
     {
         return $"RCNM={RecordNameCode}, RCID={RecordId}";
     }
-
-    public static bool operator ==(S57RecordName left, S57RecordName right) => left.Equals(right);
-    public static bool operator !=(S57RecordName left, S57RecordName right) => !left.Equals(right);
 }

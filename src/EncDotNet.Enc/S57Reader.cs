@@ -28,7 +28,7 @@ public static class S57Reader
     /// <returns>The parsed S-57 document.</returns>
     public static S57Document Read(byte[] data)
     {
-        var iso8211Document = Iso8211Reader.Read(data);
+        var iso8211Document = Iso8211DocumentReader.Read(data);
         return ParseDocument(iso8211Document);
     }
 
@@ -39,7 +39,7 @@ public static class S57Reader
     /// <returns>The parsed S-57 document.</returns>
     public static S57Document Read(ReadOnlySpan<byte> data)
     {
-        var iso8211Document = Iso8211Reader.Read(data);
+        var iso8211Document = Iso8211DocumentReader.Read(data);
         return ParseDocument(iso8211Document);
     }
 
@@ -50,7 +50,7 @@ public static class S57Reader
     /// <returns>The parsed S-57 document.</returns>
     public static S57Document ReadFromFile(string path)
     {
-        var iso8211Document = Iso8211Reader.ReadFromFile(path);
+        var iso8211Document = Iso8211DocumentReader.ReadFromFile(path);
         return ParseDocument(iso8211Document);
     }
 
@@ -62,7 +62,7 @@ public static class S57Reader
     /// <returns>A task that represents the asynchronous read operation.</returns>
     public static async Task<S57Document> ReadFromFileAsync(string path, CancellationToken cancellationToken = default)
     {
-        var iso8211Document = await Iso8211Reader.ReadFromFileAsync(path, cancellationToken).ConfigureAwait(false);
+        var iso8211Document = await Iso8211DocumentReader.ReadFromFileAsync(path, cancellationToken).ConfigureAwait(false);
         return ParseDocument(iso8211Document);
     }
 
@@ -73,7 +73,7 @@ public static class S57Reader
     /// <returns>The parsed S-57 document.</returns>
     public static S57Document Read(Stream stream)
     {
-        var iso8211Document = Iso8211Reader.Read(stream);
+        var iso8211Document = Iso8211DocumentReader.Read(stream);
         return ParseDocument(iso8211Document);
     }
 
@@ -85,7 +85,7 @@ public static class S57Reader
     /// <returns>A task that represents the asynchronous read operation.</returns>
     public static async Task<S57Document> ReadAsync(Stream stream, CancellationToken cancellationToken = default)
     {
-        var iso8211Document = await Iso8211Reader.ReadAsync(stream, cancellationToken).ConfigureAwait(false);
+        var iso8211Document = await Iso8211DocumentReader.ReadAsync(stream, cancellationToken).ConfigureAwait(false);
         return ParseDocument(iso8211Document);
     }
 

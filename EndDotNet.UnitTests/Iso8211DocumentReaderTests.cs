@@ -5,9 +5,9 @@ using EncDotNet.Iso8211;
 namespace EndDotNet.UnitTests;
 
 /// <summary>
-/// Unit tests for the <see cref="Iso8211Reader"/> and related classes.
+/// Unit tests for the <see cref="Iso8211DocumentReader"/> and related classes.
 /// </summary>
-public class Iso8211ReaderTests
+public class Iso8211DocumentReaderTests
 {
     #region Test Data Helpers
 
@@ -229,7 +229,7 @@ public class Iso8211ReaderTests
         var data = CreateMinimalRecord();
 
         // Act
-        var document = Iso8211Reader.Read(data);
+        var document = Iso8211DocumentReader.Read(data);
 
         // Assert
         Assert.NotNull(document);
@@ -243,7 +243,7 @@ public class Iso8211ReaderTests
         var data = CreateMultipleRecords();
 
         // Act
-        var document = Iso8211Reader.Read(data);
+        var document = Iso8211DocumentReader.Read(data);
 
         // Assert
         Assert.NotNull(document);
@@ -257,7 +257,7 @@ public class Iso8211ReaderTests
         var data = Array.Empty<byte>();
 
         // Act
-        var document = Iso8211Reader.Read(data);
+        var document = Iso8211DocumentReader.Read(data);
 
         // Assert
         Assert.NotNull(document);
@@ -275,7 +275,7 @@ public class Iso8211ReaderTests
         var data = CreateMinimalRecord();
 
         // Act
-        var document = Iso8211Reader.Read(data.AsSpan());
+        var document = Iso8211DocumentReader.Read(data.AsSpan());
 
         // Assert
         Assert.NotNull(document);
@@ -289,7 +289,7 @@ public class Iso8211ReaderTests
         var data = CreateMultipleRecords();
 
         // Act
-        var document = Iso8211Reader.Read(data.AsSpan());
+        var document = Iso8211DocumentReader.Read(data.AsSpan());
 
         // Assert
         Assert.Equal(2, document.Records.Length);
@@ -306,7 +306,7 @@ public class Iso8211ReaderTests
         var data = CreateMultipleRecords();
 
         // Act
-        var document = Iso8211Reader.Read(data);
+        var document = Iso8211DocumentReader.Read(data);
 
         // Assert
         Assert.NotNull(document.DataDescriptiveRecord);
@@ -320,7 +320,7 @@ public class Iso8211ReaderTests
         var data = CreateMinimalRecord(isDataDescriptiveRecord: false);
 
         // Act
-        var document = Iso8211Reader.Read(data);
+        var document = Iso8211DocumentReader.Read(data);
 
         // Assert
         Assert.Null(document.DataDescriptiveRecord);
@@ -333,7 +333,7 @@ public class Iso8211ReaderTests
         var data = CreateMultipleRecords();
 
         // Act
-        var document = Iso8211Reader.Read(data);
+        var document = Iso8211DocumentReader.Read(data);
         var dataRecords = document.DataRecords.ToList();
 
         // Assert
@@ -348,7 +348,7 @@ public class Iso8211ReaderTests
         var data = CreateMinimalRecord(isDataDescriptiveRecord: false);
 
         // Act
-        var document = Iso8211Reader.Read(data);
+        var document = Iso8211DocumentReader.Read(data);
         var dataRecords = document.DataRecords.ToList();
 
         // Assert
@@ -362,7 +362,7 @@ public class Iso8211ReaderTests
         var data = CreateMinimalRecord();
 
         // Act
-        var document = Iso8211Reader.Read(data);
+        var document = Iso8211DocumentReader.Read(data);
 
         // Assert
         Assert.IsType<ImmutableArray<Iso8211Record>>(document.Records);
@@ -379,7 +379,7 @@ public class Iso8211ReaderTests
         var data = CreateMinimalRecord(isDataDescriptiveRecord: true);
 
         // Act
-        var document = Iso8211Reader.Read(data);
+        var document = Iso8211DocumentReader.Read(data);
         var record = document.Records[0];
 
         // Assert
@@ -401,7 +401,7 @@ public class Iso8211ReaderTests
         var data = CreateMinimalRecord();
 
         // Act
-        var document = Iso8211Reader.Read(data);
+        var document = Iso8211DocumentReader.Read(data);
         var record = document.Records[0];
 
         // Assert
@@ -415,7 +415,7 @@ public class Iso8211ReaderTests
         var data = CreateMinimalRecord(isDataDescriptiveRecord: true);
 
         // Act
-        var document = Iso8211Reader.Read(data);
+        var document = Iso8211DocumentReader.Read(data);
         var record = document.Records[0];
 
         // Assert
@@ -429,7 +429,7 @@ public class Iso8211ReaderTests
         var data = CreateMinimalRecord(isDataDescriptiveRecord: false);
 
         // Act
-        var document = Iso8211Reader.Read(data);
+        var document = Iso8211DocumentReader.Read(data);
         var record = document.Records[0];
 
         // Assert
@@ -443,7 +443,7 @@ public class Iso8211ReaderTests
         var data = CreateMultiFieldRecord();
 
         // Act
-        var document = Iso8211Reader.Read(data);
+        var document = Iso8211DocumentReader.Read(data);
         var record = document.Records[0];
 
         // Assert
@@ -459,7 +459,7 @@ public class Iso8211ReaderTests
         var data = CreateMultiFieldRecord();
 
         // Act
-        var document = Iso8211Reader.Read(data);
+        var document = Iso8211DocumentReader.Read(data);
         var record = document.Records[0];
 
         // Assert
@@ -475,7 +475,7 @@ public class Iso8211ReaderTests
         var data = CreateMultiFieldRecord();
 
         // Act
-        var document = Iso8211Reader.Read(data);
+        var document = Iso8211DocumentReader.Read(data);
         var record = document.Records[0];
         var field = record.GetFieldByTag("0002");
 
@@ -491,7 +491,7 @@ public class Iso8211ReaderTests
         var data = CreateMultiFieldRecord();
 
         // Act
-        var document = Iso8211Reader.Read(data);
+        var document = Iso8211DocumentReader.Read(data);
         var record = document.Records[0];
         var field = record.GetFieldByTag("9999");
 
@@ -506,7 +506,7 @@ public class Iso8211ReaderTests
         var data = CreateMultiFieldRecord();
 
         // Act
-        var document = Iso8211Reader.Read(data);
+        var document = Iso8211DocumentReader.Read(data);
         var record = document.Records[0];
         var fields = record.GetFieldsByTag("0001").ToList();
 
@@ -522,7 +522,7 @@ public class Iso8211ReaderTests
         var data = CreateMultiFieldRecord();
 
         // Act
-        var document = Iso8211Reader.Read(data);
+        var document = Iso8211DocumentReader.Read(data);
         var record = document.Records[0];
         var fields = record.GetFieldsByTag("9999").ToList();
 
@@ -541,7 +541,7 @@ public class Iso8211ReaderTests
         var data = CreateMinimalRecord();
 
         // Act
-        var document = Iso8211Reader.Read(data);
+        var document = Iso8211DocumentReader.Read(data);
         var entry = document.Records[0].Directory[0];
 
         // Assert
@@ -555,7 +555,7 @@ public class Iso8211ReaderTests
         var data = CreateMinimalRecord();
 
         // Act
-        var document = Iso8211Reader.Read(data);
+        var document = Iso8211DocumentReader.Read(data);
         var entry = document.Records[0].Directory[0];
 
         // Assert
@@ -569,7 +569,7 @@ public class Iso8211ReaderTests
         var data = CreateMultiFieldRecord();
 
         // Act
-        var document = Iso8211Reader.Read(data);
+        var document = Iso8211DocumentReader.Read(data);
         var record = document.Records[0];
 
         // Assert
@@ -588,7 +588,7 @@ public class Iso8211ReaderTests
         var data = CreateMinimalRecord();
 
         // Act
-        var document = Iso8211Reader.Read(data);
+        var document = Iso8211DocumentReader.Read(data);
         var field = document.Records[0].Fields[0];
 
         // Assert
@@ -602,7 +602,7 @@ public class Iso8211ReaderTests
         var data = CreateMinimalRecord();
 
         // Act
-        var document = Iso8211Reader.Read(data);
+        var document = Iso8211DocumentReader.Read(data);
         var field = document.Records[0].Fields[0];
 
         // Assert
@@ -616,7 +616,7 @@ public class Iso8211ReaderTests
         var data = CreateMultiFieldRecord();
 
         // Act
-        var document = Iso8211Reader.Read(data);
+        var document = Iso8211DocumentReader.Read(data);
         var field1 = document.Records[0].Fields[0];
         var field2 = document.Records[0].Fields[1];
 
@@ -632,7 +632,7 @@ public class Iso8211ReaderTests
         var data = CreateMinimalRecord();
 
         // Act
-        var document = Iso8211Reader.Read(data);
+        var document = Iso8211DocumentReader.Read(data);
         var field = document.Records[0].Fields[0];
 
         // Assert
@@ -647,7 +647,7 @@ public class Iso8211ReaderTests
         var data = CreateMinimalRecord();
 
         // Act
-        var document = Iso8211Reader.Read(data);
+        var document = Iso8211DocumentReader.Read(data);
         var field = document.Records[0].Fields[0];
         var dataString = field.GetDataString();
 
@@ -667,7 +667,7 @@ public class Iso8211ReaderTests
         var data = CreateMinimalRecord();
 
         // Act
-        var document = Iso8211Reader.Read(data);
+        var document = Iso8211DocumentReader.Read(data);
         var leader = document.Records[0].Leader;
 
         // Assert
@@ -681,7 +681,7 @@ public class Iso8211ReaderTests
         var data = CreateMinimalRecord();
 
         // Act
-        var document = Iso8211Reader.Read(data);
+        var document = Iso8211DocumentReader.Read(data);
         var leader = document.Records[0].Leader;
 
         // Assert
@@ -700,7 +700,7 @@ public class Iso8211ReaderTests
         var data = CreateFullDocument();
 
         // Act
-        var document = Iso8211Reader.Read(data);
+        var document = Iso8211DocumentReader.Read(data);
 
         // Assert
         Assert.Equal(3, document.Records.Length);
@@ -713,7 +713,7 @@ public class Iso8211ReaderTests
         var data = CreateFullDocument();
 
         // Act
-        var document = Iso8211Reader.Read(data);
+        var document = Iso8211DocumentReader.Read(data);
 
         // Assert
         Assert.NotNull(document.DataDescriptiveRecord);
@@ -729,7 +729,7 @@ public class Iso8211ReaderTests
         var data = CreateFullDocument();
 
         // Act
-        var document = Iso8211Reader.Read(data);
+        var document = Iso8211DocumentReader.Read(data);
         var dataRecords = document.DataRecords.ToList();
 
         // Assert
@@ -743,7 +743,7 @@ public class Iso8211ReaderTests
         var data = CreateFullDocument();
 
         // Act
-        var document = Iso8211Reader.Read(data);
+        var document = Iso8211DocumentReader.Read(data);
         var dataRecords = document.DataRecords.ToList();
 
         // Assert
@@ -770,7 +770,7 @@ public class Iso8211ReaderTests
         using var stream = new MemoryStream(data);
 
         // Act
-        var document = Iso8211Reader.Read(stream);
+        var document = Iso8211DocumentReader.Read(stream);
 
         // Assert
         Assert.NotNull(document);
@@ -785,7 +785,7 @@ public class Iso8211ReaderTests
         using var stream = new MemoryStream(data);
 
         // Act
-        var document = await Iso8211Reader.ReadAsync(stream);
+        var document = await Iso8211DocumentReader.ReadAsync(stream);
 
         // Assert
         Assert.NotNull(document);
@@ -801,7 +801,7 @@ public class Iso8211ReaderTests
         var cts = new CancellationTokenSource();
 
         // Act
-        var document = await Iso8211Reader.ReadAsync(stream, cts.Token);
+        var document = await Iso8211DocumentReader.ReadAsync(stream, cts.Token);
 
         // Assert
         Assert.NotNull(document);
@@ -815,7 +815,7 @@ public class Iso8211ReaderTests
         using var stream = new MemoryStream();
 
         // Act
-        var document = Iso8211Reader.Read(stream);
+        var document = Iso8211DocumentReader.Read(stream);
 
         // Assert
         Assert.NotNull(document);
@@ -837,7 +837,7 @@ public class Iso8211ReaderTests
             File.WriteAllBytes(tempFile, data);
 
             // Act
-            var document = Iso8211Reader.ReadFromFile(tempFile);
+            var document = Iso8211DocumentReader.ReadFromFile(tempFile);
 
             // Assert
             Assert.NotNull(document);
@@ -860,7 +860,7 @@ public class Iso8211ReaderTests
             await File.WriteAllBytesAsync(tempFile, data);
 
             // Act
-            var document = await Iso8211Reader.ReadFromFileAsync(tempFile);
+            var document = await Iso8211DocumentReader.ReadFromFileAsync(tempFile);
 
             // Assert
             Assert.NotNull(document);
@@ -884,7 +884,7 @@ public class Iso8211ReaderTests
             await File.WriteAllBytesAsync(tempFile, data);
 
             // Act
-            var document = await Iso8211Reader.ReadFromFileAsync(tempFile, cts.Token);
+            var document = await Iso8211DocumentReader.ReadFromFileAsync(tempFile, cts.Token);
 
             // Assert
             Assert.NotNull(document);
@@ -903,7 +903,7 @@ public class Iso8211ReaderTests
         var nonExistentFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
 
         // Act & Assert
-        Assert.Throws<FileNotFoundException>(() => Iso8211Reader.ReadFromFile(nonExistentFile));
+        Assert.Throws<FileNotFoundException>(() => Iso8211DocumentReader.ReadFromFile(nonExistentFile));
     }
 
     [Fact]
@@ -913,7 +913,7 @@ public class Iso8211ReaderTests
         var nonExistentFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
 
         // Act & Assert
-        await Assert.ThrowsAsync<FileNotFoundException>(() => Iso8211Reader.ReadFromFileAsync(nonExistentFile));
+        await Assert.ThrowsAsync<FileNotFoundException>(() => Iso8211DocumentReader.ReadFromFileAsync(nonExistentFile));
     }
 
     #endregion
@@ -937,7 +937,7 @@ public class Iso8211ReaderTests
         record[24] = fieldTerminator; // Directory terminator
 
         // Act
-        var document = Iso8211Reader.Read(record);
+        var document = Iso8211DocumentReader.Read(record);
 
         // Assert
         Assert.Single(document.Records);
@@ -952,7 +952,7 @@ public class Iso8211ReaderTests
         var data = CreateMultipleRecords();
 
         // Act
-        var document = Iso8211Reader.Read(data);
+        var document = Iso8211DocumentReader.Read(data);
 
         // Assert
         Assert.Equal('L', document.Records[0].Leader.LeaderIdentifier);

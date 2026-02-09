@@ -3,7 +3,7 @@ namespace EncDotNet.Iso8211;
 /// <summary>
 /// Contains the parsed leader information for the current record.
 /// </summary>
-public readonly struct Iso8211Leader
+public readonly record struct Iso8211Leader
 {
     /// <summary>
     /// Gets the total length of the record in bytes.
