@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using EncDotNet.Enc;
 using EncDotNet.Enc.Charts;
@@ -27,17 +28,17 @@ public static class S57LayerFactory
         var features = new List<IFeature>();
 
         // Add area features (polygons)
-        // foreach (var areaFeature in chart.AreaFeatures)
-        // {
-        //     var polygon = CreatePolygonFromAreaFeature(chart, areaFeature);
-        //     if (polygon != null)
-        //     {
-        //         var feature = new GeometryFeature(polygon);
-        //         feature["ObjectCode"] = areaFeature.ObjectCode;
-        //         feature.Styles.Add(CreateAreaStyle(areaFeature.ObjectCode));
-        //         features.Add(feature);
-        //     }
-        // }
+        foreach (var areaFeature in chart.AreaFeatures)
+        {
+            var polygon = CreatePolygonFromAreaFeature(chart, areaFeature);
+            if (polygon != null)
+            {
+                var feature = new GeometryFeature(polygon);
+                feature["ObjectCode"] = areaFeature.ObjectCode;
+                feature.Styles.Add(CreateAreaStyle(areaFeature.ObjectCode));
+                features.Add(feature);
+            }
+        }
 
         // Add line features
         foreach (var lineFeature in chart.LineFeatures)
@@ -53,21 +54,92 @@ public static class S57LayerFactory
         }
 
         // Add point features
-        // foreach (var pointFeature in chart.PointFeatures)
-        // {
-        //     var point = CreatePointFromPointFeature(chart, pointFeature);
-        //     if (point != null)
-        //     {
-        //         var feature = new GeometryFeature(point);
-        //         feature["ObjectCode"] = pointFeature.ObjectCode;
-        //         feature.Styles.Add(CreatePointStyle(pointFeature.ObjectCode));
-        //         features.Add(feature);
-        //     }
-        // }
+        foreach (var pointFeature in chart.PointFeatures)
+        {
+            var point = CreatePointFromPointFeature(chart, pointFeature);
+            if (point != null)
+            {
+                var feature = new GeometryFeature(point);
+                feature["ObjectCode"] = pointFeature.ObjectCode;
+                feature.Styles.Add(CreatePointStyle(pointFeature.ObjectCode));
+                features.Add(feature);
+            }
+        }
 
         return new MemoryLayer
         {
             Name = layerName ?? "S-57 Features",
+            Features = features,
+            Style = null // Use per-feature styles
+        };
+    }
+
+    /// <summary>
+    /// Creates a MemoryLayer containing only features matching the specified object codes.
+    /// </summary>
+    /// <param name="chart">The S-57 chart to render.</param>
+    /// <param name="objectCodes">The S-57 object codes to include.</param>
+    /// <param name="layerName">Name for the layer.</param>
+    /// <returns>A MemoryLayer containing the matching features.</returns>
+    public static MemoryLayer CreateLayerForObjectCodes(
+        S57Chart chart,
+        ImmutableArray<int> objectCodes,
+        string layerName)
+    {
+        var codeSet = objectCodes.ToHashSet();
+        var features = new List<IFeature>();
+
+        // Add matching area features
+        foreach (var areaFeature in chart.AreaFeatures)
+        {
+            if (!codeSet.Contains(areaFeature.ObjectCode))
+                continue;
+
+            var polygon = CreatePolygonFromAreaFeature(chart, areaFeature);
+            if (polygon != null)
+            {
+                var feature = new GeometryFeature(polygon);
+                feature["ObjectCode"] = areaFeature.ObjectCode;
+                feature.Styles.Add(CreateAreaStyle(areaFeature.ObjectCode));
+                features.Add(feature);
+            }
+        }
+
+        // Add matching line features
+        foreach (var lineFeature in chart.LineFeatures)
+        {
+            if (!codeSet.Contains(lineFeature.ObjectCode))
+                continue;
+
+            var lineString = CreateLineStringFromLineFeature(chart, lineFeature);
+            if (lineString != null)
+            {
+                var feature = new GeometryFeature(lineString);
+                feature["ObjectCode"] = lineFeature.ObjectCode;
+                feature.Styles.Add(CreateLineStyle(lineFeature.ObjectCode));
+                features.Add(feature);
+            }
+        }
+
+        // Add matching point features
+        foreach (var pointFeature in chart.PointFeatures)
+        {
+            if (!codeSet.Contains(pointFeature.ObjectCode))
+                continue;
+
+            var point = CreatePointFromPointFeature(chart, pointFeature);
+            if (point != null)
+            {
+                var feature = new GeometryFeature(point);
+                feature["ObjectCode"] = pointFeature.ObjectCode;
+                feature.Styles.Add(CreatePointStyle(pointFeature.ObjectCode));
+                features.Add(feature);
+            }
+        }
+
+        return new MemoryLayer
+        {
+            Name = layerName,
             Features = features,
             Style = null // Use per-feature styles
         };
