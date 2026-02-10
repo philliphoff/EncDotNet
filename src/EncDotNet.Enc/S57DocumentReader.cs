@@ -516,7 +516,7 @@ public static class S57DocumentReader
                 {
                     // NAME is a composite subfield (5 bytes: RCNM(1) + RCID(4))
                     // Read it as raw bytes and decompose
-                    var nameBytes = reader.GetSubfieldBytes(S57SubfieldNames.NAME);
+                    var nameBytes = group.GetSubfieldBytes(S57SubfieldNames.NAME);
                     var name = DecomposeNameField(nameBytes);
                     
                     var ornt = group.GetSubfield<byte>(S57SubfieldNames.ORNT);
@@ -564,7 +564,7 @@ public static class S57DocumentReader
                 try
                 {
                     // LNAM is a composite subfield (8 bytes: AGEN(2) + FIDN(4) + FIDS(2))
-                    var lnamBytes = reader.GetSubfieldBytes(S57SubfieldNames.LNAM);
+                    var lnamBytes = group.GetSubfieldBytes(S57SubfieldNames.LNAM);
                     var lnam = DecomposeLongNameField(lnamBytes);
                     
                     var rind = group.GetSubfield<byte>(S57SubfieldNames.RIND);
@@ -610,7 +610,7 @@ public static class S57DocumentReader
                 try
                 {
                     // NAME is a composite subfield (5 bytes: RCNM(1) + RCID(4))
-                    var nameBytes = reader.GetSubfieldBytes(S57SubfieldNames.NAME);
+                    var nameBytes = group.GetSubfieldBytes(S57SubfieldNames.NAME);
                     var name = DecomposeNameField(nameBytes);
                     
                     var ornt = group.GetSubfield<byte>(S57SubfieldNames.ORNT);

@@ -228,6 +228,11 @@ public sealed class Iso8211FieldReader
     /// <exception cref="KeyNotFoundException">
     /// Thrown when no subfield with the specified name exists.
     /// </exception>
+    /// <remarks>
+    /// For repeating subfields, this returns the bytes from the first occurrence.
+    /// Use <see cref="Iso8211SubfieldGroup.GetSubfieldBytes(string)"/> to retrieve
+    /// bytes for a specific group.
+    /// </remarks>
     public ReadOnlySpan<byte> GetSubfieldBytes(string name)
     {
         var subfieldDef = _fieldDefinition.GetSubfieldDefinition(name);
@@ -245,6 +250,25 @@ public sealed class Iso8211FieldReader
         }
 
         throw new KeyNotFoundException($"Subfield '{name}' not found in parsed field data.");
+    }
+
+    /// <summary>
+    /// Gets the raw bytes of a subfield at a specific index.
+    /// </summary>
+    /// <param name="index">The index of the parsed subfield.</param>
+    /// <returns>A span containing the raw subfield data.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// Thrown when <paramref name="index"/> is outside the valid range.
+    /// </exception>
+    public ReadOnlySpan<byte> GetSubfieldBytesAt(int index)
+    {
+        if (index < 0 || index >= _parsedSubfields.Length)
+        {
+            throw new ArgumentOutOfRangeException(nameof(index));
+        }
+
+        var parsed = _parsedSubfields[index];
+        return _data.AsSpan(parsed.Offset, parsed.Length);
     }
 
     /// <summary>

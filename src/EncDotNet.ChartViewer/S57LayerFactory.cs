@@ -178,44 +178,63 @@ public static class S57LayerFactory
         if (!lineFeature.HasEdgeReferences)
             return null;
 
-        // Pre-determine if the edges form a topologically closed ring by comparing
-        // the starting node of the first edge with the ending node of the last edge.
-        bool isClosedRing = IsClosedEdgeRing(chart, lineFeature);
+        // Pre-determine if the non-masked edges form a topologically closed ring
+        // by comparing the starting node of the first visible edge with the ending
+        // node of the last visible edge.
+        bool isClosedRing = IsClosedVisibleEdgeRing(chart, lineFeature);
 
         var allSegments = new List<List<Coordinate>>();
         var currentSegment = new List<Coordinate>();
-        int edgeIndex = 0;
+        S57RecordName? previousEndNode = null;
+        int visibleEdgeIndex = 0;
+        int visibleEdgeCount = lineFeature.EdgeReferences.Count(
+            e => e.Mask != S57MaskingIndicator.Mask);
 
         foreach (var edgeRef in lineFeature.EdgeReferences)
         {
+            // Skip masked edges — they exist for topological completeness
+            // (e.g. boundary-closing edges) but should not be rendered.
+            if (edgeRef.Mask == S57MaskingIndicator.Mask)
+            {
+                previousEndNode = null;
+                continue;
+            }
+
             var edge = chart.GetEdge(edgeRef.Name);
             if (edge == null)
             {
-                edgeIndex++;
+                visibleEdgeIndex++;
                 continue;
             }
 
             bool reverse = edgeRef.Orientation == S57Orientation.Reverse;
 
-            // For the last edge in a closed ring, exclude the oriented end node
-            // to avoid drawing a line segment back to the starting point.
-            bool isLastEdge = edgeIndex == lineFeature.EdgeCount - 1;
-            bool excludeEndNode = isClosedRing && isLastEdge;
+            // Oriented start/end nodes for this edge
+            var orientedStartNode = reverse ? edge.EndNode : edge.BeginningNode;
+            var orientedEndNode = reverse ? edge.BeginningNode : edge.EndNode;
+
+            // For the last visible edge in a closed ring, exclude the oriented end
+            // node to avoid drawing a straight line back to the starting point.
+            bool isLastVisibleEdge = visibleEdgeIndex == visibleEdgeCount - 1;
+            bool excludeEndNode = isClosedRing && isLastVisibleEdge;
 
             var edgeCoords = GetEdgeCoordinates(chart, edge, reverse, excludeEndNode);
             if (edgeCoords.Count == 0)
             {
-                edgeIndex++;
+                visibleEdgeIndex++;
                 continue;
             }
 
             if (currentSegment.Count > 0)
             {
                 // Check if this edge is contiguous with the current segment
-                var lastCoord = currentSegment[^1];
-                var firstEdgeCoord = edgeCoords[0];
+                // by comparing node record names (integer-based) rather than
+                // projected floating-point coordinates.
+                bool contiguous = previousEndNode.HasValue
+                    && orientedStartNode.HasValue
+                    && previousEndNode.Value == orientedStartNode.Value;
 
-                if (lastCoord.Equals2D(firstEdgeCoord))
+                if (contiguous)
                 {
                     // Contiguous — skip the duplicate first coordinate and append
                     for (var i = 1; i < edgeCoords.Count; i++)
@@ -238,7 +257,8 @@ public static class S57LayerFactory
                 currentSegment.AddRange(edgeCoords);
             }
 
-            edgeIndex++;
+            previousEndNode = excludeEndNode ? null : orientedEndNode;
+            visibleEdgeIndex++;
         }
 
         // Add the final segment
@@ -258,30 +278,39 @@ public static class S57LayerFactory
     }
 
     /// <summary>
-    /// Determines whether a line feature's edges form a topologically closed ring
-    /// by comparing the oriented starting node of the first edge with the oriented
-    /// ending node of the last edge.
+    /// Determines whether a line feature's visible (non-masked) edges form a
+    /// topologically closed ring by comparing the oriented starting node of the
+    /// first visible edge with the oriented ending node of the last visible edge.
     /// </summary>
-    private static bool IsClosedEdgeRing(S57Chart chart, S57LineFeature lineFeature)
+    private static bool IsClosedVisibleEdgeRing(S57Chart chart, S57LineFeature lineFeature)
     {
-        if (lineFeature.EdgeCount < 1)
+        S57SpatialPointer? firstVisible = null;
+        S57SpatialPointer? lastVisible = null;
+
+        foreach (var edgeRef in lineFeature.EdgeReferences)
+        {
+            if (edgeRef.Mask == S57MaskingIndicator.Mask)
+                continue;
+
+            firstVisible ??= edgeRef;
+            lastVisible = edgeRef;
+        }
+
+        if (firstVisible is not { } first || lastVisible is not { } last)
             return false;
 
-        var firstRef = lineFeature.EdgeReferences[0];
-        var lastRef = lineFeature.EdgeReferences[^1];
-
-        var firstEdge = chart.GetEdge(firstRef.Name);
-        var lastEdge = chart.GetEdge(lastRef.Name);
+        var firstEdge = chart.GetEdge(first.Name);
+        var lastEdge = chart.GetEdge(last.Name);
         if (firstEdge == null || lastEdge == null)
             return false;
 
-        // Get the starting node of the first edge (respecting orientation)
-        var firstStartNode = firstRef.Orientation == S57Orientation.Reverse
+        // Get the starting node of the first visible edge (respecting orientation)
+        var firstStartNode = first.Orientation == S57Orientation.Reverse
             ? firstEdge.EndNode
             : firstEdge.BeginningNode;
 
-        // Get the ending node of the last edge (respecting orientation)
-        var lastEndNode = lastRef.Orientation == S57Orientation.Reverse
+        // Get the ending node of the last visible edge (respecting orientation)
+        var lastEndNode = last.Orientation == S57Orientation.Reverse
             ? lastEdge.BeginningNode
             : lastEdge.EndNode;
 

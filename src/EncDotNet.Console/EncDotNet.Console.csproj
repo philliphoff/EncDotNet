@@ -9,6 +9,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\EncDotNet.ProductCatalog\EncDotNet.ProductCatalog.csproj" />
+      <ProjectReference Include="..\EncDotNet.Enc\EncDotNet.Enc.csproj" />
     </ItemGroup>
 
 </Project>

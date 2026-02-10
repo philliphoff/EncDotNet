@@ -77,6 +77,36 @@ public sealed class Iso8211SubfieldGroup
     }
 
     /// <summary>
+    /// Gets the raw bytes of a subfield within this group by name.
+    /// </summary>
+    /// <param name="name">The name of the subfield to retrieve.</param>
+    /// <returns>A span containing the raw subfield data.</returns>
+    /// <exception cref="KeyNotFoundException">
+    /// Thrown when no subfield with the specified name exists in this group.
+    /// </exception>
+    public ReadOnlySpan<byte> GetSubfieldBytes(string name)
+    {
+        var subfieldDef = _reader.FieldDefinition.GetSubfieldDefinition(name);
+        if (subfieldDef is null)
+        {
+            throw new KeyNotFoundException($"Subfield '{name}' not found in field definition.");
+        }
+
+        var groupSubfieldIndex = subfieldDef.Index;
+        if (_reader.FieldDefinition.HasRepeatingGroup)
+        {
+            groupSubfieldIndex = subfieldDef.Index - _reader.FieldDefinition.RepeatingSubfieldStartIndex;
+        }
+
+        if (groupSubfieldIndex >= 0 && groupSubfieldIndex < _length)
+        {
+            return _reader.GetSubfieldBytesAt(_startIndex + groupSubfieldIndex);
+        }
+
+        throw new KeyNotFoundException($"Subfield '{name}' not found in group {_groupIndex}.");
+    }
+
+    /// <summary>
     /// Gets the value of a subfield within this group by its position.
     /// </summary>
     /// <typeparam name="T">The type to convert the subfield value to.</typeparam>
