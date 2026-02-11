@@ -78,10 +78,15 @@
                                    Text="Available Charts"
                                    FontWeight="Bold"
                                    FontSize="14"
-                                   Margin="0,0,0,8" />
+                                   Margin="0,0,0,4" />
+
+                        <TextBox DockPanel.Dock="Top"
+                                 Text="{Binding ChartSearchText}"
+                                 Watermark="Search charts..."
+                                 Margin="0,0,0,8" />
 
                         <ScrollViewer>
-                            <ItemsControl ItemsSource="{Binding AvailableCharts}">
+                            <ItemsControl ItemsSource="{Binding FilteredAvailableCharts}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate DataType="{x:Type vm:ChartViewModel}">
                                         <CheckBox IsChecked="{Binding IsSelected}"

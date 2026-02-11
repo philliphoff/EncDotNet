@@ -5,6 +5,7 @@ using System.Collections.Specialized;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
+using System.Threading;
 using System.Windows.Input;
 using EncDotNet.ChartViewer.Models;
 using ReactiveUI;
@@ -16,11 +17,18 @@ public class MainWindowViewModel : ViewModelBase
     private bool _hasSelectedCharts;
     private bool _isChartsPanelExpanded = true;
     private bool _isFeaturesPanelExpanded = true;
+    private string _chartSearchText = "";
+    private CancellationTokenSource? _filterDebounce;
 
     /// <summary>
     /// Gets the collection of available charts loaded from the chart index.
     /// </summary>
     public ObservableCollection<ChartViewModel> AvailableCharts { get; } = new();
+
+    /// <summary>
+    /// Gets the filtered collection of available charts based on search text.
+    /// </summary>
+    public ObservableCollection<ChartViewModel> FilteredAvailableCharts { get; } = new();
 
     /// <summary>
     /// Gets the collection of currently selected (loaded) charts.
@@ -64,6 +72,19 @@ public class MainWindowViewModel : ViewModelBase
 
     /// <summary>Command to toggle the features panel.</summary>
     public ICommand ToggleFeaturesPanelCommand { get; }
+
+    /// <summary>
+    /// Gets or sets the search text used to filter available charts.
+    /// </summary>
+    public string ChartSearchText
+    {
+        get => _chartSearchText;
+        set
+        {
+            if (this.RaiseAndSetIfChanged(ref _chartSearchText, value) is not null)
+                ScheduleChartFilter();
+        }
+    }
 
     /// <summary>
     /// Gets or sets the base directory containing the expanded chart files.
@@ -114,5 +135,40 @@ public class MainWindowViewModel : ViewModelBase
         }
 
         System.Diagnostics.Debug.WriteLine($"Loaded {AvailableCharts.Count} charts from index");
+
+        ApplyChartFilter();
+    }
+
+    private async void ScheduleChartFilter()
+    {
+        _filterDebounce?.Cancel();
+        var cts = _filterDebounce = new CancellationTokenSource();
+
+        try
+        {
+            await System.Threading.Tasks.Task.Delay(250, cts.Token);
+            ApplyChartFilter();
+        }
+        catch (System.Threading.Tasks.TaskCanceledException)
+        {
+            // Superseded by a newer keystroke
+        }
+    }
+
+    private void ApplyChartFilter()
+    {
+        FilteredAvailableCharts.Clear();
+
+        var search = _chartSearchText;
+
+        foreach (var chart in AvailableCharts)
+        {
+            if (search.Length == 0
+                || chart.Name.Contains(search, StringComparison.OrdinalIgnoreCase)
+                || chart.Entry.Path.Contains(search, StringComparison.OrdinalIgnoreCase))
+            {
+                FilteredAvailableCharts.Add(chart);
+            }
+        }
     }
 }
