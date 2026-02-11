@@ -71,6 +71,52 @@ public sealed class S57Chart
     public int CompilationScale =>
         Parameters?.CompilationScale ?? 0;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="S57Chart"/> class with explicit spatial and feature data.
+    /// </summary>
+    /// <remarks>
+    /// This constructor is intended primarily for testing scenarios where chart data
+    /// needs to be constructed without parsing an S-57 document.
+    /// </remarks>
+    public S57Chart(
+        ImmutableDictionary<S57RecordName, S57IsolatedNode>? isolatedNodes = null,
+        ImmutableDictionary<S57RecordName, S57ConnectedNode>? connectedNodes = null,
+        ImmutableDictionary<S57RecordName, S57Edge>? edges = null,
+        ImmutableDictionary<S57RecordName, S57Face>? faces = null,
+        ImmutableArray<S57PointFeature>? pointFeatures = null,
+        ImmutableArray<S57LineFeature>? lineFeatures = null,
+        ImmutableArray<S57AreaFeature>? areaFeatures = null,
+        ImmutableArray<S57MetaFeature>? metaFeatures = null,
+        S57DataSetIdentification? identification = null,
+        S57DataSetParameters? parameters = null)
+    {
+        Identification = identification;
+        Parameters = parameters;
+        IsolatedNodes = isolatedNodes ?? ImmutableDictionary<S57RecordName, S57IsolatedNode>.Empty;
+        ConnectedNodes = connectedNodes ?? ImmutableDictionary<S57RecordName, S57ConnectedNode>.Empty;
+        Edges = edges ?? ImmutableDictionary<S57RecordName, S57Edge>.Empty;
+        Faces = faces ?? ImmutableDictionary<S57RecordName, S57Face>.Empty;
+        PointFeatures = pointFeatures ?? ImmutableArray<S57PointFeature>.Empty;
+        LineFeatures = lineFeatures ?? ImmutableArray<S57LineFeature>.Empty;
+        AreaFeatures = areaFeatures ?? ImmutableArray<S57AreaFeature>.Empty;
+        MetaFeatures = metaFeatures ?? ImmutableArray<S57MetaFeature>.Empty;
+        AllFeatures = BuildAllFeaturesIndex(PointFeatures, LineFeatures, AreaFeatures, MetaFeatures);
+    }
+
+    private static ImmutableDictionary<S57RecordName, S57TypedFeature> BuildAllFeaturesIndex(
+        ImmutableArray<S57PointFeature> pointFeatures,
+        ImmutableArray<S57LineFeature> lineFeatures,
+        ImmutableArray<S57AreaFeature> areaFeatures,
+        ImmutableArray<S57MetaFeature> metaFeatures)
+    {
+        var builder = ImmutableDictionary.CreateBuilder<S57RecordName, S57TypedFeature>();
+        foreach (var f in pointFeatures) builder[f.RecordName] = f;
+        foreach (var f in lineFeatures) builder[f.RecordName] = f;
+        foreach (var f in areaFeatures) builder[f.RecordName] = f;
+        foreach (var f in metaFeatures) builder[f.RecordName] = f;
+        return builder.ToImmutable();
+    }
+
     private S57Chart(S57Document document)
     {
         Identification = document.DataSetIdentification;
