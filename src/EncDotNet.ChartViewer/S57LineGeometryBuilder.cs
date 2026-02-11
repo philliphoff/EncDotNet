@@ -24,17 +24,9 @@ public static class S57LineGeometryBuilder
         if (!lineFeature.HasEdgeReferences)
             return null;
 
-        // Pre-determine if the non-masked edges form a topologically closed ring
-        // by comparing the starting node of the first visible edge with the ending
-        // node of the last visible edge.
-        bool isClosedRing = IsClosedVisibleEdgeRing(chart, lineFeature);
-
         var allSegments = new List<List<Coordinate>>();
         var currentSegment = new List<Coordinate>();
         S57RecordName? previousEndNode = null;
-        int visibleEdgeIndex = 0;
-        int visibleEdgeCount = lineFeature.EdgeReferences.Count(
-            e => e.Mask != S57MaskingIndicator.Mask);
 
         foreach (var edgeRef in lineFeature.EdgeReferences)
         {
@@ -48,10 +40,7 @@ public static class S57LineGeometryBuilder
 
             var edge = chart.GetEdge(edgeRef.Name);
             if (edge == null)
-            {
-                visibleEdgeIndex++;
                 continue;
-            }
 
             bool reverse = edgeRef.Orientation == S57Orientation.Reverse;
 
@@ -59,17 +48,9 @@ public static class S57LineGeometryBuilder
             var orientedStartNode = reverse ? edge.EndNode : edge.BeginningNode;
             var orientedEndNode = reverse ? edge.BeginningNode : edge.EndNode;
 
-            // For the last visible edge in a closed ring, exclude the oriented end
-            // node to avoid drawing a straight line back to the starting point.
-            bool isLastVisibleEdge = visibleEdgeIndex == visibleEdgeCount - 1;
-            bool excludeEndNode = isClosedRing && isLastVisibleEdge;
-
-            var edgeCoords = GetEdgeCoordinates(chart, edge, reverse, excludeEndNode);
+            var edgeCoords = GetEdgeCoordinates(chart, edge, reverse);
             if (edgeCoords.Count == 0)
-            {
-                visibleEdgeIndex++;
                 continue;
-            }
 
             if (currentSegment.Count > 0)
             {
@@ -103,8 +84,7 @@ public static class S57LineGeometryBuilder
                 currentSegment.AddRange(edgeCoords);
             }
 
-            previousEndNode = excludeEndNode ? null : orientedEndNode;
-            visibleEdgeIndex++;
+            previousEndNode = orientedEndNode;
         }
 
         // Add the final segment

@@ -269,7 +269,7 @@ public class S57LineGeometryBuilderTests
     }
 
     [Fact]
-    public void ClosedRing_ExcludesEndNodeOfLastVisibleEdge()
+    public void ClosedRing_ProperlyClosesLineString()
     {
         // Three edges forming a closed ring: 1→2, 2→3, 3→1
         var n1 = MakeNode(1, 0, 0);
@@ -289,9 +289,10 @@ public class S57LineGeometryBuilderTests
         Assert.NotNull(result);
         var ls = Assert.IsType<LineString>(result);
 
-        // With closed ring optimization, the last edge's end node (node 1) is excluded
-        // to avoid a straight closing segment. So we get 3 points, not 4.
-        Assert.Equal(3, ls.NumPoints);
+        // Closed ring: 4 points — node1, node2, node3, node1 (properly closed)
+        Assert.Equal(4, ls.NumPoints);
+        Assert.True(ls.Coordinates[0].Equals2D(ls.Coordinates[^1]),
+            "First and last coordinates should match for a closed ring");
     }
 
     [Fact]
