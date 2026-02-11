@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Windows.Input;
 using EncDotNet.ChartViewer.Models;
 using Mapsui.Layers;
 using ReactiveUI;
@@ -18,6 +19,9 @@ public sealed class ChartViewModel : ViewModelBase
 
     /// <summary>Gets the display name.</summary>
     public string Name => Entry.Name;
+
+    /// <summary>Command to deselect this chart from the selected charts list.</summary>
+    public ICommand DeselectCommand { get; }
 
     /// <summary>Gets or sets the layers created for this chart.</summary>
     public List<MemoryLayer> Layers { get; } = new();
@@ -46,5 +50,6 @@ public sealed class ChartViewModel : ViewModelBase
     public ChartViewModel(ChartIndexEntry entry)
     {
         Entry = entry;
+        DeselectCommand = ReactiveCommand.Create(() => IsSelected = false);
     }
 }

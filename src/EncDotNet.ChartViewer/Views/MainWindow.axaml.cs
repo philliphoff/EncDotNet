@@ -52,10 +52,12 @@ public partial class MainWindow : Window
 
         if (isSelected)
         {
+            vm.SelectedCharts.Add(chartVm);
             LoadChart(chartVm, vm);
         }
         else
         {
+            vm.SelectedCharts.Remove(chartVm);
             UnloadChart(chartVm);
         }
     }

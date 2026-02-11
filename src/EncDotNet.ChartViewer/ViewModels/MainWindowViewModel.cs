@@ -1,19 +1,37 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using EncDotNet.ChartViewer.Models;
+using ReactiveUI;
 
 namespace EncDotNet.ChartViewer.ViewModels;
 
 public class MainWindowViewModel : ViewModelBase
 {
+    private bool _hasSelectedCharts;
+
     /// <summary>
     /// Gets the collection of available charts loaded from the chart index.
     /// </summary>
     public ObservableCollection<ChartViewModel> AvailableCharts { get; } = new();
+
+    /// <summary>
+    /// Gets the collection of currently selected (loaded) charts.
+    /// </summary>
+    public ObservableCollection<ChartViewModel> SelectedCharts { get; } = new();
+
+    /// <summary>
+    /// Gets whether any charts are currently selected.
+    /// </summary>
+    public bool HasSelectedCharts
+    {
+        get => _hasSelectedCharts;
+        private set => this.RaiseAndSetIfChanged(ref _hasSelectedCharts, value);
+    }
 
     /// <summary>
     /// Gets the collection of toggleable chart feature categories.
@@ -31,6 +49,8 @@ public class MainWindowViewModel : ViewModelBase
         {
             FeatureCategories.Add(new ChartFeatureViewModel(category));
         }
+
+        SelectedCharts.CollectionChanged += (_, _) => HasSelectedCharts = SelectedCharts.Count > 0;
     }
 
     /// <summary>
