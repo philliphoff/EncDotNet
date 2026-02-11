@@ -5,6 +5,7 @@ using System.Collections.Specialized;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
+using System.Windows.Input;
 using EncDotNet.ChartViewer.Models;
 using ReactiveUI;
 
@@ -13,6 +14,8 @@ namespace EncDotNet.ChartViewer.ViewModels;
 public class MainWindowViewModel : ViewModelBase
 {
     private bool _hasSelectedCharts;
+    private bool _isChartsPanelExpanded = true;
+    private bool _isFeaturesPanelExpanded = true;
 
     /// <summary>
     /// Gets the collection of available charts loaded from the chart index.
@@ -34,9 +37,33 @@ public class MainWindowViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// Gets or sets whether the charts panel is expanded.
+    /// </summary>
+    public bool IsChartsPanelExpanded
+    {
+        get => _isChartsPanelExpanded;
+        set => this.RaiseAndSetIfChanged(ref _isChartsPanelExpanded, value);
+    }
+
+    /// <summary>
+    /// Gets or sets whether the features panel is expanded.
+    /// </summary>
+    public bool IsFeaturesPanelExpanded
+    {
+        get => _isFeaturesPanelExpanded;
+        set => this.RaiseAndSetIfChanged(ref _isFeaturesPanelExpanded, value);
+    }
+
+    /// <summary>
     /// Gets the collection of toggleable chart feature categories.
     /// </summary>
     public ObservableCollection<ChartFeatureViewModel> FeatureCategories { get; } = new();
+
+    /// <summary>Command to toggle the charts panel.</summary>
+    public ICommand ToggleChartsPanelCommand { get; }
+
+    /// <summary>Command to toggle the features panel.</summary>
+    public ICommand ToggleFeaturesPanelCommand { get; }
 
     /// <summary>
     /// Gets or sets the base directory containing the expanded chart files.
@@ -51,6 +78,9 @@ public class MainWindowViewModel : ViewModelBase
         }
 
         SelectedCharts.CollectionChanged += (_, _) => HasSelectedCharts = SelectedCharts.Count > 0;
+
+        ToggleChartsPanelCommand = ReactiveCommand.Create(() => IsChartsPanelExpanded = !IsChartsPanelExpanded);
+        ToggleFeaturesPanelCommand = ReactiveCommand.Create(() => IsFeaturesPanelExpanded = !IsFeaturesPanelExpanded);
     }
 
     /// <summary>
