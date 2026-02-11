@@ -73,4 +73,15 @@ internal static class S57SubfieldNames
     public const string YCOO = "YCOO";  // Y coordinate
     public const string XCOO = "XCOO";  // X coordinate
     public const string VE3D = "VE3D";  // 3D (sounding) value
+
+    // CATD subfields
+    public const string FILE = "FILE";  // File name
+    public const string LFIL = "LFIL";  // Long file name
+    public const string VOLM = "VOLM";  // Volume
+    public const string IMPL = "IMPL";  // Implementation
+    public const string SLAT = "SLAT";  // Southernmost latitude
+    public const string WLON = "WLON";  // Westernmost longitude
+    public const string NLAT = "NLAT";  // Northernmost latitude
+    public const string ELON = "ELON";  // Easternmost longitude
+    public const string CRCS = "CRCS";  // CRC checksum
 }
