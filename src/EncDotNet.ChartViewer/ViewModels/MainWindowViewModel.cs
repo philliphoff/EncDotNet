@@ -1,16 +1,29 @@
-﻿using System.Collections.ObjectModel;
+﻿using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.IO;
+using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using EncDotNet.ChartViewer.Models;
 
 namespace EncDotNet.ChartViewer.ViewModels;
 
 public class MainWindowViewModel : ViewModelBase
 {
-    public string Greeting { get; } = "Welcome to Avalonia!";
+    /// <summary>
+    /// Gets the collection of available charts loaded from the chart index.
+    /// </summary>
+    public ObservableCollection<ChartViewModel> AvailableCharts { get; } = new();
 
     /// <summary>
     /// Gets the collection of toggleable chart feature categories.
     /// </summary>
     public ObservableCollection<ChartFeatureViewModel> FeatureCategories { get; } = new();
+
+    /// <summary>
+    /// Gets or sets the base directory containing the expanded chart files.
+    /// </summary>
+    public string ExpandedDirectory { get; set; } = "";
 
     public MainWindowViewModel()
     {
@@ -18,5 +31,38 @@ public class MainWindowViewModel : ViewModelBase
         {
             FeatureCategories.Add(new ChartFeatureViewModel(category));
         }
+    }
+
+    /// <summary>
+    /// Loads the chart index from a JSON file and populates <see cref="AvailableCharts"/>.
+    /// </summary>
+    public void LoadChartIndex(string chartIndexPath)
+    {
+        if (!File.Exists(chartIndexPath))
+        {
+            System.Diagnostics.Debug.WriteLine($"Chart index not found: {chartIndexPath}");
+            return;
+        }
+
+        ExpandedDirectory = Path.GetDirectoryName(chartIndexPath) ?? "";
+
+        var options = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            TypeInfoResolver = new DefaultJsonTypeInfoResolver(),
+        };
+
+        var json = File.ReadAllText(chartIndexPath);
+        var entries = JsonSerializer.Deserialize<List<ChartIndexEntry>>(json, options);
+
+        if (entries is null)
+            return;
+
+        foreach (var entry in entries)
+        {
+            AvailableCharts.Add(new ChartViewModel(entry));
+        }
+
+        System.Diagnostics.Debug.WriteLine($"Loaded {AvailableCharts.Count} charts from index");
     }
 }
