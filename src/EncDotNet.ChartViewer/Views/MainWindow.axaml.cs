@@ -3,11 +3,13 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Input;
 using EncDotNet.ChartViewer.Catalogs;
 using EncDotNet.ChartViewer.Models;
 using EncDotNet.ChartViewer.ViewModels;
 using Mapsui;
 using Mapsui.Layers;
+using Mapsui.Manipulations;
 using Mapsui.Nts;
 using Mapsui.Projections;
 using Mapsui.Styles;
@@ -26,7 +28,23 @@ public partial class MainWindow : Window
 
         MyMapControl.Map?.Layers.Add(OpenStreetMap.CreateTileLayer());
 
+        // Enable pinch-to-zoom on the map control via trackpad magnify gesture
+        MyMapControl.AddHandler(Gestures.PointerTouchPadGestureMagnifyEvent, OnMapMagnify);
+
         DataContextChanged += (_, _) => OnDataContextChanged();
+    }
+
+    private void OnMapMagnify(object? sender, PointerDeltaEventArgs e)
+    {
+        if (MyMapControl.Map?.Navigator is not { } navigator)
+            return;
+
+        var resolution = navigator.Viewport.Resolution;
+        var newResolution = resolution / (1 + e.Delta.Y);
+        var position = e.GetPosition(MyMapControl);
+        var center = new ScreenPosition(position.X, position.Y);
+        navigator.ZoomTo(newResolution, center);
+        e.Handled = true;
     }
 
     private MainWindowViewModel? ViewModel => DataContext as MainWindowViewModel;
