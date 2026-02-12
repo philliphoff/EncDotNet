@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -9,11 +10,13 @@ using EncDotNet.ChartViewer.Catalogs;
 using EncDotNet.ChartViewer.Models;
 using EncDotNet.ChartViewer.ViewModels;
 using Mapsui;
+using Mapsui.Extensions;
 using Mapsui.Layers;
 using Mapsui.Manipulations;
 using Mapsui.Nts;
 using Mapsui.Projections;
 using Mapsui.Styles;
+using Mapsui.Styles.Thematics;
 using Mapsui.Tiling;
 using NetTopologySuite.Geometries;
 
@@ -22,6 +25,12 @@ namespace EncDotNet.ChartViewer.Views;
 public partial class MainWindow : Window
 {
     private const string ChartIndexRelativePath = "../../../../../.expanded/chart-index.json";
+
+    private static readonly VectorStyle NormalBoundaryStyle = new() { Fill = null, Outline = new Pen(Color.Red, 1) };
+    private static readonly VectorStyle HighlightBoundaryStyle = new() { Fill = null, Outline = new Pen(Color.Yellow, 3) };
+
+    private readonly List<GeometryFeature> _boundaryFeatures = [];
+    private GeometryFeature? _highlightedBoundaryFeature;
 
     public MainWindow()
     {
@@ -37,6 +46,9 @@ public partial class MainWindow : Window
 
         // Enable trackpad scroll/swipe to pan the map (tunnel phase to intercept before MapControl)
         MyMapControl.AddHandler(PointerWheelChangedEvent, OnMapPointerWheelChanged, RoutingStrategies.Tunnel);
+
+        // Enable hover highlighting of chart boundaries
+        MyMapControl.PointerMoved += OnMapPointerMoved;
 
         DataContextChanged += (_, _) => OnDataContextChanged();
     }
@@ -77,6 +89,50 @@ public partial class MainWindow : Window
         var center = new ScreenPosition(position.X, position.Y);
         navigator.ZoomTo(newResolution, center);
         e.Handled = true;
+    }
+
+    private void OnMapPointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (MyMapControl.Map?.Navigator is not { } navigator)
+            return;
+
+        var screenPos = e.GetPosition(MyMapControl);
+        var worldPos = navigator.Viewport.ScreenToWorld(new ScreenPosition(screenPos.X, screenPos.Y));
+        var point = new Point(worldPos.X, worldPos.Y);
+
+        // Find the smallest chart boundary that contains the pointer
+        GeometryFeature? best = null;
+        double bestArea = double.MaxValue;
+
+        foreach (var feature in _boundaryFeatures)
+        {
+            if (feature.Geometry is Polygon polygon && polygon.Contains(point))
+            {
+                var area = polygon.Area;
+                if (area < bestArea)
+                {
+                    bestArea = area;
+                    best = feature;
+                }
+            }
+        }
+
+        if (best == _highlightedBoundaryFeature)
+            return;
+
+        if (_highlightedBoundaryFeature is not null)
+        {
+            _highlightedBoundaryFeature["Highlighted"] = false;
+        }
+
+        _highlightedBoundaryFeature = best;
+
+        if (best is not null)
+        {
+            best["Highlighted"] = true;
+        }
+
+        MyMapControl.Map?.Refresh();
     }
 
     private MainWindowViewModel? ViewModel => DataContext as MainWindowViewModel;
@@ -185,15 +241,10 @@ public partial class MainWindow : Window
         MyMapControl.Map?.Refresh();
     }
 
-    private static MemoryLayer CreateChartBoundariesLayer(
+    private MemoryLayer CreateChartBoundariesLayer(
         IEnumerable<ChartViewModel> charts)
     {
         var features = new List<IFeature>();
-        var style = new VectorStyle
-        {
-            Fill = null,
-            Line = new Pen(Color.Red, 1),
-        };
 
         foreach (var chartVm in charts)
         {
@@ -220,16 +271,31 @@ public partial class MainWindow : Window
             ]);
 
             var feature = new GeometryFeature(new Polygon(ring));
-            feature.Styles.Add(style);
             features.Add(feature);
+            _boundaryFeatures.Add(feature);
         }
 
         return new MemoryLayer
         {
             Name = "Chart Boundaries",
             Features = features,
-            Style = null,
+            Style = new BoundaryThemeStyle(),
         };
+    }
+
+    private class BoundaryThemeStyle : IThemeStyle
+    {
+        public double MinVisible { get; set; } = 0;
+        public double MaxVisible { get; set; } = double.MaxValue;
+        public bool Enabled { get; set; } = true;
+        public float Opacity { get; set; } = 1;
+
+        public IStyle? GetStyle(IFeature feature, Viewport viewport)
+        {
+            return feature["Highlighted"] is true
+                ? HighlightBoundaryStyle
+                : NormalBoundaryStyle;
+        }
     }
 }
 
