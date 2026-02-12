@@ -1,8 +1,9 @@
 using System;
 using System.IO;
+using System.Threading.Tasks;
 using Avalonia.Controls;
+using EncDotNet.ChartViewer.Catalogs;
 using EncDotNet.ChartViewer.ViewModels;
-using EncDotNet.Enc.Charts;
 using Mapsui.Tiling;
 
 namespace EncDotNet.ChartViewer.Views;
@@ -22,15 +23,16 @@ public partial class MainWindow : Window
 
     private MainWindowViewModel? ViewModel => DataContext as MainWindowViewModel;
 
-    private void OnDataContextChanged()
+    private async void OnDataContextChanged()
     {
         if (ViewModel is not { } vm)
             return;
 
-        // Load chart index
+        // Load catalog via ICatalogSource
         var basePath = AppContext.BaseDirectory;
         var chartIndexPath = Path.GetFullPath(Path.Combine(basePath, ChartIndexRelativePath));
-        vm.LoadChartIndex(chartIndexPath);
+        var catalogSource = new FileSystemCatalogSource(chartIndexPath);
+        await vm.LoadCatalogAsync(catalogSource);
 
         // Subscribe to chart selection changes
         foreach (var chartVm in vm.AvailableCharts)
@@ -53,7 +55,7 @@ public partial class MainWindow : Window
         if (isSelected)
         {
             vm.SelectedCharts.Add(chartVm);
-            LoadChart(chartVm, vm);
+            _ = LoadChartAsync(chartVm, vm);
         }
         else
         {
@@ -62,19 +64,11 @@ public partial class MainWindow : Window
         }
     }
 
-    private void LoadChart(ChartViewModel chartVm, MainWindowViewModel vm)
+    private async Task LoadChartAsync(ChartViewModel chartVm, MainWindowViewModel vm)
     {
         try
         {
-            var chartPath = Path.Combine(vm.ExpandedDirectory, chartVm.Entry.Path);
-
-            if (!File.Exists(chartPath))
-            {
-                System.Diagnostics.Debug.WriteLine($"Chart file not found: {chartPath}");
-                return;
-            }
-
-            var chart = S57Chart.FromFile(chartPath);
+            var chart = await vm.GetChartAsync(chartVm.Entry);
 
             foreach (var featureVm in vm.FeatureCategories)
             {

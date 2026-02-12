@@ -1,13 +1,11 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Collections.Specialized;
-using System.IO;
-using System.Text.Json;
-using System.Text.Json.Serialization.Metadata;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Input;
+using EncDotNet.ChartViewer.Catalogs;
 using EncDotNet.ChartViewer.Models;
+using EncDotNet.Enc.Charts;
 using ReactiveUI;
 
 namespace EncDotNet.ChartViewer.ViewModels;
@@ -86,10 +84,7 @@ public class MainWindowViewModel : ViewModelBase
         }
     }
 
-    /// <summary>
-    /// Gets or sets the base directory containing the expanded chart files.
-    /// </summary>
-    public string ExpandedDirectory { get; set; } = "";
+    private ICatalogSource? _catalogSource;
 
     public MainWindowViewModel()
     {
@@ -105,38 +100,31 @@ public class MainWindowViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Loads the chart index from a JSON file and populates <see cref="AvailableCharts"/>.
+    /// Loads the catalog entries from the given source and populates <see cref="AvailableCharts"/>.
     /// </summary>
-    public void LoadChartIndex(string chartIndexPath)
+    internal async Task LoadCatalogAsync(ICatalogSource catalogSource, CancellationToken cancellationToken = default)
     {
-        if (!File.Exists(chartIndexPath))
-        {
-            System.Diagnostics.Debug.WriteLine($"Chart index not found: {chartIndexPath}");
-            return;
-        }
+        _catalogSource = catalogSource;
 
-        ExpandedDirectory = Path.GetDirectoryName(chartIndexPath) ?? "";
-
-        var options = new JsonSerializerOptions
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            TypeInfoResolver = new DefaultJsonTypeInfoResolver(),
-        };
-
-        var json = File.ReadAllText(chartIndexPath);
-        var entries = JsonSerializer.Deserialize<List<ChartIndexEntry>>(json, options);
-
-        if (entries is null)
-            return;
-
-        foreach (var entry in entries)
+        await foreach (var entry in catalogSource.GetCatalogAsync(cancellationToken).ConfigureAwait(false))
         {
             AvailableCharts.Add(new ChartViewModel(entry));
         }
 
-        System.Diagnostics.Debug.WriteLine($"Loaded {AvailableCharts.Count} charts from index");
+        System.Diagnostics.Debug.WriteLine($"Loaded {AvailableCharts.Count} charts from catalog");
 
         ApplyChartFilter();
+    }
+
+    /// <summary>
+    /// Loads a chart from the catalog source for the given entry.
+    /// </summary>
+    internal Task<S57Chart> GetChartAsync(ChartIndexEntry entry, CancellationToken cancellationToken = default)
+    {
+        if (_catalogSource is null)
+            throw new InvalidOperationException("Catalog source has not been loaded.");
+
+        return _catalogSource.GetChartAsync(entry, cancellationToken);
     }
 
     private async void ScheduleChartFilter()
