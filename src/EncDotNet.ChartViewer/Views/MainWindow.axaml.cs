@@ -4,6 +4,7 @@ using System.IO;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using EncDotNet.ChartViewer.Catalogs;
 using EncDotNet.ChartViewer.Models;
 using EncDotNet.ChartViewer.ViewModels;
@@ -31,6 +32,12 @@ public partial class MainWindow : Window
         // Enable pinch-to-zoom on the map control via trackpad magnify gesture
         MyMapControl.AddHandler(Gestures.PointerTouchPadGestureMagnifyEvent, OnMapMagnify);
 
+        // Enable double-tap to zoom in
+        MyMapControl.DoubleTapped += OnMapDoubleTapped;
+
+        // Enable trackpad scroll/swipe to pan the map (tunnel phase to intercept before MapControl)
+        MyMapControl.AddHandler(PointerWheelChangedEvent, OnMapPointerWheelChanged, RoutingStrategies.Tunnel);
+
         DataContextChanged += (_, _) => OnDataContextChanged();
     }
 
@@ -41,6 +48,31 @@ public partial class MainWindow : Window
 
         var resolution = navigator.Viewport.Resolution;
         var newResolution = resolution / (1 + e.Delta.Y);
+        var position = e.GetPosition(MyMapControl);
+        var center = new ScreenPosition(position.X, position.Y);
+        navigator.ZoomTo(newResolution, center);
+        e.Handled = true;
+    }
+
+    private void OnMapPointerWheelChanged(object? sender, PointerWheelEventArgs e)
+    {
+        if (MyMapControl.Map?.Navigator is not { } navigator)
+            return;
+
+        var viewport = navigator.Viewport;
+        var dx = e.Delta.X * viewport.Resolution * 50;
+        var dy = e.Delta.Y * viewport.Resolution * 50;
+        navigator.CenterOn(viewport.CenterX - dx, viewport.CenterY + dy);
+        e.Handled = true;
+    }
+
+    private void OnMapDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if (MyMapControl.Map?.Navigator is not { } navigator)
+            return;
+
+        var resolution = navigator.Viewport.Resolution;
+        var newResolution = resolution / 2;
         var position = e.GetPosition(MyMapControl);
         var center = new ScreenPosition(position.X, position.Y);
         navigator.ZoomTo(newResolution, center);
