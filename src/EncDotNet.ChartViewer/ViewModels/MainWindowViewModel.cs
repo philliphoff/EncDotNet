@@ -91,6 +91,28 @@ public class MainWindowViewModel : ViewModelBase
         }
     }
 
+    private ChartViewModel? _hoveredChart;
+
+    /// <summary>
+    /// Gets the chart currently being hovered over on the map (for the popup panel).
+    /// </summary>
+    public ChartViewModel? HoveredChart
+    {
+        get => _hoveredChart;
+        set
+        {
+            var old = _hoveredChart;
+            this.RaiseAndSetIfChanged(ref _hoveredChart, value);
+            if (!ReferenceEquals(old, value))
+                this.RaisePropertyChanged(nameof(HasHoveredChart));
+        }
+    }
+
+    /// <summary>
+    /// Gets whether a chart is currently being hovered over.
+    /// </summary>
+    public bool HasHoveredChart => _hoveredChart is not null;
+
     private ICatalogSource? _catalogSource;
 
     public MainWindowViewModel()

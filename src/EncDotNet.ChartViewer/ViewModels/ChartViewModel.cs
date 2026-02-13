@@ -23,6 +23,12 @@ public sealed class ChartViewModel : ViewModelBase
     /// <summary>Command to deselect this chart from the selected charts list.</summary>
     public ICommand DeselectCommand { get; }
 
+    /// <summary>Command to toggle this chart's selection state.</summary>
+    public ICommand ToggleSelectedCommand { get; }
+
+    /// <summary>Gets the label for the toggle button based on selection state.</summary>
+    public string SelectionLabel => _isSelected ? "✕" : "+";
+
     /// <summary>Gets or sets the layers created for this chart.</summary>
     public List<MemoryLayer> Layers { get; } = new();
 
@@ -38,6 +44,7 @@ public sealed class ChartViewModel : ViewModelBase
                 return;
 
             this.RaiseAndSetIfChanged(ref _isSelected, value);
+            this.RaisePropertyChanged(nameof(SelectionLabel));
             IsSelectedChanged?.Invoke(this, value);
         }
     }
@@ -51,5 +58,6 @@ public sealed class ChartViewModel : ViewModelBase
     {
         Entry = entry;
         DeselectCommand = ReactiveCommand.Create(() => IsSelected = false);
+        ToggleSelectedCommand = ReactiveCommand.Create(() => IsSelected = !IsSelected);
     }
 }

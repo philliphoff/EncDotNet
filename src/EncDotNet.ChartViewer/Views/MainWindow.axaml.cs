@@ -27,6 +27,7 @@ public partial class MainWindow : Window
     private static readonly VectorStyle NormalBoundaryStyle = new() { Fill = null, Outline = new Pen(Color.Red, 1) };
     private static readonly VectorStyle HighlightBoundaryStyle = new() { Fill = null, Outline = new Pen(Color.Yellow, 3) };
 
+    private readonly Dictionary<GeometryFeature, ChartViewModel> _boundaryFeatureToChart = new();
     private readonly List<GeometryFeature> _boundaryFeatures = [];
     private GeometryFeature? _highlightedBoundaryFeature;
 
@@ -60,6 +61,7 @@ public partial class MainWindow : Window
         var center = new ScreenPosition(position.X, position.Y);
         navigator.ZoomTo(newResolution, center);
         e.Handled = true;
+        UpdatePopupPosition();
     }
 
     private void OnMapPointerWheelChanged(object? sender, PointerWheelEventArgs e)
@@ -72,6 +74,7 @@ public partial class MainWindow : Window
         var dy = e.Delta.Y * viewport.Resolution * 50;
         navigator.CenterOn(viewport.CenterX - dx, viewport.CenterY + dy);
         e.Handled = true;
+        UpdatePopupPosition();
     }
 
     private void OnMapDoubleTapped(object? sender, TappedEventArgs e)
@@ -85,6 +88,7 @@ public partial class MainWindow : Window
         var center = new ScreenPosition(position.X, position.Y);
         navigator.ZoomTo(newResolution, center);
         e.Handled = true;
+        UpdatePopupPosition();
     }
 
     private void OnMapPointerMoved(object? sender, PointerEventArgs e)
@@ -113,22 +117,55 @@ public partial class MainWindow : Window
             }
         }
 
-        if (best == _highlightedBoundaryFeature)
+        // Update highlight state
+        if (best != _highlightedBoundaryFeature)
+        {
+            if (_highlightedBoundaryFeature is not null)
+                _highlightedBoundaryFeature["Highlighted"] = false;
+
+            _highlightedBoundaryFeature = best;
+
+            if (best is not null)
+                best["Highlighted"] = true;
+
+            MyMapControl.Map?.Refresh();
+        }
+
+        UpdatePopupPosition();
+    }
+
+    private void UpdatePopupPosition()
+    {
+        if (MyMapControl.Map?.Navigator is not { } navigator || ViewModel is not { } vm)
             return;
 
-        if (_highlightedBoundaryFeature is not null)
+        if (_highlightedBoundaryFeature?.Geometry is Polygon bestPolygon
+            && _boundaryFeatureToChart.TryGetValue(_highlightedBoundaryFeature, out var chartVm))
         {
-            _highlightedBoundaryFeature["Highlighted"] = false;
+            var env = bestPolygon.EnvelopeInternal;
+            var topRightScreen = navigator.Viewport.WorldToScreen(env.MaxX, env.MaxY);
+            var topLeftScreen = navigator.Viewport.WorldToScreen(env.MinX, env.MaxY);
+            var chartScreenWidth = topRightScreen.X - topLeftScreen.X;
+
+            if (chartScreenWidth >= 200)
+            {
+                vm.HoveredChart = chartVm;
+
+                ChartPopup.Measure(new Avalonia.Size(double.PositiveInfinity, double.PositiveInfinity));
+                var popupWidth = ChartPopup.DesiredSize.Width;
+
+                Canvas.SetLeft(ChartPopup, topRightScreen.X - popupWidth);
+                Canvas.SetTop(ChartPopup, topRightScreen.Y);
+            }
+            else
+            {
+                vm.HoveredChart = null;
+            }
         }
-
-        _highlightedBoundaryFeature = best;
-
-        if (best is not null)
+        else
         {
-            best["Highlighted"] = true;
+            vm.HoveredChart = null;
         }
-
-        MyMapControl.Map?.Refresh();
     }
 
     private MainWindowViewModel? ViewModel => DataContext as MainWindowViewModel;
@@ -214,6 +251,7 @@ public partial class MainWindow : Window
         }
 
         _boundaryFeatures.Clear();
+        _boundaryFeatureToChart.Clear();
         _highlightedBoundaryFeature = null;
 
         // Unsubscribe from old chart/feature events
@@ -257,6 +295,7 @@ public partial class MainWindow : Window
         }
 
         _boundaryFeatures.Clear();
+        _boundaryFeatureToChart.Clear();
         _highlightedBoundaryFeature = null;
 
         // Unsubscribe from old chart/feature events
@@ -378,6 +417,7 @@ public partial class MainWindow : Window
             var feature = new GeometryFeature(new Polygon(ring));
             features.Add(feature);
             _boundaryFeatures.Add(feature);
+            _boundaryFeatureToChart[feature] = chartVm;
         }
 
         return new MemoryLayer
