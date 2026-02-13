@@ -18,107 +18,69 @@ using ReactiveUI;
 
 namespace EncDotNet.ChartViewer.ViewModels;
 
-/// <summary>
-/// Represents a selectable state/territory in the region selection step.
-/// </summary>
-public sealed class SelectableStateViewModel : ViewModelBase
+public enum ManageChartsStep
 {
-    private bool _isSelected;
-
-    public string Name { get; }
-
-    public int ChartCount { get; }
-
-    public long TotalSize { get; }
-
-    public string DisplayText { get; }
-
-    public bool IsSelected
-    {
-        get => _isSelected;
-        set
-        {
-            if (_isSelected == value)
-                return;
-
-            this.RaiseAndSetIfChanged(ref _isSelected, value);
-            SelectionChanged?.Invoke(this, EventArgs.Empty);
-        }
-    }
-
-    public event EventHandler? SelectionChanged;
-
-    public SelectableStateViewModel(string name, int chartCount, long totalSize)
-    {
-        Name = name;
-        ChartCount = chartCount;
-        TotalSize = totalSize;
-        DisplayText = $"{name} ({chartCount} charts)";
-    }
-}
-
-public enum SetupWizardStep
-{
-    Welcome,
     FetchingCatalog,
     SelectRegions,
-    Downloading,
+    Applying,
     Complete,
     Error
 }
 
-public class SetupWizardViewModel : ViewModelBase
+public class ManageChartsViewModel : ViewModelBase
 {
-    private SetupWizardStep _currentStep = SetupWizardStep.Welcome;
-    private SetupWizardStep _errorSource;
+    private ManageChartsStep _currentStep = ManageChartsStep.FetchingCatalog;
+    private ManageChartsStep _errorSource;
     private string _statusText = "";
     private double _progress;
     private string _errorMessage = "";
     private bool _selectAll;
     private int _selectedChartCount;
     private string _selectionSummary = "No charts selected";
+    private string _changeSummary = "";
     private int _preparedChartCount;
     private bool _updatingSelectAll;
+    private bool _hasChanges;
     private EncProductCatalog? _catalog;
+    private HashSet<string> _previouslySelectedStates = [];
     private readonly CancellationTokenSource _cts = new();
 
-    public SetupWizardStep CurrentStep
+    public ManageChartsStep CurrentStep
     {
         get => _currentStep;
         private set
         {
             this.RaiseAndSetIfChanged(ref _currentStep, value);
-            this.RaisePropertyChanged(nameof(IsWelcomeStep));
             this.RaisePropertyChanged(nameof(IsFetchingStep));
             this.RaisePropertyChanged(nameof(IsSelectStep));
-            this.RaisePropertyChanged(nameof(IsDownloadingStep));
+            this.RaisePropertyChanged(nameof(IsApplyingStep));
             this.RaisePropertyChanged(nameof(IsCompleteStep));
             this.RaisePropertyChanged(nameof(IsErrorStep));
             this.RaisePropertyChanged(nameof(ShowBackButton));
-            this.RaisePropertyChanged(nameof(ShowNextButton));
+            this.RaisePropertyChanged(nameof(ShowApplyButton));
             this.RaisePropertyChanged(nameof(ShowCancelButton));
             this.RaisePropertyChanged(nameof(ShowFinishButton));
-            this.RaisePropertyChanged(nameof(NextButtonText));
             this.RaisePropertyChanged(nameof(IsProgressIndeterminate));
-            this.RaisePropertyChanged(nameof(CanProceed));
         }
     }
 
-    public bool IsWelcomeStep => _currentStep == SetupWizardStep.Welcome;
-    public bool IsFetchingStep => _currentStep == SetupWizardStep.FetchingCatalog;
-    public bool IsSelectStep => _currentStep == SetupWizardStep.SelectRegions;
-    public bool IsDownloadingStep => _currentStep == SetupWizardStep.Downloading;
-    public bool IsCompleteStep => _currentStep == SetupWizardStep.Complete;
-    public bool IsErrorStep => _currentStep == SetupWizardStep.Error;
+    public bool IsFetchingStep => _currentStep == ManageChartsStep.FetchingCatalog;
+    public bool IsSelectStep => _currentStep == ManageChartsStep.SelectRegions;
+    public bool IsApplyingStep => _currentStep == ManageChartsStep.Applying;
+    public bool IsCompleteStep => _currentStep == ManageChartsStep.Complete;
+    public bool IsErrorStep => _currentStep == ManageChartsStep.Error;
 
-    public bool ShowBackButton => _currentStep is SetupWizardStep.SelectRegions or SetupWizardStep.Error;
-    public bool ShowNextButton => _currentStep is SetupWizardStep.Welcome or SetupWizardStep.SelectRegions;
-    public bool ShowCancelButton => _currentStep is not SetupWizardStep.Complete;
-    public bool ShowFinishButton => _currentStep is SetupWizardStep.Complete;
+    public bool ShowBackButton => _currentStep == ManageChartsStep.Error;
+    public bool ShowApplyButton => _currentStep == ManageChartsStep.SelectRegions;
+    public bool ShowCancelButton => _currentStep is not ManageChartsStep.Complete;
+    public bool ShowFinishButton => _currentStep == ManageChartsStep.Complete;
+    public bool IsProgressIndeterminate => _currentStep == ManageChartsStep.FetchingCatalog;
 
-    public string NextButtonText => _currentStep == SetupWizardStep.SelectRegions ? "Download" : "Next";
-    public bool IsProgressIndeterminate => _currentStep == SetupWizardStep.FetchingCatalog;
-    public bool CanProceed => _currentStep != SetupWizardStep.SelectRegions || _selectedChartCount > 0;
+    public bool HasChanges
+    {
+        get => _hasChanges;
+        private set => this.RaiseAndSetIfChanged(ref _hasChanges, value);
+    }
 
     public string StatusText
     {
@@ -169,24 +131,35 @@ public class SetupWizardViewModel : ViewModelBase
         private set => this.RaiseAndSetIfChanged(ref _selectionSummary, value);
     }
 
+    public string ChangeSummary
+    {
+        get => _changeSummary;
+        private set => this.RaiseAndSetIfChanged(ref _changeSummary, value);
+    }
+
     public int PreparedChartCount
     {
         get => _preparedChartCount;
         private set => this.RaiseAndSetIfChanged(ref _preparedChartCount, value);
     }
 
+    /// <summary>
+    /// Whether chart data was actually modified (additions or removals were applied).
+    /// </summary>
+    public bool ChartsChanged { get; private set; }
+
     public ObservableCollection<SelectableStateViewModel> States { get; } = new();
 
-    public ICommand NextCommand { get; }
+    public ICommand ApplyCommand { get; }
     public ICommand BackCommand { get; }
     public ICommand CancelCommand { get; }
     public ICommand FinishCommand { get; }
 
     public event Action? RequestClose;
 
-    public SetupWizardViewModel()
+    public ManageChartsViewModel()
     {
-        NextCommand = ReactiveCommand.Create(OnNext);
+        ApplyCommand = ReactiveCommand.Create(OnApply);
         BackCommand = ReactiveCommand.Create(OnBack);
         CancelCommand = ReactiveCommand.Create(OnCancel);
         FinishCommand = ReactiveCommand.Create(OnFinish);
@@ -197,36 +170,22 @@ public class SetupWizardViewModel : ViewModelBase
         _cts.Cancel();
     }
 
-    private async void OnNext()
+    public async void BeginFetchCatalog()
     {
-        switch (_currentStep)
-        {
-            case SetupWizardStep.Welcome:
-                CurrentStep = SetupWizardStep.FetchingCatalog;
-                await FetchCatalogAsync();
-                break;
+        await FetchCatalogAsync();
+    }
 
-            case SetupWizardStep.SelectRegions:
-                CurrentStep = SetupWizardStep.Downloading;
-                await DownloadAndPrepareAsync();
-                break;
-        }
+    private async void OnApply()
+    {
+        CurrentStep = ManageChartsStep.Applying;
+        await ApplyChangesAsync();
     }
 
     private void OnBack()
     {
-        switch (_currentStep)
-        {
-            case SetupWizardStep.SelectRegions:
-                CurrentStep = SetupWizardStep.Welcome;
-                break;
-
-            case SetupWizardStep.Error:
-                CurrentStep = _errorSource == SetupWizardStep.FetchingCatalog
-                    ? SetupWizardStep.Welcome
-                    : SetupWizardStep.SelectRegions;
-                break;
-        }
+        CurrentStep = _errorSource == ManageChartsStep.FetchingCatalog
+            ? ManageChartsStep.FetchingCatalog
+            : ManageChartsStep.SelectRegions;
     }
 
     private void OnCancel()
@@ -246,6 +205,8 @@ public class SetupWizardViewModel : ViewModelBase
 
         try
         {
+            _previouslySelectedStates = AppDataPaths.LoadDownloadedStates();
+
             using var client = new EncProductCatalogClient();
             _catalog = await client.GetNoaaCatalogAsync(_cts.Token);
 
@@ -270,11 +231,17 @@ public class SetupWizardViewModel : ViewModelBase
             foreach (var (state, (count, size)) in stateGroups.OrderBy(kv => kv.Key))
             {
                 var vm = new SelectableStateViewModel(state, count, size);
+                vm.IsSelected = _previouslySelectedStates.Contains(state);
                 vm.SelectionChanged += (_, _) => OnStateSelectionChanged();
                 States.Add(vm);
             }
 
-            CurrentStep = SetupWizardStep.SelectRegions;
+            _updatingSelectAll = true;
+            _selectAll = States.All(s => s.IsSelected);
+            this.RaisePropertyChanged(nameof(SelectAll));
+            _updatingSelectAll = false;
+
+            CurrentStep = ManageChartsStep.SelectRegions;
             UpdateSelectionSummary();
         }
         catch (OperationCanceledException)
@@ -284,8 +251,8 @@ public class SetupWizardViewModel : ViewModelBase
         catch (Exception ex)
         {
             ErrorMessage = $"Failed to fetch the NOAA catalog: {ex.Message}";
-            _errorSource = SetupWizardStep.FetchingCatalog;
-            CurrentStep = SetupWizardStep.Error;
+            _errorSource = ManageChartsStep.FetchingCatalog;
+            CurrentStep = ManageChartsStep.Error;
         }
     }
 
@@ -307,22 +274,37 @@ public class SetupWizardViewModel : ViewModelBase
         var selectedStates = new HashSet<string>(
             States.Where(s => s.IsSelected).Select(s => s.Name));
 
+        var selectedCells = GetCellsForStates(selectedStates);
+        SelectedChartCount = selectedCells.Count;
+
         if (selectedStates.Count == 0)
         {
-            SelectedChartCount = 0;
             SelectionSummary = "No charts selected";
-            this.RaisePropertyChanged(nameof(CanProceed));
-            return;
+        }
+        else
+        {
+            var totalBytes = selectedCells.Sum(c => c.ZipfileSize);
+            SelectionSummary = $"{selectedCells.Count} charts selected ({FormatSize(totalBytes)})";
         }
 
-        var selectedCells = GetSelectedCells(selectedStates);
-        SelectedChartCount = selectedCells.Count;
-        var totalBytes = selectedCells.Sum(c => c.ZipfileSize);
-        SelectionSummary = $"{selectedCells.Count} charts selected ({FormatSize(totalBytes)} total download)";
-        this.RaisePropertyChanged(nameof(CanProceed));
+        // Compute change summary
+        var added = selectedStates.Except(_previouslySelectedStates).ToList();
+        var removed = _previouslySelectedStates.Except(selectedStates).ToList();
+
+        HasChanges = added.Count > 0 || removed.Count > 0;
+
+        var parts = new List<string>();
+        if (added.Count > 0)
+            parts.Add($"{added.Count} state(s) to add");
+        if (removed.Count > 0)
+            parts.Add($"{removed.Count} state(s) to remove");
+
+        ChangeSummary = parts.Count > 0
+            ? string.Join(", ", parts)
+            : "No changes";
     }
 
-    private List<Cell> GetSelectedCells(HashSet<string> selectedStates)
+    private List<Cell> GetCellsForStates(HashSet<string> states)
     {
         if (_catalog is null)
             return [];
@@ -337,8 +319,8 @@ public class SetupWizardViewModel : ViewModelBase
 
             var cellStates = cell.States?.StateList ?? [];
             bool match = cellStates.Count == 0
-                ? selectedStates.Contains("Other")
-                : cellStates.Any(selectedStates.Contains);
+                ? states.Contains("Other")
+                : cellStates.Any(states.Contains);
 
             if (match)
             {
@@ -350,87 +332,119 @@ public class SetupWizardViewModel : ViewModelBase
         return cells;
     }
 
-    private async Task DownloadAndPrepareAsync()
+    private async Task ApplyChangesAsync()
     {
         try
         {
             AppDataPaths.EnsureDirectories();
 
-            var selectedStates = new HashSet<string>(
+            var newSelectedStates = new HashSet<string>(
                 States.Where(s => s.IsSelected).Select(s => s.Name));
-            var cells = GetSelectedCells(selectedStates);
 
-            if (cells.Count == 0)
+            var removedStates = _previouslySelectedStates.Except(newSelectedStates).ToHashSet();
+            var addedStates = newSelectedStates.Except(_previouslySelectedStates).ToHashSet();
+
+            // Phase 1: Remove cells belonging to deselected states
+            if (removedStates.Count > 0)
             {
-                ErrorMessage = "No charts selected.";
-                _errorSource = SetupWizardStep.Downloading;
-                CurrentStep = SetupWizardStep.Error;
-                return;
-            }
+                var cellsToRemove = GetCellsForStates(removedStates);
 
-            using var httpClient = new HttpClient();
-            int total = cells.Count;
-            int completed = 0;
+                // Only remove cells that aren't also needed by still-selected states
+                var cellsToKeep = new HashSet<string>(
+                    GetCellsForStates(newSelectedStates).Select(c => c.Name));
 
-            // Phase 1: Download zip files
-            foreach (var cell in cells)
-            {
-                _cts.Token.ThrowIfCancellationRequested();
-
-                var zipUrl = cell.ZipfileLocation;
-                var fileName = Path.GetFileName(new Uri(zipUrl).LocalPath);
-                var outputPath = Path.Combine(AppDataPaths.CatalogDirectory, fileName);
-
-                if (!File.Exists(outputPath))
+                int removeCount = 0;
+                foreach (var cell in cellsToRemove)
                 {
-                    StatusText = $"Downloading {cell.Name} ({completed + 1} of {total})...";
+                    _cts.Token.ThrowIfCancellationRequested();
 
-                    using var response = await httpClient.GetAsync(zipUrl, HttpCompletionOption.ResponseHeadersRead, _cts.Token);
-                    response.EnsureSuccessStatusCode();
+                    if (cellsToKeep.Contains(cell.Name))
+                        continue;
 
-                    using var stream = await response.Content.ReadAsStreamAsync(_cts.Token);
-                    using var fileStream = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 81920, useAsync: true);
-                    await stream.CopyToAsync(fileStream, _cts.Token);
+                    removeCount++;
+                    StatusText = $"Removing {cell.Name}...";
+
+                    // Remove expanded directory
+                    var zipUrl = cell.ZipfileLocation;
+                    var fileName = Path.GetFileName(new Uri(zipUrl).LocalPath);
+                    var folderName = Path.GetFileNameWithoutExtension(fileName);
+                    var expandedDir = Path.Combine(AppDataPaths.ExpandedDirectory, folderName);
+
+                    if (Directory.Exists(expandedDir))
+                        await Task.Run(() => Directory.Delete(expandedDir, recursive: true), _cts.Token);
+
+                    // Remove zip file
+                    var zipPath = Path.Combine(AppDataPaths.CatalogDirectory, fileName);
+
+                    if (File.Exists(zipPath))
+                        File.Delete(zipPath);
                 }
-
-                completed++;
-                Progress = (double)completed / total * 60;
             }
 
-            // Phase 2: Extract zip files
-            completed = 0;
-            foreach (var cell in cells)
+            // Phase 2: Download & extract cells for newly-added states
+            if (addedStates.Count > 0)
             {
-                _cts.Token.ThrowIfCancellationRequested();
+                var cellsToAdd = GetCellsForStates(addedStates);
 
-                var zipUrl = cell.ZipfileLocation;
-                var fileName = Path.GetFileName(new Uri(zipUrl).LocalPath);
-                var zipPath = Path.Combine(AppDataPaths.CatalogDirectory, fileName);
-                var folderName = Path.GetFileNameWithoutExtension(zipPath);
-                var outputDir = Path.Combine(AppDataPaths.ExpandedDirectory, folderName);
+                // Exclude cells that are already downloaded (from other states)
+                var alreadyDownloadedCells = new HashSet<string>(
+                    GetCellsForStates(_previouslySelectedStates.Intersect(newSelectedStates).ToHashSet())
+                        .Select(c => c.Name));
 
-                if (!Directory.Exists(outputDir) && File.Exists(zipPath))
+                var newCells = cellsToAdd.Where(c => !alreadyDownloadedCells.Contains(c.Name)).ToList();
+
+                using var httpClient = new HttpClient();
+                int total = newCells.Count;
+                int completed = 0;
+
+                foreach (var cell in newCells)
                 {
-                    StatusText = $"Extracting {cell.Name} ({completed + 1} of {total})...";
-                    await Task.Run(() => ZipFile.ExtractToDirectory(zipPath, outputDir), _cts.Token);
-                }
+                    _cts.Token.ThrowIfCancellationRequested();
 
-                completed++;
-                Progress = 60 + (double)completed / total * 30;
+                    var zipUrl = cell.ZipfileLocation;
+                    var fileName = Path.GetFileName(new Uri(zipUrl).LocalPath);
+                    var outputPath = Path.Combine(AppDataPaths.CatalogDirectory, fileName);
+
+                    if (!File.Exists(outputPath))
+                    {
+                        StatusText = $"Downloading {cell.Name} ({completed + 1} of {total})...";
+                        Progress = (double)completed / total * 60;
+
+                        using var response = await httpClient.GetAsync(zipUrl, HttpCompletionOption.ResponseHeadersRead, _cts.Token);
+                        response.EnsureSuccessStatusCode();
+
+                        using var stream = await response.Content.ReadAsStreamAsync(_cts.Token);
+                        using var fileStream = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 81920, useAsync: true);
+                        await stream.CopyToAsync(fileStream, _cts.Token);
+                    }
+
+                    // Extract
+                    var folderName = Path.GetFileNameWithoutExtension(fileName);
+                    var expandedDir = Path.Combine(AppDataPaths.ExpandedDirectory, folderName);
+
+                    if (!Directory.Exists(expandedDir) && File.Exists(outputPath))
+                    {
+                        StatusText = $"Extracting {cell.Name} ({completed + 1} of {total})...";
+                        await Task.Run(() => ZipFile.ExtractToDirectory(outputPath, expandedDir), _cts.Token);
+                    }
+
+                    completed++;
+                    Progress = (double)completed / total * 90;
+                }
             }
 
-            // Phase 3: Build chart index
+            // Phase 3: Rebuild chart index
             StatusText = "Building chart index...";
             Progress = 90;
             var chartCount = await Task.Run(BuildChartIndex, _cts.Token);
             Progress = 100;
 
-            // Save which states were selected for future "Manage Charts" reference
-            AppDataPaths.SaveDownloadedStates(
-                States.Where(s => s.IsSelected).Select(s => s.Name));
+            // Save the new state selection
+            AppDataPaths.SaveDownloadedStates(newSelectedStates);
 
+            ChartsChanged = true;
             PreparedChartCount = chartCount;
-            CurrentStep = SetupWizardStep.Complete;
+            CurrentStep = ManageChartsStep.Complete;
         }
         catch (OperationCanceledException)
         {
@@ -438,9 +452,9 @@ public class SetupWizardViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            ErrorMessage = $"An error occurred during download: {ex.Message}";
-            _errorSource = SetupWizardStep.Downloading;
-            CurrentStep = SetupWizardStep.Error;
+            ErrorMessage = $"An error occurred while applying changes: {ex.Message}";
+            _errorSource = ManageChartsStep.Applying;
+            CurrentStep = ManageChartsStep.Error;
         }
     }
 

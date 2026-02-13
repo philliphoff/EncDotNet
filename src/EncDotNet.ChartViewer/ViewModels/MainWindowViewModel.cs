@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.ObjectModel;
+using System.Reactive;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -71,6 +72,9 @@ public class MainWindowViewModel : ViewModelBase
     /// <summary>Command to toggle the features panel.</summary>
     public ICommand ToggleFeaturesPanelCommand { get; }
 
+    /// <summary>Command to open the manage charts dialog.</summary>
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ManageChartsCommand { get; }
+
     /// <summary>
     /// Gets or sets the search text used to filter available charts.
     /// </summary>
@@ -97,6 +101,20 @@ public class MainWindowViewModel : ViewModelBase
 
         ToggleChartsPanelCommand = ReactiveCommand.Create(() => IsChartsPanelExpanded = !IsChartsPanelExpanded);
         ToggleFeaturesPanelCommand = ReactiveCommand.Create(() => IsFeaturesPanelExpanded = !IsFeaturesPanelExpanded);
+        ManageChartsCommand = ReactiveCommand.Create(() => { });
+    }
+
+    /// <summary>
+    /// Clears all loaded charts and chart state so the catalog can be reloaded.
+    /// </summary>
+    internal void ClearCatalog()
+    {
+        SelectedCharts.Clear();
+        FilteredAvailableCharts.Clear();
+        AvailableCharts.Clear();
+        _catalogSource = null;
+        _chartSearchText = "";
+        this.RaisePropertyChanged(nameof(ChartSearchText));
     }
 
     /// <summary>

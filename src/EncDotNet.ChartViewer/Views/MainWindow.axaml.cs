@@ -146,27 +146,84 @@ public partial class MainWindow : Window
         }
 
         // Load catalog if chart index exists (either previously or from wizard)
-        if (ViewModel is { } vm && AppDataPaths.HasChartIndex())
+        await LoadCatalogIntoMapAsync();
+
+        // Wire up the manage charts command
+        if (ViewModel is { } vm2)
         {
-            var catalogSource = new FileSystemCatalogSource(AppDataPaths.ChartIndexPath);
-            await vm.LoadCatalogAsync(catalogSource);
-
-            // Show chart boundaries on the map
-            var boundaryLayer = CreateChartBoundariesLayer(vm.AvailableCharts);
-            MyMapControl.Map?.Layers.Add(boundaryLayer);
-
-            // Subscribe to chart selection changes
-            foreach (var chartVm in vm.AvailableCharts)
-            {
-                chartVm.IsSelectedChanged += OnChartSelectionChanged;
-            }
-
-            // Subscribe to feature visibility changes
-            foreach (var featureVm in vm.FeatureCategories)
-            {
-                featureVm.IsVisibleChanged += OnFeatureVisibilityChanged;
-            }
+            vm2.ManageChartsCommand.Subscribe(async _ => await OpenManageChartsAsync());
         }
+    }
+
+    private async Task LoadCatalogIntoMapAsync()
+    {
+        if (ViewModel is not { } vm || !AppDataPaths.HasChartIndex())
+            return;
+
+        var catalogSource = new FileSystemCatalogSource(AppDataPaths.ChartIndexPath);
+        await vm.LoadCatalogAsync(catalogSource);
+
+        // Show chart boundaries on the map
+        var boundaryLayer = CreateChartBoundariesLayer(vm.AvailableCharts);
+        MyMapControl.Map?.Layers.Add(boundaryLayer);
+
+        // Subscribe to chart selection changes
+        foreach (var chartVm in vm.AvailableCharts)
+        {
+            chartVm.IsSelectedChanged += OnChartSelectionChanged;
+        }
+
+        // Subscribe to feature visibility changes
+        foreach (var featureVm in vm.FeatureCategories)
+        {
+            featureVm.IsVisibleChanged += OnFeatureVisibilityChanged;
+        }
+    }
+
+    private async Task OpenManageChartsAsync()
+    {
+        var manageVm = new ManageChartsViewModel();
+        var manageWindow = new ManageChartsWindow { DataContext = manageVm };
+        manageVm.BeginFetchCatalog();
+        await manageWindow.ShowDialog(this);
+
+        if (manageVm.ChartsChanged)
+        {
+            await ReloadCatalogAsync();
+        }
+    }
+
+    private async Task ReloadCatalogAsync()
+    {
+        if (ViewModel is not { } vm)
+            return;
+
+        // Unload all selected charts from the map
+        foreach (var chartVm in vm.SelectedCharts.ToArray())
+        {
+            UnloadChart(chartVm);
+        }
+
+        // Remove the old boundary layer
+        if (MyMapControl.Map is { } map)
+        {
+            var boundaryLayer = map.Layers.FirstOrDefault(l => l.Name == "Chart Boundaries");
+            if (boundaryLayer is not null)
+                map.Layers.Remove(boundaryLayer);
+        }
+
+        _boundaryFeatures.Clear();
+        _highlightedBoundaryFeature = null;
+
+        // Unsubscribe from old chart/feature events
+        foreach (var chartVm in vm.AvailableCharts)
+            chartVm.IsSelectedChanged -= OnChartSelectionChanged;
+        foreach (var featureVm in vm.FeatureCategories)
+            featureVm.IsVisibleChanged -= OnFeatureVisibilityChanged;
+
+        // Clear and reload
+        vm.ClearCatalog();
+        await LoadCatalogIntoMapAsync();
     }
 
     private void OnChartSelectionChanged(object? sender, bool isSelected)
