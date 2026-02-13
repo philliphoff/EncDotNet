@@ -24,8 +24,6 @@ namespace EncDotNet.ChartViewer.Views;
 
 public partial class MainWindow : Window
 {
-    private const string ChartIndexRelativePath = "../../../../../.expanded/chart-index.json";
-
     private static readonly VectorStyle NormalBoundaryStyle = new() { Fill = null, Outline = new Pen(Color.Red, 1) };
     private static readonly VectorStyle HighlightBoundaryStyle = new() { Fill = null, Outline = new Pen(Color.Yellow, 3) };
 
@@ -49,8 +47,6 @@ public partial class MainWindow : Window
 
         // Enable hover highlighting of chart boundaries
         MyMapControl.PointerMoved += OnMapPointerMoved;
-
-        DataContextChanged += (_, _) => OnDataContextChanged();
     }
 
     private void OnMapMagnify(object? sender, PointerDeltaEventArgs e)
@@ -137,31 +133,39 @@ public partial class MainWindow : Window
 
     private MainWindowViewModel? ViewModel => DataContext as MainWindowViewModel;
 
-    private async void OnDataContextChanged()
+    protected override async void OnOpened(EventArgs e)
     {
-        if (ViewModel is not { } vm)
-            return;
+        base.OnOpened(e);
 
-        // Load catalog via ICatalogSource
-        var basePath = AppContext.BaseDirectory;
-        var chartIndexPath = Path.GetFullPath(Path.Combine(basePath, ChartIndexRelativePath));
-        var catalogSource = new FileSystemCatalogSource(chartIndexPath);
-        await vm.LoadCatalogAsync(catalogSource);
-
-        // Show chart boundaries on the map
-        var boundaryLayer = CreateChartBoundariesLayer(vm.AvailableCharts);
-        MyMapControl.Map?.Layers.Add(boundaryLayer);
-
-        // Subscribe to chart selection changes
-        foreach (var chartVm in vm.AvailableCharts)
+        // Show setup wizard if no charts have been downloaded yet
+        if (!AppDataPaths.HasChartIndex())
         {
-            chartVm.IsSelectedChanged += OnChartSelectionChanged;
+            var wizardVm = new SetupWizardViewModel();
+            var wizard = new SetupWizardWindow { DataContext = wizardVm };
+            await wizard.ShowDialog(this);
         }
 
-        // Subscribe to feature visibility changes
-        foreach (var featureVm in vm.FeatureCategories)
+        // Load catalog if chart index exists (either previously or from wizard)
+        if (ViewModel is { } vm && AppDataPaths.HasChartIndex())
         {
-            featureVm.IsVisibleChanged += OnFeatureVisibilityChanged;
+            var catalogSource = new FileSystemCatalogSource(AppDataPaths.ChartIndexPath);
+            await vm.LoadCatalogAsync(catalogSource);
+
+            // Show chart boundaries on the map
+            var boundaryLayer = CreateChartBoundariesLayer(vm.AvailableCharts);
+            MyMapControl.Map?.Layers.Add(boundaryLayer);
+
+            // Subscribe to chart selection changes
+            foreach (var chartVm in vm.AvailableCharts)
+            {
+                chartVm.IsSelectedChanged += OnChartSelectionChanged;
+            }
+
+            // Subscribe to feature visibility changes
+            foreach (var featureVm in vm.FeatureCategories)
+            {
+                featureVm.IsVisibleChanged += OnFeatureVisibilityChanged;
+            }
         }
     }
 

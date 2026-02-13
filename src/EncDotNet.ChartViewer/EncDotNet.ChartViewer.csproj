@@ -33,5 +33,6 @@
     
     <ItemGroup>
         <ProjectReference Include="..\EncDotNet.Enc\EncDotNet.Enc.csproj" />
+        <ProjectReference Include="..\EncDotNet.ProductCatalog\EncDotNet.ProductCatalog.csproj" />
     </ItemGroup>
 </Project>

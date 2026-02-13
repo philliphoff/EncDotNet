@@ -1,0 +1,200 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:EncDotNet.ChartViewer.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="500"
+        x:Class="EncDotNet.ChartViewer.Views.SetupWizardWindow"
+        x:DataType="vm:SetupWizardViewModel"
+        Title="Chart Setup"
+        Width="600" Height="500"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner">
+
+    <Design.DataContext>
+        <vm:SetupWizardViewModel />
+    </Design.DataContext>
+
+    <DockPanel>
+        <!-- Bottom button bar -->
+        <Border DockPanel.Dock="Bottom"
+                BorderBrush="#CCCCCC"
+                BorderThickness="0,1,0,0"
+                Padding="16,12">
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Right"
+                        Spacing="8">
+                <Button Content="Cancel"
+                        Command="{Binding CancelCommand}"
+                        IsVisible="{Binding ShowCancelButton}"
+                        MinWidth="80" />
+                <Button Content="Back"
+                        Command="{Binding BackCommand}"
+                        IsVisible="{Binding ShowBackButton}"
+                        MinWidth="80" />
+                <Button Content="{Binding NextButtonText}"
+                        Command="{Binding NextCommand}"
+                        IsVisible="{Binding ShowNextButton}"
+                        IsEnabled="{Binding CanProceed}"
+                        Classes="accent"
+                        MinWidth="80" />
+                <Button Content="Finish"
+                        Command="{Binding FinishCommand}"
+                        IsVisible="{Binding ShowFinishButton}"
+                        Classes="accent"
+                        MinWidth="80" />
+            </StackPanel>
+        </Border>
+
+        <!-- Step content area -->
+        <Grid Margin="24,20">
+            <!-- Welcome step -->
+            <StackPanel IsVisible="{Binding IsWelcomeStep}"
+                        Spacing="12">
+                <TextBlock Text="Welcome to ENC Chart Viewer"
+                           FontSize="22"
+                           FontWeight="Bold" />
+                <TextBlock TextWrapping="Wrap"
+                           LineHeight="22"
+                           Text="Before you can view nautical charts, chart data needs to be downloaded from NOAA (National Oceanic and Atmospheric Administration)." />
+                <TextBlock TextWrapping="Wrap"
+                           LineHeight="22"
+                           Margin="0,4,0,0"
+                           Text="This wizard will guide you through:" />
+                <StackPanel Margin="16,4,0,0" Spacing="4">
+                    <TextBlock Text="• Downloading the NOAA ENC product catalog" />
+                    <TextBlock Text="• Selecting which regions to download" />
+                    <TextBlock Text="• Downloading and preparing chart data" />
+                </StackPanel>
+                <TextBlock TextWrapping="Wrap"
+                           Margin="0,8,0,0"
+                           Foreground="Gray"
+                           Text="Click Next to get started." />
+            </StackPanel>
+
+            <!-- Fetching catalog step -->
+            <StackPanel IsVisible="{Binding IsFetchingStep}"
+                        Spacing="16"
+                        VerticalAlignment="Center"
+                        HorizontalAlignment="Stretch">
+                <TextBlock Text="Fetching Catalog"
+                           FontSize="22"
+                           FontWeight="Bold"
+                           HorizontalAlignment="Center" />
+                <ProgressBar IsIndeterminate="True"
+                             Margin="40,0" />
+                <TextBlock Text="{Binding StatusText}"
+                           HorizontalAlignment="Center"
+                           Foreground="Gray" />
+            </StackPanel>
+
+            <!-- Select regions step -->
+            <DockPanel IsVisible="{Binding IsSelectStep}">
+                <TextBlock DockPanel.Dock="Top"
+                           Text="Select Regions"
+                           FontSize="22"
+                           FontWeight="Bold" />
+                <TextBlock DockPanel.Dock="Top"
+                           TextWrapping="Wrap"
+                           Margin="0,4,0,8"
+                           Text="Choose which states or territories to download charts for:" />
+
+                <CheckBox DockPanel.Dock="Top"
+                          IsChecked="{Binding SelectAll}"
+                          Content="Select All"
+                          FontWeight="SemiBold"
+                          Margin="0,0,0,4" />
+
+                <Border DockPanel.Dock="Top"
+                        BorderBrush="#CCCCCC"
+                        BorderThickness="0,0,0,1"
+                        Margin="0,0,0,4" />
+
+                <TextBlock DockPanel.Dock="Bottom"
+                           Text="{Binding SelectionSummary}"
+                           FontWeight="SemiBold"
+                           Margin="0,8,0,0" />
+
+                <ScrollViewer Margin="0,4,0,0">
+                    <ItemsControl ItemsSource="{Binding States}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type vm:SelectableStateViewModel}">
+                                <CheckBox IsChecked="{Binding IsSelected}"
+                                          Content="{Binding DisplayText}"
+                                          Margin="0,2" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+
+            <!-- Downloading step -->
+            <StackPanel IsVisible="{Binding IsDownloadingStep}"
+                        Spacing="16"
+                        VerticalAlignment="Center"
+                        HorizontalAlignment="Stretch">
+                <TextBlock Text="Downloading Charts"
+                           FontSize="22"
+                           FontWeight="Bold"
+                           HorizontalAlignment="Center" />
+                <ProgressBar Value="{Binding Progress}"
+                             Maximum="100"
+                             Margin="40,0" />
+                <TextBlock Text="{Binding StatusText}"
+                           HorizontalAlignment="Center"
+                           Foreground="Gray" />
+                <TextBlock Text="This may take a while depending on the number of charts selected and your internet connection."
+                           TextWrapping="Wrap"
+                           HorizontalAlignment="Center"
+                           TextAlignment="Center"
+                           Foreground="Gray"
+                           FontSize="12"
+                           Margin="40,8,40,0" />
+            </StackPanel>
+
+            <!-- Complete step -->
+            <StackPanel IsVisible="{Binding IsCompleteStep}"
+                        Spacing="12"
+                        VerticalAlignment="Center"
+                        HorizontalAlignment="Center">
+                <TextBlock Text="✓"
+                           FontSize="48"
+                           Foreground="Green"
+                           HorizontalAlignment="Center" />
+                <TextBlock Text="Setup Complete!"
+                           FontSize="22"
+                           FontWeight="Bold"
+                           HorizontalAlignment="Center" />
+                <TextBlock Text="{Binding PreparedChartCount, StringFormat='Successfully prepared {0} chart(s) for viewing.'}"
+                           HorizontalAlignment="Center" />
+                <TextBlock Text="Click Finish to start browsing charts."
+                           Foreground="Gray"
+                           HorizontalAlignment="Center" />
+            </StackPanel>
+
+            <!-- Error step -->
+            <StackPanel IsVisible="{Binding IsErrorStep}"
+                        Spacing="12"
+                        VerticalAlignment="Center"
+                        HorizontalAlignment="Center">
+                <TextBlock Text="⚠"
+                           FontSize="48"
+                           Foreground="#E74C3C"
+                           HorizontalAlignment="Center" />
+                <TextBlock Text="An Error Occurred"
+                           FontSize="22"
+                           FontWeight="Bold"
+                           HorizontalAlignment="Center" />
+                <TextBlock Text="{Binding ErrorMessage}"
+                           TextWrapping="Wrap"
+                           HorizontalAlignment="Center"
+                           TextAlignment="Center"
+                           MaxWidth="400" />
+                <TextBlock Text="Click Back to return and try again."
+                           Foreground="Gray"
+                           HorizontalAlignment="Center"
+                           Margin="0,8,0,0" />
+            </StackPanel>
+        </Grid>
+    </DockPanel>
+</Window>
