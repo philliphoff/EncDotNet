@@ -75,6 +75,9 @@ public class MainWindowViewModel : ViewModelBase
     /// <summary>Command to open the manage charts dialog.</summary>
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ManageChartsCommand { get; }
 
+    /// <summary>Command to reset all data and return to the setup wizard.</summary>
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ResetDataCommand { get; }
+
     /// <summary>
     /// Gets or sets the search text used to filter available charts.
     /// </summary>
@@ -102,6 +105,7 @@ public class MainWindowViewModel : ViewModelBase
         ToggleChartsPanelCommand = ReactiveCommand.Create(() => IsChartsPanelExpanded = !IsChartsPanelExpanded);
         ToggleFeaturesPanelCommand = ReactiveCommand.Create(() => IsFeaturesPanelExpanded = !IsFeaturesPanelExpanded);
         ManageChartsCommand = ReactiveCommand.Create(() => { });
+        ResetDataCommand = ReactiveCommand.Create(() => { });
     }
 
     /// <summary>
@@ -124,7 +128,7 @@ public class MainWindowViewModel : ViewModelBase
     {
         _catalogSource = catalogSource;
 
-        await foreach (var entry in catalogSource.GetCatalogAsync(cancellationToken).ConfigureAwait(false))
+        await foreach (var entry in catalogSource.GetCatalogAsync(cancellationToken))
         {
             AvailableCharts.Add(new ChartViewModel(entry));
         }

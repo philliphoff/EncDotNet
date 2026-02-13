@@ -152,6 +152,7 @@ public partial class MainWindow : Window
         if (ViewModel is { } vm2)
         {
             vm2.ManageChartsCommand.Subscribe(async _ => await OpenManageChartsAsync());
+            vm2.ResetDataCommand.Subscribe(async _ => await ResetAllDataAsync());
         }
     }
 
@@ -191,6 +192,49 @@ public partial class MainWindow : Window
         {
             await ReloadCatalogAsync();
         }
+    }
+
+    private async Task ResetAllDataAsync()
+    {
+        if (ViewModel is not { } vm)
+            return;
+
+        // Unload all selected charts from the map
+        foreach (var chartVm in vm.SelectedCharts.ToArray())
+        {
+            UnloadChart(chartVm);
+        }
+
+        // Remove the old boundary layer
+        if (MyMapControl.Map is { } map)
+        {
+            var boundaryLayer = map.Layers.FirstOrDefault(l => l.Name == "Chart Boundaries");
+            if (boundaryLayer is not null)
+                map.Layers.Remove(boundaryLayer);
+        }
+
+        _boundaryFeatures.Clear();
+        _highlightedBoundaryFeature = null;
+
+        // Unsubscribe from old chart/feature events
+        foreach (var chartVm in vm.AvailableCharts)
+            chartVm.IsSelectedChanged -= OnChartSelectionChanged;
+        foreach (var featureVm in vm.FeatureCategories)
+            featureVm.IsVisibleChanged -= OnFeatureVisibilityChanged;
+
+        // Clear in-memory state
+        vm.ClearCatalog();
+
+        // Delete all data from disk
+        await Task.Run(AppDataPaths.DeleteAllData);
+
+        // Re-show the setup wizard
+        var wizardVm = new SetupWizardViewModel();
+        var wizard = new SetupWizardWindow { DataContext = wizardVm };
+        await wizard.ShowDialog(this);
+
+        // Reload catalog if the wizard completed successfully
+        await LoadCatalogIntoMapAsync();
     }
 
     private async Task ReloadCatalogAsync()

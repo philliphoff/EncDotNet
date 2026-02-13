@@ -82,6 +82,13 @@
                                     FontSize="11"
                                     Padding="6,2"
                                     VerticalAlignment="Center" />
+                            <Button DockPanel.Dock="Right"
+                                    Content="Reset"
+                                    Command="{Binding ResetDataCommand}"
+                                    FontSize="11"
+                                    Padding="6,2"
+                                    Margin="0,0,4,0"
+                                    VerticalAlignment="Center" />
                             <TextBlock Text="Available Charts"
                                        FontWeight="Bold"
                                        FontSize="14"

@@ -31,6 +31,17 @@ internal static class AppDataPaths
         Directory.CreateDirectory(ExpandedDirectory);
     }
 
+    /// <summary>
+    /// Deletes all downloaded chart data, returning the application to its initial state.
+    /// </summary>
+    public static void DeleteAllData()
+    {
+        if (Directory.Exists(Root))
+        {
+            Directory.Delete(Root, recursive: true);
+        }
+    }
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
