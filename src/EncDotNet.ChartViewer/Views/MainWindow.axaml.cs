@@ -185,11 +185,29 @@ public partial class MainWindow : Window
         // Load catalog if chart index exists (either previously or from wizard)
         await LoadCatalogIntoMapAsync();
 
+        // Restore saved viewport position
+        if (MyMapControl.Map?.Navigator is { } nav
+            && AppDataPaths.LoadViewportState() is var (cx, cy, res))
+        {
+            nav.CenterOnAndZoomTo(new MPoint(cx, cy), res);
+        }
+
         // Wire up the manage charts command
         if (ViewModel is { } vm2)
         {
             vm2.ManageChartsCommand.Subscribe(async _ => await OpenManageChartsAsync());
             vm2.ResetDataCommand.Subscribe(async _ => await ResetAllDataAsync());
+        }
+    }
+
+    protected override void OnClosing(WindowClosingEventArgs e)
+    {
+        base.OnClosing(e);
+
+        if (MyMapControl.Map?.Navigator is { } nav)
+        {
+            var vp = nav.Viewport;
+            AppDataPaths.SaveViewportState(vp.CenterX, vp.CenterY, vp.Resolution);
         }
     }
 

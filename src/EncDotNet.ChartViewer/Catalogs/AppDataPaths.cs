@@ -23,6 +23,8 @@ internal static class AppDataPaths
 
     public static string DownloadedStatesPath => Path.Combine(Root, "downloaded-states.json");
 
+    public static string ViewportStatePath => Path.Combine(Root, "viewport-state.json");
+
     public static bool HasChartIndex() => File.Exists(ChartIndexPath);
 
     public static void EnsureDirectories()
@@ -70,5 +72,32 @@ internal static class AppDataPaths
         Directory.CreateDirectory(Root);
         var json = JsonSerializer.Serialize(states, JsonOptions);
         File.WriteAllText(DownloadedStatesPath, json);
+    }
+
+    public static (double CenterX, double CenterY, double Resolution)? LoadViewportState()
+    {
+        if (!File.Exists(ViewportStatePath))
+            return null;
+
+        try
+        {
+            var json = File.ReadAllText(ViewportStatePath);
+            var values = JsonSerializer.Deserialize<double[]>(json, JsonOptions);
+            if (values is { Length: 3 })
+                return (values[0], values[1], values[2]);
+        }
+        catch
+        {
+            // Ignore corrupt state
+        }
+
+        return null;
+    }
+
+    public static void SaveViewportState(double centerX, double centerY, double resolution)
+    {
+        Directory.CreateDirectory(Root);
+        var json = JsonSerializer.Serialize(new[] { centerX, centerY, resolution }, JsonOptions);
+        File.WriteAllText(ViewportStatePath, json);
     }
 }
