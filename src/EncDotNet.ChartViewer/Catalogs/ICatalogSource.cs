@@ -6,7 +6,7 @@ using EncDotNet.Enc.Charts;
 
 namespace EncDotNet.ChartViewer.Catalogs;
 
-interface ICatalogSource
+public interface ICatalogSource
 {
     IAsyncEnumerable<ChartIndexEntry> GetCatalogAsync(CancellationToken cancellationToken = default);
 

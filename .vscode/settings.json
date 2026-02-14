@@ -4,6 +4,7 @@
         "dotnet test": true,
         "dotnet run": true,
         "dotnet tool": true,
-        "true": true
+        "true": true,
+        "dotnet add": true
     }
 }

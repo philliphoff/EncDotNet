@@ -113,10 +113,11 @@ public class MainWindowViewModel : ViewModelBase
     /// </summary>
     public bool HasHoveredChart => _hoveredChart is not null;
 
-    private ICatalogSource? _catalogSource;
+    private readonly ICatalogSource _catalogSource;
 
-    public MainWindowViewModel()
+    public MainWindowViewModel(ICatalogSource catalogSource)
     {
+        _catalogSource = catalogSource;
         foreach (var category in S57FeatureCategory.All)
         {
             FeatureCategories.Add(new ChartFeatureViewModel(category));
@@ -138,7 +139,6 @@ public class MainWindowViewModel : ViewModelBase
         SelectedCharts.Clear();
         FilteredAvailableCharts.Clear();
         AvailableCharts.Clear();
-        _catalogSource = null;
         _chartSearchText = "";
         this.RaisePropertyChanged(nameof(ChartSearchText));
     }
@@ -146,11 +146,9 @@ public class MainWindowViewModel : ViewModelBase
     /// <summary>
     /// Loads the catalog entries from the given source and populates <see cref="AvailableCharts"/>.
     /// </summary>
-    internal async Task LoadCatalogAsync(ICatalogSource catalogSource, CancellationToken cancellationToken = default)
+    internal async Task LoadCatalogAsync(CancellationToken cancellationToken = default)
     {
-        _catalogSource = catalogSource;
-
-        await foreach (var entry in catalogSource.GetCatalogAsync(cancellationToken))
+        await foreach (var entry in _catalogSource.GetCatalogAsync(cancellationToken))
         {
             AvailableCharts.Add(new ChartViewModel(entry));
         }
@@ -165,9 +163,6 @@ public class MainWindowViewModel : ViewModelBase
     /// </summary>
     internal Task<S57Chart> GetChartAsync(ChartIndexEntry entry, CancellationToken cancellationToken = default)
     {
-        if (_catalogSource is null)
-            throw new InvalidOperationException("Catalog source has not been loaded.");
-
         return _catalogSource.GetChartAsync(entry, cancellationToken);
     }
 

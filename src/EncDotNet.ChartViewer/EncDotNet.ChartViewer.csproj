@@ -12,8 +12,8 @@
     </ItemGroup>
 
     <ItemGroup>
-        <Folder Include="Models\"/>
-        <AvaloniaResource Include="Assets\**"/>
+        <Folder Include="Models\" />
+        <AvaloniaResource Include="Assets\**" />
     </ItemGroup>
 
     <ItemGroup>
@@ -28,7 +28,8 @@
         </PackageReference>
         <PackageReference Include="Mapsui.Avalonia" Version="5.0.2" />
         <PackageReference Include="Mapsui.Nts" Version="5.0.2" />
-        <PackageReference Include="ReactiveUI.Avalonia" Version="11.3.8"/>
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.3" />
+        <PackageReference Include="ReactiveUI.Avalonia" Version="11.3.8" />
     </ItemGroup>
     
     <ItemGroup>

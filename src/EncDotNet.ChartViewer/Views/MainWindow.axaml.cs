@@ -10,6 +10,7 @@ using EncDotNet.ChartViewer.Catalogs;
 using EncDotNet.ChartViewer.Models;
 using EncDotNet.ChartViewer.ViewModels;
 using Mapsui;
+using Microsoft.Extensions.DependencyInjection;
 using Mapsui.Extensions;
 using Mapsui.Layers;
 using Mapsui.Manipulations;
@@ -177,7 +178,7 @@ public partial class MainWindow : Window
         // Show setup wizard if no charts have been downloaded yet
         if (!AppDataPaths.HasChartIndex())
         {
-            var wizardVm = new SetupWizardViewModel();
+            var wizardVm = App.Services.GetRequiredService<SetupWizardViewModel>();
             var wizard = new SetupWizardWindow { DataContext = wizardVm };
             await wizard.ShowDialog(this);
         }
@@ -216,8 +217,7 @@ public partial class MainWindow : Window
         if (ViewModel is not { } vm || !AppDataPaths.HasChartIndex())
             return;
 
-        var catalogSource = new FileSystemCatalogSource(AppDataPaths.ChartIndexPath);
-        await vm.LoadCatalogAsync(catalogSource);
+        await vm.LoadCatalogAsync();
 
         // Show chart boundaries on the map
         var boundaryLayer = CreateChartBoundariesLayer(vm.AvailableCharts);
@@ -238,7 +238,7 @@ public partial class MainWindow : Window
 
     private async Task OpenManageChartsAsync()
     {
-        var manageVm = new ManageChartsViewModel();
+        var manageVm = App.Services.GetRequiredService<ManageChartsViewModel>();
         var manageWindow = new ManageChartsWindow { DataContext = manageVm };
         manageVm.BeginFetchCatalog();
         await manageWindow.ShowDialog(this);
@@ -285,7 +285,7 @@ public partial class MainWindow : Window
         await Task.Run(AppDataPaths.DeleteAllData);
 
         // Re-show the setup wizard
-        var wizardVm = new SetupWizardViewModel();
+        var wizardVm = App.Services.GetRequiredService<SetupWizardViewModel>();
         var wizard = new SetupWizardWindow { DataContext = wizardVm };
         await wizard.ShowDialog(this);
 
