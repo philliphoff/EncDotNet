@@ -49,6 +49,25 @@ public partial class MainWindow : Window
 
         // Enable hover highlighting of chart boundaries
         MyMapControl.PointerMoved += OnMapPointerMoved;
+
+        ZoomInButton.Click += OnZoomInClick;
+        ZoomOutButton.Click += OnZoomOutClick;
+    }
+
+    private void OnZoomInClick(object? sender, RoutedEventArgs e)
+    {
+        if (MyMapControl.Map?.Navigator is not { } navigator)
+            return;
+
+        navigator.ZoomTo(navigator.Viewport.Resolution / 2);
+    }
+
+    private void OnZoomOutClick(object? sender, RoutedEventArgs e)
+    {
+        if (MyMapControl.Map?.Navigator is not { } navigator)
+            return;
+
+        navigator.ZoomTo(navigator.Viewport.Resolution * 2);
     }
 
     private void OnMapMagnify(object? sender, PointerDeltaEventArgs e)
