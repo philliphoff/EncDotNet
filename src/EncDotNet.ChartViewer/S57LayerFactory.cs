@@ -251,21 +251,43 @@ public static class S57LayerFactory
     private static VectorStyle CreateLineStyle(int objectCode)
     {
         // Different colors for different object types
-        var color = objectCode switch
+        var (color, width) = objectCode switch
         {
             // DEPCNT - Depth contour
-            43 => new Color(0, 100, 200, 200),
+            43 => (new Color(0, 100, 200, 200), 1),
             // COALNE - Coastline
-            30 => new Color(0, 0, 0, 255),
+            30 => (new Color(0, 0, 0, 255), 1),
             // SLCONS - Shoreline construction
-            122 => new Color(100, 100, 100, 255),
+            122 => (new Color(100, 100, 100, 255), 1),
+            // BRIDGE - Bridge
+            12 => (new Color(80, 80, 80, 255), 2),
+            // CBLOHD - Cable overhead
+            28 => (new Color(160, 0, 160, 200), 1),
+            // CBLSUB - Cable submarine
+            29 => (new Color(160, 0, 160, 150), 1),
+            // PIPSOL - Pipeline submarine/on land
+            93 => (new Color(0, 160, 0, 180), 1),
+            // FERYRT - Ferry route
+            58 => (new Color(160, 0, 160, 180), 1),
+            // NAVLNE - Navigation line
+            85 => (new Color(200, 0, 200, 180), 1),
+            // RECTRC - Recommended track
+            96 => (new Color(200, 0, 200, 200), 1),
+            // TSSBND - TSS boundary
+            144 => (new Color(150, 100, 200, 180), 1),
+            // TSELNE - Traffic separation line
+            143 => (new Color(150, 100, 200, 180), 1),
+            // RIVERS - River
+            114 => (new Color(0, 100, 200, 180), 1),
+            // CANALS - Canal
+            23 => (new Color(0, 100, 200, 180), 1),
             // Default
-            _ => new Color(0, 0, 255, 150)
+            _ => (new Color(0, 0, 255, 150), 1)
         };
 
         return new VectorStyle
         {
-            Line = new Pen(color, 1)
+            Line = new Pen(color, width)
         };
     }
 
@@ -282,6 +304,38 @@ public static class S57LayerFactory
             112 => (new Color(200, 230, 255, 80), new Color(0, 100, 200, 100)),
             // BUAARE - Built-up area
             25 => (new Color(220, 180, 180, 150), new Color(150, 100, 100, 200)),
+            // DRGARE - Dredged area
+            47 => (new Color(180, 220, 255, 80), new Color(0, 100, 200, 120)),
+            // LAKARE - Lake
+            69 => (new Color(170, 210, 255, 120), new Color(0, 80, 180, 150)),
+            // DOCARE - Dock area
+            45 => (new Color(180, 180, 200, 120), new Color(100, 100, 120, 180)),
+            // ACHARE - Anchorage area
+            2 => (new Color(200, 200, 255, 80), new Color(100, 100, 200, 150)),
+            // RESARE - Restricted area
+            120 => (new Color(255, 200, 200, 80), new Color(200, 100, 100, 150)),
+            // DMPGRD - Dumping ground
+            46 => (new Color(200, 200, 150, 80), new Color(150, 150, 80, 150)),
+            // MIPARE - Military practice area
+            83 => (new Color(255, 200, 200, 60), new Color(200, 80, 80, 120)),
+            // CTNARE - Caution area
+            40 => (new Color(255, 230, 180, 80), new Color(200, 150, 50, 150)),
+            // FAIRWY - Fairway
+            57 => (new Color(200, 220, 255, 60), new Color(100, 140, 200, 120)),
+            // TSSLPT - TSS lane part
+            145 => (new Color(220, 200, 255, 60), new Color(150, 100, 200, 120)),
+            // TSSRON - TSS roundabout
+            146 => (new Color(220, 200, 255, 60), new Color(150, 100, 200, 120)),
+            // TSEZNE - TSS zone
+            147 => (new Color(220, 200, 255, 60), new Color(150, 100, 200, 120)),
+            // TSSCRS - TSS crossing
+            148 => (new Color(220, 200, 255, 60), new Color(150, 100, 200, 120)),
+            // CBLARE - Cable area
+            27 => (new Color(220, 180, 255, 60), new Color(160, 100, 200, 120)),
+            // PIPARE - Pipeline area
+            92 => (new Color(180, 255, 180, 60), new Color(80, 160, 80, 120)),
+            // UNSARE - Unsurveyed area
+            154 => (new Color(240, 240, 200, 80), new Color(180, 180, 100, 150)),
             // Default
             _ => (new Color(200, 200, 200, 100), new Color(100, 100, 100, 150))
         };
