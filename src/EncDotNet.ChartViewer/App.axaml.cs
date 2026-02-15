@@ -38,6 +38,7 @@ public partial class App : Application
     private static void ConfigureServices(IServiceCollection services)
     {
         services.AddSingleton<ICatalogSource>(_ => new FileSystemCatalogSource(AppDataPaths.ChartIndexPath));
+        services.AddSingleton<IChartPackageManager, NoaaChartPackageManager>();
         services.AddTransient<MainWindowViewModel>();
         services.AddTransient<SetupWizardViewModel>();
         services.AddTransient<ManageChartsViewModel>();

@@ -1,19 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.IO;
-using System.IO.Compression;
 using System.Linq;
-using System.Net.Http;
-using System.Text.Json;
-using System.Text.Json.Serialization.Metadata;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using EncDotNet.ChartViewer.Catalogs;
-using EncDotNet.ChartViewer.Models;
-using EncDotNet.Enc.Catalogs;
-using EncDotNet.ProductCatalog;
 using ReactiveUI;
 
 namespace EncDotNet.ChartViewer.ViewModels;
@@ -28,8 +20,6 @@ public sealed class SelectableStateViewModel : ViewModelBase
     public string Name { get; }
 
     public int ChartCount { get; }
-
-    public long TotalSize { get; }
 
     public string DisplayText { get; }
 
@@ -48,11 +38,10 @@ public sealed class SelectableStateViewModel : ViewModelBase
 
     public event EventHandler? SelectionChanged;
 
-    public SelectableStateViewModel(string name, int chartCount, long totalSize)
+    public SelectableStateViewModel(string name, int chartCount)
     {
         Name = name;
         ChartCount = chartCount;
-        TotalSize = totalSize;
         DisplayText = $"{name} ({chartCount} charts)";
     }
 }
@@ -79,7 +68,7 @@ public class SetupWizardViewModel : ViewModelBase
     private string _selectionSummary = "No charts selected";
     private int _preparedChartCount;
     private bool _updatingSelectAll;
-    private EncProductCatalog? _catalog;
+    private readonly IChartPackageManager _packageManager;
     private readonly CancellationTokenSource _cts = new();
 
     public SetupWizardStep CurrentStep
@@ -184,8 +173,9 @@ public class SetupWizardViewModel : ViewModelBase
 
     public event Action? RequestClose;
 
-    public SetupWizardViewModel()
+    public SetupWizardViewModel(IChartPackageManager packageManager)
     {
+        _packageManager = packageManager;
         NextCommand = ReactiveCommand.Create(OnNext);
         BackCommand = ReactiveCommand.Create(OnBack);
         CancelCommand = ReactiveCommand.Create(OnCancel);
@@ -246,30 +236,11 @@ public class SetupWizardViewModel : ViewModelBase
 
         try
         {
-            using var client = new EncProductCatalogClient();
-            _catalog = await client.GetNoaaCatalogAsync(_cts.Token);
-
-            var stateGroups = new Dictionary<string, (int Count, long Size)>();
-
-            foreach (var cell in _catalog.Cells)
-            {
-                var cellStates = cell.States?.StateList ?? [];
-                var stateKeys = cellStates.Count > 0 ? cellStates : ["Other"];
-
-                foreach (var state in stateKeys)
-                {
-                    if (!stateGroups.TryGetValue(state, out var group))
-                        group = (0, 0);
-
-                    stateGroups[state] = (group.Count + 1, group.Size + cell.ZipfileSize);
-                }
-            }
-
             States.Clear();
 
-            foreach (var (state, (count, size)) in stateGroups.OrderBy(kv => kv.Key))
+            await foreach (var package in _packageManager.GetPackagesAsync(_cts.Token))
             {
-                var vm = new SelectableStateViewModel(state, count, size);
+                var vm = new SelectableStateViewModel(package.PackageName, package.ChartCount);
                 vm.SelectionChanged += (_, _) => OnStateSelectionChanged();
                 States.Add(vm);
             }
@@ -304,8 +275,7 @@ public class SetupWizardViewModel : ViewModelBase
 
     private void UpdateSelectionSummary()
     {
-        var selectedStates = new HashSet<string>(
-            States.Where(s => s.IsSelected).Select(s => s.Name));
+        var selectedStates = States.Where(s => s.IsSelected).ToList();
 
         if (selectedStates.Count == 0)
         {
@@ -315,52 +285,20 @@ public class SetupWizardViewModel : ViewModelBase
             return;
         }
 
-        var selectedCells = GetSelectedCells(selectedStates);
-        SelectedChartCount = selectedCells.Count;
-        var totalBytes = selectedCells.Sum(c => c.ZipfileSize);
-        SelectionSummary = $"{selectedCells.Count} charts selected ({FormatSize(totalBytes)} total download)";
+        var chartCount = selectedStates.Sum(s => s.ChartCount);
+        SelectedChartCount = chartCount;
+        SelectionSummary = $"{chartCount} charts selected";
         this.RaisePropertyChanged(nameof(CanProceed));
-    }
-
-    private List<Cell> GetSelectedCells(HashSet<string> selectedStates)
-    {
-        if (_catalog is null)
-            return [];
-
-        var cells = new List<Cell>();
-        var seen = new HashSet<string>();
-
-        foreach (var cell in _catalog.Cells)
-        {
-            if (seen.Contains(cell.Name))
-                continue;
-
-            var cellStates = cell.States?.StateList ?? [];
-            bool match = cellStates.Count == 0
-                ? selectedStates.Contains("Other")
-                : cellStates.Any(selectedStates.Contains);
-
-            if (match)
-            {
-                cells.Add(cell);
-                seen.Add(cell.Name);
-            }
-        }
-
-        return cells;
     }
 
     private async Task DownloadAndPrepareAsync()
     {
         try
         {
-            AppDataPaths.EnsureDirectories();
-
-            var selectedStates = new HashSet<string>(
+            var selectedStateIds = new HashSet<string>(
                 States.Where(s => s.IsSelected).Select(s => s.Name));
-            var cells = GetSelectedCells(selectedStates);
 
-            if (cells.Count == 0)
+            if (selectedStateIds.Count == 0)
             {
                 ErrorMessage = "No charts selected.";
                 _errorSource = SetupWizardStep.Downloading;
@@ -368,68 +306,15 @@ public class SetupWizardViewModel : ViewModelBase
                 return;
             }
 
-            using var httpClient = new HttpClient();
-            int total = cells.Count;
-            int completed = 0;
-
-            // Phase 1: Download zip files
-            foreach (var cell in cells)
+            var progress = new Progress<InstallationUpdate>(update =>
             {
-                _cts.Token.ThrowIfCancellationRequested();
+                StatusText = update.Message;
+                Progress = update.ProgressPercentage;
+            });
 
-                var zipUrl = cell.ZipfileLocation;
-                var fileName = Path.GetFileName(new Uri(zipUrl).LocalPath);
-                var outputPath = Path.Combine(AppDataPaths.CatalogDirectory, fileName);
+            await _packageManager.InstallPackagesAsync(selectedStateIds, progress, _cts.Token);
 
-                if (!File.Exists(outputPath))
-                {
-                    StatusText = $"Downloading {cell.Name} ({completed + 1} of {total})...";
-
-                    using var response = await httpClient.GetAsync(zipUrl, HttpCompletionOption.ResponseHeadersRead, _cts.Token);
-                    response.EnsureSuccessStatusCode();
-
-                    using var stream = await response.Content.ReadAsStreamAsync(_cts.Token);
-                    using var fileStream = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 81920, useAsync: true);
-                    await stream.CopyToAsync(fileStream, _cts.Token);
-                }
-
-                completed++;
-                Progress = (double)completed / total * 60;
-            }
-
-            // Phase 2: Extract zip files
-            completed = 0;
-            foreach (var cell in cells)
-            {
-                _cts.Token.ThrowIfCancellationRequested();
-
-                var zipUrl = cell.ZipfileLocation;
-                var fileName = Path.GetFileName(new Uri(zipUrl).LocalPath);
-                var zipPath = Path.Combine(AppDataPaths.CatalogDirectory, fileName);
-                var folderName = Path.GetFileNameWithoutExtension(zipPath);
-                var outputDir = Path.Combine(AppDataPaths.ExpandedDirectory, folderName);
-
-                if (!Directory.Exists(outputDir) && File.Exists(zipPath))
-                {
-                    StatusText = $"Extracting {cell.Name} ({completed + 1} of {total})...";
-                    await Task.Run(() => ZipFile.ExtractToDirectory(zipPath, outputDir), _cts.Token);
-                }
-
-                completed++;
-                Progress = 60 + (double)completed / total * 30;
-            }
-
-            // Phase 3: Build chart index
-            StatusText = "Building chart index...";
-            Progress = 90;
-            var chartCount = await Task.Run(BuildChartIndex, _cts.Token);
-            Progress = 100;
-
-            // Save which states were selected for future "Manage Charts" reference
-            AppDataPaths.SaveDownloadedStates(
-                States.Where(s => s.IsSelected).Select(s => s.Name));
-
-            PreparedChartCount = chartCount;
+            PreparedChartCount = SelectedChartCount;
             CurrentStep = SetupWizardStep.Complete;
         }
         catch (OperationCanceledException)
@@ -442,73 +327,5 @@ public class SetupWizardViewModel : ViewModelBase
             _errorSource = SetupWizardStep.Downloading;
             CurrentStep = SetupWizardStep.Error;
         }
-    }
-
-    private static int BuildChartIndex()
-    {
-        var expandedDir = AppDataPaths.ExpandedDirectory;
-        var entries = new List<ChartIndexEntry>();
-
-        foreach (var subDir in Directory.EnumerateDirectories(expandedDir)
-            .OrderBy(d => d, StringComparer.OrdinalIgnoreCase))
-        {
-            var catalogPath = Path.Combine(subDir, "ENC_ROOT", "CATALOG.031");
-
-            if (!File.Exists(catalogPath))
-                continue;
-
-            try
-            {
-                var catalog = S57CatalogReader.ReadFromFile(catalogPath);
-                var folderName = Path.GetFileName(subDir);
-
-                foreach (var catEntry in catalog.Entries)
-                {
-                    if (!catEntry.FileName.EndsWith(".000", StringComparison.OrdinalIgnoreCase))
-                        continue;
-
-                    var relativePath = Path.Combine(folderName, "ENC_ROOT", catEntry.FileName)
-                        .Replace('\\', '/');
-
-                    var chartName = !string.IsNullOrEmpty(catEntry.LongFileName)
-                        ? catEntry.LongFileName
-                        : Path.GetFileNameWithoutExtension(catEntry.FileName);
-
-                    entries.Add(new ChartIndexEntry
-                    {
-                        Name = chartName,
-                        Path = relativePath,
-                        SouthLatitude = catEntry.SouthernmostLatitude,
-                        WestLongitude = catEntry.WesternmostLongitude,
-                        NorthLatitude = catEntry.NorthernmostLatitude,
-                        EastLongitude = catEntry.EasternmostLongitude,
-                    });
-                }
-            }
-            catch
-            {
-                // Skip catalogs that fail to parse
-            }
-        }
-
-        var options = new JsonSerializerOptions
-        {
-            WriteIndented = true,
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            TypeInfoResolver = new DefaultJsonTypeInfoResolver(),
-        };
-
-        var json = JsonSerializer.Serialize(entries, options);
-        File.WriteAllText(AppDataPaths.ChartIndexPath, json);
-
-        return entries.Count;
-    }
-
-    private static string FormatSize(long bytes)
-    {
-        if (bytes < 1024) return $"{bytes} B";
-        if (bytes < 1024 * 1024) return $"{bytes / 1024.0:F1} KB";
-        if (bytes < 1024L * 1024 * 1024) return $"{bytes / (1024.0 * 1024):F1} MB";
-        return $"{bytes / (1024.0 * 1024 * 1024):F1} GB";
     }
 }
