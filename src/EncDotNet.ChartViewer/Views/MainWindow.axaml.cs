@@ -229,6 +229,15 @@ public partial class MainWindow : Window
             var vp = nav.Viewport;
             AppDataPaths.SaveViewportState(vp.CenterX, vp.CenterY, vp.Resolution);
         }
+
+        if (ViewModel is { } vm)
+        {
+            AppDataPaths.SaveSelectedCharts(
+                vm.SelectedCharts.Select(c => c.Entry.Id));
+
+            AppDataPaths.SaveFeatureVisibility(
+                vm.FeatureCategories.ToDictionary(f => f.Name, f => f.IsVisible));
+        }
     }
 
     private async Task LoadCatalogIntoMapAsync()
@@ -252,6 +261,26 @@ public partial class MainWindow : Window
         foreach (var featureVm in vm.FeatureCategories)
         {
             featureVm.IsVisibleChanged += OnFeatureVisibilityChanged;
+        }
+
+        // Restore saved feature visibility (before selecting charts so layers get correct initial state)
+        var savedVisibility = AppDataPaths.LoadFeatureVisibility();
+        foreach (var featureVm in vm.FeatureCategories)
+        {
+            if (savedVisibility.TryGetValue(featureVm.Name, out var isVisible))
+            {
+                featureVm.IsVisible = isVisible;
+            }
+        }
+
+        // Restore saved chart selections
+        var savedCharts = new HashSet<string>(AppDataPaths.LoadSelectedCharts());
+        foreach (var chartVm in vm.AvailableCharts)
+        {
+            if (!string.IsNullOrEmpty(chartVm.Entry.Id) && savedCharts.Contains(chartVm.Entry.Id))
+            {
+                chartVm.IsSelected = true;
+            }
         }
     }
 

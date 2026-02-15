@@ -79,6 +79,7 @@ foreach (string subDir in Directory.EnumerateDirectories(expandedDir).OrderBy(d 
 
             entries.Add(new ChartEntry
             {
+                Id = Path.GetFileNameWithoutExtension(catEntry.FileName),
                 Name = chartName,
                 Path = relativePath.Replace('\\', '/'),
                 SouthLatitude = catEntry.SouthernmostLatitude,
@@ -118,6 +119,7 @@ Console.WriteLine($"Output           : {outputFile}");
 
 class ChartEntry
 {
+    public string Id { get; init; } = "";
     public string Name { get; init; } = "";
     public string Path { get; init; } = "";
     public double? SouthLatitude { get; init; }

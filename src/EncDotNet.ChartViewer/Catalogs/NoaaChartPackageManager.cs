@@ -236,6 +236,7 @@ internal sealed class NoaaChartPackageManager : IChartPackageManager
 
                     entries.Add(new ChartIndexEntry
                     {
+                        Id = Path.GetFileNameWithoutExtension(catEntry.FileName),
                         Name = chartName,
                         Path = relativePath,
                         SouthLatitude = catEntry.SouthernmostLatitude,

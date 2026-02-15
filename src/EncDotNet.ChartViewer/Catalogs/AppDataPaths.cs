@@ -25,6 +25,10 @@ internal static class AppDataPaths
 
     public static string ViewportStatePath => Path.Combine(Root, "viewport-state.json");
 
+    public static string SelectedChartsPath => Path.Combine(Root, "selected-charts.json");
+
+    public static string FeatureVisibilityPath => Path.Combine(Root, "feature-visibility.json");
+
     public static bool HasChartIndex() => File.Exists(ChartIndexPath);
 
     public static void EnsureDirectories()
@@ -99,5 +103,51 @@ internal static class AppDataPaths
         Directory.CreateDirectory(Root);
         var json = JsonSerializer.Serialize(new[] { centerX, centerY, resolution }, JsonOptions);
         File.WriteAllText(ViewportStatePath, json);
+    }
+
+    public static List<string> LoadSelectedCharts()
+    {
+        if (!File.Exists(SelectedChartsPath))
+            return [];
+
+        try
+        {
+            var json = File.ReadAllText(SelectedChartsPath);
+            return JsonSerializer.Deserialize<List<string>>(json, JsonOptions) ?? [];
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    public static void SaveSelectedCharts(IEnumerable<string> chartNames)
+    {
+        Directory.CreateDirectory(Root);
+        var json = JsonSerializer.Serialize(chartNames, JsonOptions);
+        File.WriteAllText(SelectedChartsPath, json);
+    }
+
+    public static Dictionary<string, bool> LoadFeatureVisibility()
+    {
+        if (!File.Exists(FeatureVisibilityPath))
+            return new();
+
+        try
+        {
+            var json = File.ReadAllText(FeatureVisibilityPath);
+            return JsonSerializer.Deserialize<Dictionary<string, bool>>(json, JsonOptions) ?? new();
+        }
+        catch
+        {
+            return new();
+        }
+    }
+
+    public static void SaveFeatureVisibility(IDictionary<string, bool> visibility)
+    {
+        Directory.CreateDirectory(Root);
+        var json = JsonSerializer.Serialize(visibility, JsonOptions);
+        File.WriteAllText(FeatureVisibilityPath, json);
     }
 }
