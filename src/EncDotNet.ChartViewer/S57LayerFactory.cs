@@ -176,27 +176,70 @@ public static class S57LayerFactory
     private static Geometry? CreateLineStringFromLineFeature(S57Chart chart, S57LineFeature lineFeature)
         => S57LineGeometryBuilder.CreateLineStringFromLineFeature(chart, lineFeature);
 
-    private static Polygon? CreatePolygonFromAreaFeature(S57Chart chart, S57AreaFeature areaFeature)
+    private static Geometry? CreatePolygonFromAreaFeature(S57Chart chart, S57AreaFeature areaFeature)
     {
-        if (!areaFeature.HasFaceReference)
-            return null;
+        // Full topology (level 3): area references faces
+        if (areaFeature.HasFaceReference)
+            return CreatePolygonFromFaces(chart, areaFeature);
 
-        var face = chart.GetFace(areaFeature.FaceReference!.Value.Name);
-        if (face == null || !face.HasExteriorBoundary)
-            return null;
+        // Chain-node topology (level 2): area references edges directly
+        if (areaFeature.HasExteriorEdgeReferences)
+            return CreatePolygonFromEdges(chart, areaFeature);
 
-        // Build exterior ring
-        var exteriorCoords = BuildRingFromEdges(chart, face.ExteriorBoundary);
-        if (exteriorCoords.Count < 4) // Minimum for a valid polygon ring
+        return null;
+    }
+
+    private static Geometry? CreatePolygonFromFaces(S57Chart chart, S57AreaFeature areaFeature)
+    {
+        var polygons = new List<Polygon>();
+
+        foreach (var faceRef in areaFeature.FaceReferences)
+        {
+            var face = chart.GetFace(faceRef.Name);
+            if (face == null || !face.HasExteriorBoundary)
+                continue;
+
+            // Build exterior ring
+            var exteriorCoords = BuildRingFromEdges(chart, face.ExteriorBoundary);
+            if (exteriorCoords.Count < 4) // Minimum for a valid polygon ring
+                continue;
+
+            var exteriorRing = new LinearRing(exteriorCoords.ToArray());
+
+            // Build interior rings (holes) if any
+            var interiorRings = new List<LinearRing>();
+            if (face.HasInteriorBoundaries)
+            {
+                var interiorCoords = BuildRingFromEdges(chart, face.InteriorBoundaries);
+                if (interiorCoords.Count >= 4)
+                {
+                    interiorRings.Add(new LinearRing(interiorCoords.ToArray()));
+                }
+            }
+
+            polygons.Add(new Polygon(exteriorRing, interiorRings.ToArray()));
+        }
+
+        return polygons.Count switch
+        {
+            0 => null,
+            1 => polygons[0],
+            _ => new MultiPolygon(polygons.ToArray())
+        };
+    }
+
+    private static Geometry? CreatePolygonFromEdges(S57Chart chart, S57AreaFeature areaFeature)
+    {
+        var exteriorCoords = BuildRingFromEdges(chart, areaFeature.ExteriorEdgeReferences);
+        if (exteriorCoords.Count < 4)
             return null;
 
         var exteriorRing = new LinearRing(exteriorCoords.ToArray());
 
-        // Build interior rings (holes) if any
         var interiorRings = new List<LinearRing>();
-        if (face.HasInteriorBoundaries)
+        if (!areaFeature.InteriorEdgeReferences.IsDefaultOrEmpty)
         {
-            var interiorCoords = BuildRingFromEdges(chart, face.InteriorBoundaries);
+            var interiorCoords = BuildRingFromEdges(chart, areaFeature.InteriorEdgeReferences);
             if (interiorCoords.Count >= 4)
             {
                 interiorRings.Add(new LinearRing(interiorCoords.ToArray()));
