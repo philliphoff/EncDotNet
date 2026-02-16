@@ -20,6 +20,7 @@ using Mapsui.Styles;
 using Mapsui.Styles.Thematics;
 using Mapsui.Tiling;
 using NetTopologySuite.Geometries;
+using Mapsui.Widgets.ScaleBar;
 
 namespace EncDotNet.ChartViewer.Views;
 
@@ -35,6 +36,15 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+
+        MyMapControl.Map?.Widgets.Add(
+            new ScaleBarWidget(MyMapControl.Map)
+            {
+                HorizontalAlignment = Mapsui.Widgets.HorizontalAlignment.Center,
+                MaxWidth = 200,
+                UnitConverter = NauticalUnitConverter.Instance,
+                VerticalAlignment = Mapsui.Widgets.VerticalAlignment.Top,
+            });
 
         MyMapControl.Map?.Layers.Add(OpenStreetMap.CreateTileLayer());
 
