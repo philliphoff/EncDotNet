@@ -397,7 +397,7 @@ public static class S57DocumentReader
         ruin = reader.GetSubfield<byte>(S57SubfieldNames.RUIN);
 
         // Parse ATTV (vector attributes)
-        var attributes = ParseVectorAttributes(record, ddr);
+        var attributes = ParseAttributes(record, S57FieldTags.ATTV, ddr);
 
         // Parse VRPT (vector pointers)
         var vectorPointers = ParseVectorPointers(record, ddr);
@@ -456,41 +456,7 @@ public static class S57DocumentReader
         return attributes.ToImmutable();
     }
 
-    /// <summary>
-    /// Parses vector attributes from ATTV fields.
-    /// </summary>
-    private static ImmutableArray<S57AttributeValue> ParseVectorAttributes(Iso8211Record record, Iso8211DataDescriptiveRecord? ddr)
-    {
-        var attributes = ImmutableArray.CreateBuilder<S57AttributeValue>();
-        var fieldDef = ddr?.GetFieldDefinition(S57FieldTags.ATTV);
-        
-        foreach (var field in record.GetFieldsByTag(S57FieldTags.ATTV))
-        {
-            if (fieldDef == null || !fieldDef.HasRepeatingGroup)
-            {
-                continue; // No field definition or not a repeating field - skip
-            }
 
-            // Use DDR-based field reader with repeating groups
-            var reader = new Iso8211FieldReader(fieldDef, field.Data);
-            
-            foreach (var group in reader.GetSubfieldGroups())
-            {
-                try
-                {
-                    var attl = group.GetSubfield<ushort>(S57SubfieldNames.ATTL);
-                    var atvl = group.GetSubfield<string>(S57SubfieldNames.ATVL);
-                    attributes.Add(new S57AttributeValue(attl, atvl));
-                }
-                catch
-                {
-                    break;
-                }
-            }
-        }
-
-        return attributes.ToImmutable();
-    }
 
     /// <summary>
     /// Parses spatial pointers from FSPT fields.

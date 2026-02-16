@@ -44,7 +44,7 @@ foreach (var file in files)
 {
     try
     {
-        var document = S57Reader.ReadFromFile(file);
+        var document = S57DocumentReader.ReadFromFile(file);
         var chart = S57Chart.FromDocument(document);
         totalFeatures += document.FeatureRecords.Length;
         totalVectors += document.VectorRecords.Length;
@@ -69,7 +69,7 @@ foreach (var file in files)
         try
         {
             Console.WriteLine("=== ISO 8211 Diagnostic Info ===");
-            var iso8211Doc = Iso8211Reader.ReadFromFile(file);
+            var iso8211Doc = Iso8211DocumentReader.ReadFromFile(file);
             Console.WriteLine($"Total ISO 8211 records: {iso8211Doc.Records.Length}");
             
             if (iso8211Doc.Records.Length > 0)
