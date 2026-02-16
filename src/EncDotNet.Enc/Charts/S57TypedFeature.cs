@@ -11,7 +11,7 @@ public abstract class S57TypedFeature
     public S57RecordName RecordName { get; }
 
     /// <summary>Gets the object code (OBJL) identifying the feature type.</summary>
-    public int ObjectCode { get; }
+    public S57ObjectCode ObjectCode { get; }
 
     /// <summary>Gets the group code (GRUP) for display ordering.</summary>
     public int Group { get; }

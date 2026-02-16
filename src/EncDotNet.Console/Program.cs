@@ -13,7 +13,7 @@ Console.WriteLine($"Loaded. LineFeatures: {chart.LineFeatures.Length}");
 int count = 0;
 foreach (var lineFeature in chart.LineFeatures)
 {
-    if (lineFeature.ObjectCode != 43) continue; // DEPCNT only
+    if (lineFeature.ObjectCode != S57ObjectCode.DEPCNT) continue; // DEPCNT only
     if (count >= 5) break;
     
     Console.WriteLine($"\n=== DEPCNT Feature {lineFeature.RecordName} ===");

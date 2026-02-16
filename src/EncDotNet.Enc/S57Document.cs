@@ -42,7 +42,7 @@ public sealed class S57Document
     /// <summary>
     /// Gets all feature records with the specified object code.
     /// </summary>
-    public IEnumerable<S57FeatureRecord> GetFeaturesByObjectCode(int objectCode)
+    public IEnumerable<S57FeatureRecord> GetFeaturesByObjectCode(S57ObjectCode objectCode)
     {
         return FeatureRecords.Where(r => r.ObjectCode == objectCode);
     }

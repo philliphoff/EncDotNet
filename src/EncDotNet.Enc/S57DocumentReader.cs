@@ -360,7 +360,7 @@ public static class S57DocumentReader
             RecordName = recordName,
             Primitive = (S57GeometricPrimitive)prim,
             Group = grup,
-            ObjectCode = objl,
+            ObjectCode = (S57ObjectCode)objl,
             RecordVersion = rver,
             UpdateInstruction = (S57UpdateInstruction)ruin,
             Attributes = attributes,

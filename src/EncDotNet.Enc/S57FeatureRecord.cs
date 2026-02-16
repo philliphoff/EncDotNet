@@ -17,7 +17,7 @@ public sealed class S57FeatureRecord
     public int Group { get; init; }
 
     /// <summary>Gets the object label/code (OBJL).</summary>
-    public int ObjectCode { get; init; }
+    public S57ObjectCode ObjectCode { get; init; }
 
     /// <summary>Gets the record version (RVER).</summary>
     public int RecordVersion { get; init; }

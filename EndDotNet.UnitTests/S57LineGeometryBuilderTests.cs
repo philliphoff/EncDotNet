@@ -68,7 +68,7 @@ public class S57LineGeometryBuilderTests
         {
             RecordName = FeatureName(id),
             Primitive = S57GeometricPrimitive.Line,
-            ObjectCode = 30, // COALNE
+            ObjectCode = S57ObjectCode.COALNE,
             UpdateInstruction = S57UpdateInstruction.Insert,
             SpatialPointers = ImmutableArray.Create(edgeRefs)
         });

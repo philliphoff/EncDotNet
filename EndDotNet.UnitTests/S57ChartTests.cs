@@ -179,7 +179,7 @@ public class S57ChartTests
     private static S57FeatureRecord CreateFeatureRecord(
         int rcid,
         S57GeometricPrimitive primitive,
-        int objectCode,
+        S57ObjectCode objectCode,
         int group = 2,
         S57AttributeValue[]? attributes = null,
         S57SpatialPointer[]? spatialPointers = null,
@@ -683,7 +683,7 @@ public class S57ChartTests
     {
         // Arrange
         var spatialPtr = CreateSpatialPointer(S57RecordNameCodes.IsolatedNode, 42);
-        var feature = CreateFeatureRecord(1, S57GeometricPrimitive.Point, 75, spatialPointers: new[] { spatialPtr });
+        var feature = CreateFeatureRecord(1, S57GeometricPrimitive.Point, S57ObjectCode.LIGHTS, spatialPointers: new[] { spatialPtr });
         var document = CreateDocument(features: new[] { feature });
 
         // Act
@@ -703,7 +703,7 @@ public class S57ChartTests
     public void PointFeature_WithoutSpatialReference_HasEmptyReferences()
     {
         // Arrange
-        var feature = CreateFeatureRecord(1, S57GeometricPrimitive.Point, 75);
+        var feature = CreateFeatureRecord(1, S57GeometricPrimitive.Point, S57ObjectCode.LIGHTS);
         var document = CreateDocument(features: new[] { feature });
 
         // Act
@@ -725,7 +725,7 @@ public class S57ChartTests
             new S57AttributeValue(117, "1"),
             new S57AttributeValue(116, "GREEN") // Duplicate attribute code
         };
-        var feature = CreateFeatureRecord(1, S57GeometricPrimitive.Point, 75, attributes: attributes);
+        var feature = CreateFeatureRecord(1, S57GeometricPrimitive.Point, S57ObjectCode.LIGHTS, attributes: attributes);
         var document = CreateDocument(features: new[] { feature });
 
         // Act
@@ -755,7 +755,7 @@ public class S57ChartTests
         var feature = CreateFeatureRecord(
             rcid: 99,
             primitive: S57GeometricPrimitive.Point,
-            objectCode: 75,
+            objectCode: S57ObjectCode.LIGHTS,
             group: 2
         );
         var document = CreateDocument(features: new[] { feature });
@@ -767,7 +767,7 @@ public class S57ChartTests
         var pointFeature = chart.PointFeatures[0];
         Assert.Equal(99, pointFeature.RecordName.RecordId);
         Assert.Equal(S57RecordNameCodes.Feature, pointFeature.RecordName.RecordNameCode);
-        Assert.Equal(75, pointFeature.ObjectCode);
+        Assert.Equal(S57ObjectCode.LIGHTS, pointFeature.ObjectCode);
         Assert.Equal(2, pointFeature.Group);
         Assert.Equal(1, pointFeature.RecordVersion);
         Assert.Equal(S57UpdateInstruction.Insert, pointFeature.UpdateInstruction);
@@ -787,7 +787,7 @@ public class S57ChartTests
             CreateSpatialPointer(S57RecordNameCodes.Edge, 2, S57Orientation.Reverse),
             CreateSpatialPointer(S57RecordNameCodes.Edge, 3)
         };
-        var feature = CreateFeatureRecord(1, S57GeometricPrimitive.Line, 30, spatialPointers: spatialPtrs);
+        var feature = CreateFeatureRecord(1, S57GeometricPrimitive.Line, S57ObjectCode.COALNE, spatialPointers: spatialPtrs);
         var document = CreateDocument(features: new[] { feature });
 
         // Act
@@ -806,7 +806,7 @@ public class S57ChartTests
     public void LineFeature_WithoutEdges_HasEmptyReferences()
     {
         // Arrange
-        var feature = CreateFeatureRecord(1, S57GeometricPrimitive.Line, 30);
+        var feature = CreateFeatureRecord(1, S57GeometricPrimitive.Line, S57ObjectCode.COALNE);
         var document = CreateDocument(features: new[] { feature });
 
         // Act
@@ -827,7 +827,7 @@ public class S57ChartTests
     {
         // Arrange
         var spatialPtr = CreateSpatialPointer(S57RecordNameCodes.Face, 5);
-        var feature = CreateFeatureRecord(1, S57GeometricPrimitive.Area, 42, spatialPointers: new[] { spatialPtr });
+        var feature = CreateFeatureRecord(1, S57GeometricPrimitive.Area, S57ObjectCode.DEPARE, spatialPointers: new[] { spatialPtr });
         var document = CreateDocument(features: new[] { feature });
 
         // Act
@@ -846,7 +846,7 @@ public class S57ChartTests
     public void AreaFeature_WithoutFace_HasNullReference()
     {
         // Arrange
-        var feature = CreateFeatureRecord(1, S57GeometricPrimitive.Area, 42);
+        var feature = CreateFeatureRecord(1, S57GeometricPrimitive.Area, S57ObjectCode.DEPARE);
         var document = CreateDocument(features: new[] { feature });
 
         // Act
@@ -867,7 +867,7 @@ public class S57ChartTests
     {
         // Arrange
         var attributes = new[] { new S57AttributeValue(1, "MetaValue") };
-        var feature = CreateFeatureRecord(1, S57GeometricPrimitive.None, 302, attributes: attributes);
+        var feature = CreateFeatureRecord(1, S57GeometricPrimitive.None, S57ObjectCode.M_COVR, attributes: attributes);
         var document = CreateDocument(features: new[] { feature });
 
         // Act
@@ -876,7 +876,7 @@ public class S57ChartTests
         // Assert
         Assert.Single(chart.MetaFeatures);
         var metaFeature = chart.MetaFeatures[0];
-        Assert.Equal(302, metaFeature.ObjectCode);
+        Assert.Equal((S57ObjectCode)302, metaFeature.ObjectCode);
         Assert.Equal("MetaValue", metaFeature.GetAttributeValue(1));
     }
 
@@ -893,7 +893,7 @@ public class S57ChartTests
                 Comment = "Test"
             }
         };
-        var feature = CreateFeatureRecord(1, S57GeometricPrimitive.None, 302, featurePointers: relatedFeatures);
+        var feature = CreateFeatureRecord(1, S57GeometricPrimitive.None, S57ObjectCode.M_COVR, featurePointers: relatedFeatures);
         var document = CreateDocument(features: new[] { feature });
 
         // Act
@@ -912,7 +912,7 @@ public class S57ChartTests
     {
         // Arrange
         var nationalAttrs = new[] { new S57AttributeValue(1, "国家属性") };
-        var feature = CreateFeatureRecord(1, S57GeometricPrimitive.None, 302, nationalAttributes: nationalAttrs);
+        var feature = CreateFeatureRecord(1, S57GeometricPrimitive.None, S57ObjectCode.M_COVR, nationalAttributes: nationalAttrs);
         var document = CreateDocument(features: new[] { feature });
 
         // Act
@@ -933,13 +933,13 @@ public class S57ChartTests
     public void FromDocument_MixedFeatures_CategorizesCorrectly()
     {
         // Arrange
-        var pointFeature1 = CreateFeatureRecord(1, S57GeometricPrimitive.Point, 75);
-        var pointFeature2 = CreateFeatureRecord(2, S57GeometricPrimitive.Point, 76);
-        var lineFeature = CreateFeatureRecord(3, S57GeometricPrimitive.Line, 30);
-        var areaFeature1 = CreateFeatureRecord(4, S57GeometricPrimitive.Area, 42);
-        var areaFeature2 = CreateFeatureRecord(5, S57GeometricPrimitive.Area, 43);
-        var areaFeature3 = CreateFeatureRecord(6, S57GeometricPrimitive.Area, 42);
-        var metaFeature = CreateFeatureRecord(7, S57GeometricPrimitive.None, 302);
+        var pointFeature1 = CreateFeatureRecord(1, S57GeometricPrimitive.Point, S57ObjectCode.LIGHTS);
+        var pointFeature2 = CreateFeatureRecord(2, S57GeometricPrimitive.Point, (S57ObjectCode)76);
+        var lineFeature = CreateFeatureRecord(3, S57GeometricPrimitive.Line, S57ObjectCode.COALNE);
+        var areaFeature1 = CreateFeatureRecord(4, S57GeometricPrimitive.Area, S57ObjectCode.DEPARE);
+        var areaFeature2 = CreateFeatureRecord(5, S57GeometricPrimitive.Area, S57ObjectCode.DEPCNT);
+        var areaFeature3 = CreateFeatureRecord(6, S57GeometricPrimitive.Area, S57ObjectCode.DEPARE);
+        var metaFeature = CreateFeatureRecord(7, S57GeometricPrimitive.None, S57ObjectCode.M_COVR);
 
         var document = CreateDocument(features: new[]
         {
@@ -996,31 +996,31 @@ public class S57ChartTests
     public void GetFeaturesByObjectCode_ReturnsMatchingFeatures()
     {
         // Arrange
-        var feature1 = CreateFeatureRecord(1, S57GeometricPrimitive.Point, 75);
-        var feature2 = CreateFeatureRecord(2, S57GeometricPrimitive.Point, 76);
-        var feature3 = CreateFeatureRecord(3, S57GeometricPrimitive.Point, 75);
+        var feature1 = CreateFeatureRecord(1, S57GeometricPrimitive.Point, S57ObjectCode.LIGHTS);
+        var feature2 = CreateFeatureRecord(2, S57GeometricPrimitive.Point, (S57ObjectCode)76);
+        var feature3 = CreateFeatureRecord(3, S57GeometricPrimitive.Point, S57ObjectCode.LIGHTS);
         var document = CreateDocument(features: new[] { feature1, feature2, feature3 });
 
         // Act
         var chart = S57Chart.FromDocument(document);
-        var matching = chart.GetFeaturesByObjectCode(75).ToList();
+        var matching = chart.GetFeaturesByObjectCode(S57ObjectCode.LIGHTS).ToList();
 
         // Assert
         Assert.Equal(2, matching.Count);
-        Assert.All(matching, f => Assert.Equal(75, f.ObjectCode));
+        Assert.All(matching, f => Assert.Equal(S57ObjectCode.LIGHTS, f.ObjectCode));
     }
 
     [Fact]
     public void GetPointFeaturesByObjectCode_ReturnsOnlyPointFeatures()
     {
         // Arrange
-        var pointFeature = CreateFeatureRecord(1, S57GeometricPrimitive.Point, 75);
-        var areaFeature = CreateFeatureRecord(2, S57GeometricPrimitive.Area, 75);
+        var pointFeature = CreateFeatureRecord(1, S57GeometricPrimitive.Point, S57ObjectCode.LIGHTS);
+        var areaFeature = CreateFeatureRecord(2, S57GeometricPrimitive.Area, S57ObjectCode.LIGHTS);
         var document = CreateDocument(features: new[] { pointFeature, areaFeature });
 
         // Act
         var chart = S57Chart.FromDocument(document);
-        var matching = chart.GetPointFeaturesByObjectCode(75).ToList();
+        var matching = chart.GetPointFeaturesByObjectCode(S57ObjectCode.LIGHTS).ToList();
 
         // Assert
         Assert.Single(matching);
@@ -1031,13 +1031,13 @@ public class S57ChartTests
     public void GetLineFeaturesByObjectCode_ReturnsOnlyLineFeatures()
     {
         // Arrange
-        var lineFeature = CreateFeatureRecord(1, S57GeometricPrimitive.Line, 30);
-        var areaFeature = CreateFeatureRecord(2, S57GeometricPrimitive.Area, 30);
+        var lineFeature = CreateFeatureRecord(1, S57GeometricPrimitive.Line, S57ObjectCode.COALNE);
+        var areaFeature = CreateFeatureRecord(2, S57GeometricPrimitive.Area, S57ObjectCode.COALNE);
         var document = CreateDocument(features: new[] { lineFeature, areaFeature });
 
         // Act
         var chart = S57Chart.FromDocument(document);
-        var matching = chart.GetLineFeaturesByObjectCode(30).ToList();
+        var matching = chart.GetLineFeaturesByObjectCode(S57ObjectCode.COALNE).ToList();
 
         // Assert
         Assert.Single(matching);
@@ -1047,13 +1047,13 @@ public class S57ChartTests
     public void GetAreaFeaturesByObjectCode_ReturnsOnlyAreaFeatures()
     {
         // Arrange
-        var lineFeature = CreateFeatureRecord(1, S57GeometricPrimitive.Line, 42);
-        var areaFeature = CreateFeatureRecord(2, S57GeometricPrimitive.Area, 42);
+        var lineFeature = CreateFeatureRecord(1, S57GeometricPrimitive.Line, S57ObjectCode.DEPARE);
+        var areaFeature = CreateFeatureRecord(2, S57GeometricPrimitive.Area, S57ObjectCode.DEPARE);
         var document = CreateDocument(features: new[] { lineFeature, areaFeature });
 
         // Act
         var chart = S57Chart.FromDocument(document);
-        var matching = chart.GetAreaFeaturesByObjectCode(42).ToList();
+        var matching = chart.GetAreaFeaturesByObjectCode(S57ObjectCode.DEPARE).ToList();
 
         // Assert
         Assert.Single(matching);
@@ -1063,7 +1063,7 @@ public class S57ChartTests
     public void GetFeature_ExistingRecord_ReturnsFeature()
     {
         // Arrange
-        var feature = CreateFeatureRecord(42, S57GeometricPrimitive.Point, 75);
+        var feature = CreateFeatureRecord(42, S57GeometricPrimitive.Point, S57ObjectCode.LIGHTS);
         var document = CreateDocument(features: new[] { feature });
 
         // Act
@@ -1079,7 +1079,7 @@ public class S57ChartTests
     public void GetFeature_NonExistingRecord_ReturnsNull()
     {
         // Arrange
-        var feature = CreateFeatureRecord(1, S57GeometricPrimitive.Point, 75);
+        var feature = CreateFeatureRecord(1, S57GeometricPrimitive.Point, S57ObjectCode.LIGHTS);
         var document = CreateDocument(features: new[] { feature });
 
         // Act
@@ -1312,7 +1312,7 @@ public class S57ChartTests
     public void TypedFeatureCreate_Point_ReturnsCorrectType()
     {
         // Arrange
-        var featureRecord = CreateFeatureRecord(1, S57GeometricPrimitive.Point, 75);
+        var featureRecord = CreateFeatureRecord(1, S57GeometricPrimitive.Point, S57ObjectCode.LIGHTS);
 
         // Act
         var result = S57TypedFeature.Create(featureRecord);
@@ -1325,7 +1325,7 @@ public class S57ChartTests
     public void TypedFeatureCreate_Line_ReturnsCorrectType()
     {
         // Arrange
-        var featureRecord = CreateFeatureRecord(1, S57GeometricPrimitive.Line, 30);
+        var featureRecord = CreateFeatureRecord(1, S57GeometricPrimitive.Line, S57ObjectCode.COALNE);
 
         // Act
         var result = S57TypedFeature.Create(featureRecord);
@@ -1338,7 +1338,7 @@ public class S57ChartTests
     public void TypedFeatureCreate_Area_ReturnsCorrectType()
     {
         // Arrange
-        var featureRecord = CreateFeatureRecord(1, S57GeometricPrimitive.Area, 42);
+        var featureRecord = CreateFeatureRecord(1, S57GeometricPrimitive.Area, S57ObjectCode.DEPARE);
 
         // Act
         var result = S57TypedFeature.Create(featureRecord);
@@ -1351,7 +1351,7 @@ public class S57ChartTests
     public void TypedFeatureCreate_None_ReturnsMetaFeature()
     {
         // Arrange
-        var featureRecord = CreateFeatureRecord(1, S57GeometricPrimitive.None, 302);
+        var featureRecord = CreateFeatureRecord(1, S57GeometricPrimitive.None, S57ObjectCode.M_COVR);
 
         // Act
         var result = S57TypedFeature.Create(featureRecord);
@@ -1449,11 +1449,11 @@ public class S57ChartTests
 
         // Create features
         var pointOnNode = CreateFeatureRecord(
-            1, S57GeometricPrimitive.Point, 75,
+            1, S57GeometricPrimitive.Point, S57ObjectCode.LIGHTS,
             spatialPointers: new[] { CreateSpatialPointer(S57RecordNameCodes.ConnectedNode, 1) });
 
         var lineFeature = CreateFeatureRecord(
-            2, S57GeometricPrimitive.Line, 30,
+            2, S57GeometricPrimitive.Line, S57ObjectCode.COALNE,
             spatialPointers: new[]
             {
                 CreateSpatialPointer(S57RecordNameCodes.Edge, 1),
@@ -1461,7 +1461,7 @@ public class S57ChartTests
             });
 
         var areaFeature = CreateFeatureRecord(
-            3, S57GeometricPrimitive.Area, 42,
+            3, S57GeometricPrimitive.Area, S57ObjectCode.DEPARE,
             spatialPointers: new[] { CreateSpatialPointer(S57RecordNameCodes.Face, 1) });
 
         var document = CreateDocument(

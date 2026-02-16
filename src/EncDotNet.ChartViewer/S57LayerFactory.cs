@@ -83,7 +83,7 @@ public static class S57LayerFactory
     /// <returns>A MemoryLayer containing the matching features.</returns>
     public static MemoryLayer CreateLayerForObjectCodes(
         S57Chart chart,
-        ImmutableArray<int> objectCodes,
+        ImmutableArray<S57ObjectCode> objectCodes,
         string layerName)
     {
         var codeSet = objectCodes.ToHashSet();
@@ -281,7 +281,7 @@ public static class S57LayerFactory
     private static List<Coordinate> GetEdgeCoordinates(S57Chart chart, S57Edge edge, bool reverse, bool excludeEndNode = false)
         => S57LineGeometryBuilder.GetEdgeCoordinates(chart, edge, reverse, excludeEndNode);
 
-    private static VectorStyle CreatePointStyle(int objectCode)
+    private static VectorStyle CreatePointStyle(S57ObjectCode objectCode)
     {
         // Basic point styling - can be expanded based on object codes
         return new VectorStyle
@@ -291,40 +291,25 @@ public static class S57LayerFactory
         };
     }
 
-    private static VectorStyle CreateLineStyle(int objectCode)
+    private static VectorStyle CreateLineStyle(S57ObjectCode objectCode)
     {
         // Different colors for different object types
         var (color, width) = objectCode switch
         {
-            // DEPCNT - Depth contour
-            43 => (new Color(0, 100, 200, 200), 1),
-            // COALNE - Coastline
-            30 => (new Color(0, 0, 0, 255), 1),
-            // SLCONS - Shoreline construction
-            122 => (new Color(100, 100, 100, 255), 1),
-            // BRIDGE - Bridge
-            12 => (new Color(80, 80, 80, 255), 2),
-            // CBLOHD - Cable overhead
-            28 => (new Color(160, 0, 160, 200), 1),
-            // CBLSUB - Cable submarine
-            29 => (new Color(160, 0, 160, 150), 1),
-            // PIPSOL - Pipeline submarine/on land
-            93 => (new Color(0, 160, 0, 180), 1),
-            // FERYRT - Ferry route
-            58 => (new Color(160, 0, 160, 180), 1),
-            // NAVLNE - Navigation line
-            85 => (new Color(200, 0, 200, 180), 1),
-            // RECTRC - Recommended track
-            96 => (new Color(200, 0, 200, 200), 1),
-            // TSSBND - TSS boundary
-            144 => (new Color(150, 100, 200, 180), 1),
-            // TSELNE - Traffic separation line
-            143 => (new Color(150, 100, 200, 180), 1),
-            // RIVERS - River
-            114 => (new Color(0, 100, 200, 180), 1),
-            // CANALS - Canal
-            23 => (new Color(0, 100, 200, 180), 1),
-            // Default
+            S57ObjectCode.DEPCNT => (new Color(0, 100, 200, 200), 1),
+            S57ObjectCode.COALNE => (new Color(0, 0, 0, 255), 1),
+            S57ObjectCode.SLCONS => (new Color(100, 100, 100, 255), 1),
+            S57ObjectCode.BRIDGE => (new Color(80, 80, 80, 255), 2),
+            S57ObjectCode.CBLOHD => (new Color(160, 0, 160, 200), 1),
+            S57ObjectCode.CBLSUB => (new Color(160, 0, 160, 150), 1),
+            S57ObjectCode.PIPSOL => (new Color(0, 160, 0, 180), 1),
+            S57ObjectCode.FERYRT => (new Color(160, 0, 160, 180), 1),
+            S57ObjectCode.NAVLNE => (new Color(200, 0, 200, 180), 1),
+            S57ObjectCode.RECTRC => (new Color(200, 0, 200, 200), 1),
+            S57ObjectCode.TSSBND => (new Color(150, 100, 200, 180), 1),
+            S57ObjectCode.TSELNE => (new Color(150, 100, 200, 180), 1),
+            S57ObjectCode.RIVERS => (new Color(0, 100, 200, 180), 1),
+            S57ObjectCode.CANALS => (new Color(0, 100, 200, 180), 1),
             _ => (new Color(0, 0, 255, 150), 1)
         };
 
@@ -334,52 +319,31 @@ public static class S57LayerFactory
         };
     }
 
-    private static VectorStyle CreateAreaStyle(int objectCode)
+    private static VectorStyle CreateAreaStyle(S57ObjectCode objectCode)
     {
         // Different colors for different object types
         var (fillColor, outlineColor) = objectCode switch
         {
-            // LNDARE - Land area
-            71 => (new Color(200, 180, 140, 150), new Color(100, 80, 40, 200)),
-            // DEPARE - Depth area
-            42 => (new Color(180, 220, 255, 100), new Color(0, 100, 200, 150)),
-            // SEAARE - Sea area
-            112 => (new Color(200, 230, 255, 80), new Color(0, 100, 200, 100)),
-            // BUAARE - Built-up area
-            25 => (new Color(220, 180, 180, 150), new Color(150, 100, 100, 200)),
-            // DRGARE - Dredged area
-            47 => (new Color(180, 220, 255, 80), new Color(0, 100, 200, 120)),
-            // LAKARE - Lake
-            69 => (new Color(170, 210, 255, 120), new Color(0, 80, 180, 150)),
-            // DOCARE - Dock area
-            45 => (new Color(180, 180, 200, 120), new Color(100, 100, 120, 180)),
-            // ACHARE - Anchorage area
-            2 => (new Color(200, 200, 255, 80), new Color(100, 100, 200, 150)),
-            // RESARE - Restricted area
-            120 => (new Color(255, 200, 200, 80), new Color(200, 100, 100, 150)),
-            // DMPGRD - Dumping ground
-            46 => (new Color(200, 200, 150, 80), new Color(150, 150, 80, 150)),
-            // MIPARE - Military practice area
-            83 => (new Color(255, 200, 200, 60), new Color(200, 80, 80, 120)),
-            // CTNARE - Caution area
-            40 => (new Color(255, 230, 180, 80), new Color(200, 150, 50, 150)),
-            // FAIRWY - Fairway
-            57 => (new Color(200, 220, 255, 60), new Color(100, 140, 200, 120)),
-            // TSSLPT - TSS lane part
-            145 => (new Color(220, 200, 255, 60), new Color(150, 100, 200, 120)),
-            // TSSRON - TSS roundabout
-            146 => (new Color(220, 200, 255, 60), new Color(150, 100, 200, 120)),
-            // TSEZNE - TSS zone
-            147 => (new Color(220, 200, 255, 60), new Color(150, 100, 200, 120)),
-            // TSSCRS - TSS crossing
-            148 => (new Color(220, 200, 255, 60), new Color(150, 100, 200, 120)),
-            // CBLARE - Cable area
-            27 => (new Color(220, 180, 255, 60), new Color(160, 100, 200, 120)),
-            // PIPARE - Pipeline area
-            92 => (new Color(180, 255, 180, 60), new Color(80, 160, 80, 120)),
-            // UNSARE - Unsurveyed area
-            154 => (new Color(240, 240, 200, 80), new Color(180, 180, 100, 150)),
-            // Default
+            S57ObjectCode.LNDARE => (new Color(200, 180, 140, 150), new Color(100, 80, 40, 200)),
+            S57ObjectCode.DEPARE => (new Color(180, 220, 255, 100), new Color(0, 100, 200, 150)),
+            S57ObjectCode.SEAARE => (new Color(200, 230, 255, 80), new Color(0, 100, 200, 100)),
+            S57ObjectCode.BUAARE => (new Color(220, 180, 180, 150), new Color(150, 100, 100, 200)),
+            S57ObjectCode.DRGARE => (new Color(180, 220, 255, 80), new Color(0, 100, 200, 120)),
+            S57ObjectCode.LAKARE => (new Color(170, 210, 255, 120), new Color(0, 80, 180, 150)),
+            S57ObjectCode.DOCARE => (new Color(180, 180, 200, 120), new Color(100, 100, 120, 180)),
+            S57ObjectCode.ACHARE => (new Color(200, 200, 255, 80), new Color(100, 100, 200, 150)),
+            S57ObjectCode.RESARE => (new Color(255, 200, 200, 80), new Color(200, 100, 100, 150)),
+            S57ObjectCode.DMPGRD => (new Color(200, 200, 150, 80), new Color(150, 150, 80, 150)),
+            S57ObjectCode.MIPARE => (new Color(255, 200, 200, 60), new Color(200, 80, 80, 120)),
+            S57ObjectCode.CTNARE => (new Color(255, 230, 180, 80), new Color(200, 150, 50, 150)),
+            S57ObjectCode.FAIRWY => (new Color(200, 220, 255, 60), new Color(100, 140, 200, 120)),
+            S57ObjectCode.TSSLPT => (new Color(220, 200, 255, 60), new Color(150, 100, 200, 120)),
+            S57ObjectCode.TSSRON => (new Color(220, 200, 255, 60), new Color(150, 100, 200, 120)),
+            S57ObjectCode.TSEZNE => (new Color(220, 200, 255, 60), new Color(150, 100, 200, 120)),
+            S57ObjectCode.TSSCRS => (new Color(220, 200, 255, 60), new Color(150, 100, 200, 120)),
+            S57ObjectCode.CBLARE => (new Color(220, 180, 255, 60), new Color(160, 100, 200, 120)),
+            S57ObjectCode.PIPARE => (new Color(180, 255, 180, 60), new Color(80, 160, 80, 120)),
+            S57ObjectCode.UNSARE => (new Color(240, 240, 200, 80), new Color(180, 180, 100, 150)),
             _ => (new Color(200, 200, 200, 100), new Color(100, 100, 100, 150))
         };
 

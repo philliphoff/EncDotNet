@@ -659,7 +659,7 @@ public class S57DocumentReaderTests
         Assert.Equal(42, feature.RecordName.RecordId);
         Assert.Equal(S57GeometricPrimitive.Point, feature.Primitive);
         Assert.Equal(2, feature.Group);
-        Assert.Equal(75, feature.ObjectCode);
+        Assert.Equal(S57ObjectCode.LIGHTS, feature.ObjectCode);
         Assert.Equal(1, feature.RecordVersion);
         Assert.Equal(S57UpdateInstruction.Insert, feature.UpdateInstruction);
     }
@@ -838,7 +838,7 @@ public class S57DocumentReaderTests
         // Assert
         Assert.NotNull(result);
         Assert.Equal(2, result.RecordName.RecordId);
-        Assert.Equal(159, result.ObjectCode);
+        Assert.Equal(S57ObjectCode.WRECKS, result.ObjectCode);
     }
 
     [Fact]
@@ -887,11 +887,11 @@ public class S57DocumentReaderTests
         var document = S57DocumentReader.Read(data);
         
         // Act
-        var results = document.GetFeaturesByObjectCode(75).ToArray();
+        var results = document.GetFeaturesByObjectCode(S57ObjectCode.LIGHTS).ToArray();
         
         // Assert
         Assert.Equal(2, results.Length);
-        Assert.All(results, r => Assert.Equal(75, r.ObjectCode));
+        Assert.All(results, r => Assert.Equal(S57ObjectCode.LIGHTS, r.ObjectCode));
     }
 
     [Fact]

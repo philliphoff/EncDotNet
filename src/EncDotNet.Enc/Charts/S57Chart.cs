@@ -302,7 +302,7 @@ public sealed class S57Chart
     /// </summary>
     /// <param name="objectCode">The object code to filter by.</param>
     /// <returns>All features matching the object code.</returns>
-    public IEnumerable<S57TypedFeature> GetFeaturesByObjectCode(int objectCode)
+    public IEnumerable<S57TypedFeature> GetFeaturesByObjectCode(S57ObjectCode objectCode)
     {
         return AllFeatures.Values.Where(f => f.ObjectCode == objectCode);
     }
@@ -312,7 +312,7 @@ public sealed class S57Chart
     /// </summary>
     /// <param name="objectCode">The object code to filter by.</param>
     /// <returns>All point features matching the object code.</returns>
-    public IEnumerable<S57PointFeature> GetPointFeaturesByObjectCode(int objectCode)
+    public IEnumerable<S57PointFeature> GetPointFeaturesByObjectCode(S57ObjectCode objectCode)
     {
         return PointFeatures.Where(f => f.ObjectCode == objectCode);
     }
@@ -322,7 +322,7 @@ public sealed class S57Chart
     /// </summary>
     /// <param name="objectCode">The object code to filter by.</param>
     /// <returns>All line features matching the object code.</returns>
-    public IEnumerable<S57LineFeature> GetLineFeaturesByObjectCode(int objectCode)
+    public IEnumerable<S57LineFeature> GetLineFeaturesByObjectCode(S57ObjectCode objectCode)
     {
         return LineFeatures.Where(f => f.ObjectCode == objectCode);
     }
@@ -332,7 +332,7 @@ public sealed class S57Chart
     /// </summary>
     /// <param name="objectCode">The object code to filter by.</param>
     /// <returns>All area features matching the object code.</returns>
-    public IEnumerable<S57AreaFeature> GetAreaFeaturesByObjectCode(int objectCode)
+    public IEnumerable<S57AreaFeature> GetAreaFeaturesByObjectCode(S57ObjectCode objectCode)
     {
         return AreaFeatures.Where(f => f.ObjectCode == objectCode);
     }
