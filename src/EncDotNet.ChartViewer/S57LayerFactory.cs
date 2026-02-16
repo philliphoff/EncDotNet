@@ -56,6 +56,12 @@ public static class S57LayerFactory
         // Add point features
         foreach (var pointFeature in chart.PointFeatures)
         {
+            if (pointFeature.ObjectCode == S57ObjectCode.SOUNDG)
+            {
+                features.AddRange(CreateSoundingFeatures(chart, pointFeature));
+                continue;
+            }
+
             var point = CreatePointFromPointFeature(chart, pointFeature);
             if (point != null)
             {
@@ -127,6 +133,12 @@ public static class S57LayerFactory
             if (!codeSet.Contains(pointFeature.ObjectCode))
                 continue;
 
+            if (pointFeature.ObjectCode == S57ObjectCode.SOUNDG)
+            {
+                features.AddRange(CreateSoundingFeatures(chart, pointFeature));
+                continue;
+            }
+
             var point = CreatePointFromPointFeature(chart, pointFeature);
             if (point != null)
             {
@@ -143,6 +155,37 @@ public static class S57LayerFactory
             Features = features,
             Style = null // Use per-feature styles
         };
+    }
+
+    private static IEnumerable<IFeature> CreateSoundingFeatures(S57Chart chart, S57PointFeature pointFeature)
+    {
+        if (!pointFeature.HasSpatialReferences)
+            yield break;
+
+        var spatialRef = pointFeature.PrimarySpatialReference!.Value;
+        var isolatedNode = chart.GetIsolatedNode(spatialRef.Name);
+        if (isolatedNode?.HasSoundings != true)
+            yield break;
+
+        foreach (var sounding in isolatedNode.Soundings)
+        {
+            var (lon, lat, depth) = chart.ToDecimalValues(sounding);
+            var (x, y) = SphericalMercator.FromLonLat(lon, lat);
+            var point = new Point(x, y);
+
+            var feature = new GeometryFeature(point);
+            feature["ObjectCode"] = S57ObjectCode.SOUNDG;
+            feature.Styles.Add(new LabelStyle
+            {
+                BackColor = null,
+                Text = depth.ToString("0.#"),
+                ForeColor = new Color(0, 0, 120),
+                Font = new Font { Size = 10 },
+                HorizontalAlignment = LabelStyle.HorizontalAlignmentEnum.Center,
+                VerticalAlignment = LabelStyle.VerticalAlignmentEnum.Center
+            });
+            yield return feature;
+        }
     }
 
     private static Point? CreatePointFromPointFeature(S57Chart chart, S57PointFeature pointFeature)
