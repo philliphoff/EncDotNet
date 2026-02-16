@@ -59,7 +59,7 @@ public partial class MainWindow : Window
         if (MyMapControl.Map?.Navigator is not { } navigator)
             return;
 
-        navigator.ZoomTo(navigator.Viewport.Resolution / 2);
+        navigator.ZoomTo(navigator.Viewport.Resolution / 2, 250);
     }
 
     private void OnZoomOutClick(object? sender, RoutedEventArgs e)
@@ -67,7 +67,7 @@ public partial class MainWindow : Window
         if (MyMapControl.Map?.Navigator is not { } navigator)
             return;
 
-        navigator.ZoomTo(navigator.Viewport.Resolution * 2);
+        navigator.ZoomTo(navigator.Viewport.Resolution * 2, 250);
     }
 
     private void OnMapMagnify(object? sender, PointerDeltaEventArgs e)
@@ -106,7 +106,7 @@ public partial class MainWindow : Window
         var newResolution = resolution / 2;
         var position = e.GetPosition(MyMapControl);
         var center = new ScreenPosition(position.X, position.Y);
-        navigator.ZoomTo(newResolution, center);
+        navigator.ZoomTo(newResolution, center, 250);
         e.Handled = true;
         UpdatePopupPosition();
     }
