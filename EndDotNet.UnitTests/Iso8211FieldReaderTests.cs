@@ -1044,5 +1044,69 @@ public class Iso8211FieldReaderTests
         Assert.Equal(3, group.Count);
     }
 
+    [Fact]
+    public void GetSubfieldGroups_Ucs2NatfField_ParsesCorrectly()
+    {
+        // Arrange - simulates a NATF field with lexical level 2 (UCS-2/UTF-16LE)
+        // ATTL(b12) + ATVL(A) repeating, with UCS-2 encoded string and 2-byte terminators
+        var fieldDef = CreateFieldDefinition("NATF",
+            ("ATTL", Iso8211SubfieldFormatType.UnsignedInteger, 2, true),
+            ("ATVL", Iso8211SubfieldFormatType.CharacterData, 0, true));
+
+        // Real data from US5KFMCE chart: ATTL=0x012C (300), ATVL="SAM" in UTF-16LE
+        // 2C 01  53 00 41 00 4D 00  1F 00  1E
+        var data = new byte[]
+        {
+            0x2C, 0x01,                         // ATTL = 300
+            0x53, 0x00, 0x41, 0x00, 0x4D, 0x00, // "SAM" in UTF-16LE
+            0x1F, 0x00,                         // UCS-2 unit terminator
+            0x1E                                // field terminator
+        };
+
+        var reader = new Iso8211FieldReader(fieldDef, data, lexicalLevel: 2);
+
+        // Act
+        var groups = reader.GetSubfieldGroups().ToArray();
+
+        // Assert
+        Assert.Single(groups);
+        Assert.Equal(300, groups[0].GetSubfield<ushort>("ATTL"));
+        Assert.Equal("SAM", groups[0].GetSubfield<string>("ATVL"));
+    }
+
+    [Fact]
+    public void GetSubfieldGroups_Ucs2NatfFieldMultipleGroups_ParsesCorrectly()
+    {
+        // Arrange - two NATF attribute groups in UCS-2
+        var fieldDef = CreateFieldDefinition("NATF",
+            ("ATTL", Iso8211SubfieldFormatType.UnsignedInteger, 2, true),
+            ("ATVL", Iso8211SubfieldFormatType.CharacterData, 0, true));
+
+        var data = new byte[]
+        {
+            0x2C, 0x01,                                     // ATTL[0] = 300
+            0x53, 0x00, 0x41, 0x00, 0x4D, 0x00,             // "SAM" in UTF-16LE
+            0x1F, 0x00,                                     // UCS-2 unit terminator
+            0x64, 0x00,                                     // ATTL[1] = 100
+            0x42, 0x00, 0x4F, 0x00, 0x42, 0x00,             // "BOB" in UTF-16LE
+            0x1F, 0x00,                                     // UCS-2 unit terminator
+            0x1E                                            // field terminator
+        };
+
+        var reader = new Iso8211FieldReader(fieldDef, data, lexicalLevel: 2);
+
+        // Act
+        var groups = reader.GetSubfieldGroups().ToArray();
+
+        // Assert
+        Assert.Equal(2, groups.Length);
+
+        Assert.Equal(300, groups[0].GetSubfield<ushort>("ATTL"));
+        Assert.Equal("SAM", groups[0].GetSubfield<string>("ATVL"));
+
+        Assert.Equal(100, groups[1].GetSubfield<ushort>("ATTL"));
+        Assert.Equal("BOB", groups[1].GetSubfield<string>("ATVL"));
+    }
+
     #endregion
 }

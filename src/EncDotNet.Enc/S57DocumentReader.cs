@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Collections.Immutable;
 using EncDotNet.Iso8211;
+using Microsoft.Extensions.Logging;
 
 namespace EncDotNet.Enc;
 
@@ -25,74 +26,80 @@ public static class S57DocumentReader
     /// Reads an S-57 document from a byte array.
     /// </summary>
     /// <param name="data">The S-57 data to read.</param>
+    /// <param name="logger">An optional logger for reporting parsing warnings.</param>
     /// <returns>The parsed S-57 document.</returns>
-    public static S57Document Read(byte[] data)
+    public static S57Document Read(byte[] data, ILogger? logger = null)
     {
         var iso8211Document = Iso8211DocumentReader.Read(data);
-        return ParseDocument(iso8211Document);
+        return ParseDocument(iso8211Document, logger);
     }
 
     /// <summary>
     /// Reads an S-57 document from a span of bytes.
     /// </summary>
     /// <param name="data">The S-57 data to read.</param>
+    /// <param name="logger">An optional logger for reporting parsing warnings.</param>
     /// <returns>The parsed S-57 document.</returns>
-    public static S57Document Read(ReadOnlySpan<byte> data)
+    public static S57Document Read(ReadOnlySpan<byte> data, ILogger? logger = null)
     {
         var iso8211Document = Iso8211DocumentReader.Read(data);
-        return ParseDocument(iso8211Document);
+        return ParseDocument(iso8211Document, logger);
     }
 
     /// <summary>
     /// Reads an S-57 document from a file.
     /// </summary>
     /// <param name="path">The path to the S-57 file.</param>
+    /// <param name="logger">An optional logger for reporting parsing warnings.</param>
     /// <returns>The parsed S-57 document.</returns>
-    public static S57Document ReadFromFile(string path)
+    public static S57Document ReadFromFile(string path, ILogger? logger = null)
     {
         var iso8211Document = Iso8211DocumentReader.ReadFromFile(path);
-        return ParseDocument(iso8211Document);
+        return ParseDocument(iso8211Document, logger);
     }
 
     /// <summary>
     /// Asynchronously reads an S-57 document from a file.
     /// </summary>
     /// <param name="path">The path to the S-57 file.</param>
+    /// <param name="logger">An optional logger for reporting parsing warnings.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>A task that represents the asynchronous read operation.</returns>
-    public static async Task<S57Document> ReadFromFileAsync(string path, CancellationToken cancellationToken = default)
+    public static async Task<S57Document> ReadFromFileAsync(string path, ILogger? logger = null, CancellationToken cancellationToken = default)
     {
         var iso8211Document = await Iso8211DocumentReader.ReadFromFileAsync(path, cancellationToken).ConfigureAwait(false);
-        return ParseDocument(iso8211Document);
+        return ParseDocument(iso8211Document, logger);
     }
 
     /// <summary>
     /// Reads an S-57 document from a stream.
     /// </summary>
     /// <param name="stream">The stream containing S-57 data.</param>
+    /// <param name="logger">An optional logger for reporting parsing warnings.</param>
     /// <returns>The parsed S-57 document.</returns>
-    public static S57Document Read(Stream stream)
+    public static S57Document Read(Stream stream, ILogger? logger = null)
     {
         var iso8211Document = Iso8211DocumentReader.Read(stream);
-        return ParseDocument(iso8211Document);
+        return ParseDocument(iso8211Document, logger);
     }
 
     /// <summary>
     /// Asynchronously reads an S-57 document from a stream.
     /// </summary>
     /// <param name="stream">The stream containing S-57 data.</param>
+    /// <param name="logger">An optional logger for reporting parsing warnings.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>A task that represents the asynchronous read operation.</returns>
-    public static async Task<S57Document> ReadAsync(Stream stream, CancellationToken cancellationToken = default)
+    public static async Task<S57Document> ReadAsync(Stream stream, ILogger? logger = null, CancellationToken cancellationToken = default)
     {
         var iso8211Document = await Iso8211DocumentReader.ReadAsync(stream, cancellationToken).ConfigureAwait(false);
-        return ParseDocument(iso8211Document);
+        return ParseDocument(iso8211Document, logger);
     }
 
     /// <summary>
     /// Parses an ISO 8211 document into an S-57 document.
     /// </summary>
-    private static S57Document ParseDocument(Iso8211Document iso8211Document)
+    private static S57Document ParseDocument(Iso8211Document iso8211Document, ILogger? logger)
     {
         // Parse the Data Descriptive Record (DDR) to get field definitions
         var ddr = iso8211Document.DataDescriptiveRecord is not null
@@ -103,6 +110,7 @@ public static class S57DocumentReader
         S57DataSetParameters? dspm = null;
         var featureRecords = ImmutableArray.CreateBuilder<S57FeatureRecord>();
         var vectorRecords = ImmutableArray.CreateBuilder<S57VectorRecord>();
+        int nall = 0; // NATF lexical level (0=ASCII, 1=ISO 8859, 2=UCS-2)
 
         foreach (var record in iso8211Document.DataRecords)
         {
@@ -111,6 +119,7 @@ public static class S57DocumentReader
             if (dsidField != null)
             {
                 dsid = ParseDataSetIdentification(record, ddr);
+                nall = dsid.NatfLexicalLevel;
                 continue;
             }
 
@@ -126,7 +135,7 @@ public static class S57DocumentReader
             var fridField = record.GetFieldByTag(S57FieldTags.FRID);
             if (fridField != null)
             {
-                var featureRecord = ParseFeatureRecord(record, ddr);
+                var featureRecord = ParseFeatureRecord(record, ddr, nall, logger);
                 if (featureRecord != null)
                 {
                     featureRecords.Add(featureRecord);
@@ -138,7 +147,7 @@ public static class S57DocumentReader
             var vridField = record.GetFieldByTag(S57FieldTags.VRID);
             if (vridField != null)
             {
-                var vectorRecord = ParseVectorRecord(record, ddr);
+                var vectorRecord = ParseVectorRecord(record, ddr, logger);
                 if (vectorRecord != null)
                 {
                     vectorRecords.Add(vectorRecord);
@@ -290,7 +299,7 @@ public static class S57DocumentReader
     /// <summary>
     /// Parses a Feature Record.
     /// </summary>
-    private static S57FeatureRecord? ParseFeatureRecord(Iso8211Record record, Iso8211DataDescriptiveRecord? ddr)
+    private static S57FeatureRecord? ParseFeatureRecord(Iso8211Record record, Iso8211DataDescriptiveRecord? ddr, int nall, ILogger? logger)
     {
         var fridField = record.GetFieldByTag(S57FieldTags.FRID);
         if (fridField == null)
@@ -344,16 +353,16 @@ public static class S57DocumentReader
         }
 
         // Parse ATTF (attributes)
-        var attributes = ParseAttributes(record, S57FieldTags.ATTF, ddr);
+        var attributes = ParseAttributes(record, S57FieldTags.ATTF, ddr, logger);
 
         // Parse NATF (national attributes)
-        var nationalAttributes = ParseAttributes(record, S57FieldTags.NATF, ddr);
+        var nationalAttributes = ParseAttributes(record, S57FieldTags.NATF, ddr, logger, nall);
 
         // Parse FSPT (spatial pointers)
-        var spatialPointers = ParseSpatialPointers(record, ddr);
+        var spatialPointers = ParseSpatialPointers(record, ddr, logger);
 
         // Parse FFPT (feature pointers)
-        var featurePointers = ParseFeaturePointers(record, ddr);
+        var featurePointers = ParseFeaturePointers(record, ddr, logger);
 
         return new S57FeatureRecord
         {
@@ -373,7 +382,7 @@ public static class S57DocumentReader
     /// <summary>
     /// Parses a Vector Record.
     /// </summary>
-    private static S57VectorRecord? ParseVectorRecord(Iso8211Record record, Iso8211DataDescriptiveRecord? ddr)
+    private static S57VectorRecord? ParseVectorRecord(Iso8211Record record, Iso8211DataDescriptiveRecord? ddr, ILogger? logger)
     {
         var vridField = record.GetFieldByTag(S57FieldTags.VRID);
         if (vridField == null)
@@ -397,16 +406,16 @@ public static class S57DocumentReader
         ruin = reader.GetSubfield<byte>(S57SubfieldNames.RUIN);
 
         // Parse ATTV (vector attributes)
-        var attributes = ParseAttributes(record, S57FieldTags.ATTV, ddr);
+        var attributes = ParseAttributes(record, S57FieldTags.ATTV, ddr, logger);
 
         // Parse VRPT (vector pointers)
-        var vectorPointers = ParseVectorPointers(record, ddr);
+        var vectorPointers = ParseVectorPointers(record, ddr, logger);
 
         // Parse SG2D (2D coordinates)
-        var coordinates2D = ParseCoordinates2D(record, ddr);
+        var coordinates2D = ParseCoordinates2D(record, ddr, logger);
 
         // Parse SG3D (3D soundings)
-        var soundings = ParseSoundings(record, ddr);
+        var soundings = ParseSoundings(record, ddr, logger);
 
         return new S57VectorRecord
         {
@@ -423,7 +432,7 @@ public static class S57DocumentReader
     /// <summary>
     /// Parses attributes from ATTF or NATF fields.
     /// </summary>
-    private static ImmutableArray<S57AttributeValue> ParseAttributes(Iso8211Record record, string fieldTag, Iso8211DataDescriptiveRecord? ddr)
+    private static ImmutableArray<S57AttributeValue> ParseAttributes(Iso8211Record record, string fieldTag, Iso8211DataDescriptiveRecord? ddr, ILogger? logger, int lexicalLevel = 0)
     {
         var attributes = ImmutableArray.CreateBuilder<S57AttributeValue>();
         var fieldDef = ddr?.GetFieldDefinition(fieldTag);
@@ -436,7 +445,7 @@ public static class S57DocumentReader
             }
 
             // Use DDR-based field reader with repeating groups
-            var reader = new Iso8211FieldReader(fieldDef, field.Data);
+            var reader = new Iso8211FieldReader(fieldDef, field.Data, lexicalLevel);
             
             foreach (var group in reader.GetSubfieldGroups())
             {
@@ -446,8 +455,9 @@ public static class S57DocumentReader
                     var atvl = group.GetSubfield<string>(S57SubfieldNames.ATVL);
                     attributes.Add(new S57AttributeValue(attl, atvl));
                 }
-                catch
+                catch (Exception ex)
                 {
+                    logger?.LogWarning(ex, "Failed to parse attribute in {FieldTag} field.", fieldTag);
                     break;
                 }
             }
@@ -461,7 +471,7 @@ public static class S57DocumentReader
     /// <summary>
     /// Parses spatial pointers from FSPT fields.
     /// </summary>
-    private static ImmutableArray<S57SpatialPointer> ParseSpatialPointers(Iso8211Record record, Iso8211DataDescriptiveRecord? ddr)
+    private static ImmutableArray<S57SpatialPointer> ParseSpatialPointers(Iso8211Record record, Iso8211DataDescriptiveRecord? ddr, ILogger? logger)
     {
         var pointers = ImmutableArray.CreateBuilder<S57SpatialPointer>();
         var fieldDef = ddr?.GetFieldDefinition(S57FieldTags.FSPT);
@@ -497,8 +507,9 @@ public static class S57DocumentReader
                         Mask = (S57MaskingIndicator)mask
                     });
                 }
-                catch
+                catch (Exception ex)
                 {
+                    logger?.LogWarning(ex, "Failed to parse spatial pointer in FSPT field.");
                     break;
                 }
             }
@@ -510,7 +521,7 @@ public static class S57DocumentReader
     /// <summary>
     /// Parses feature pointers from FFPT fields.
     /// </summary>
-    private static ImmutableArray<S57FeaturePointer> ParseFeaturePointers(Iso8211Record record, Iso8211DataDescriptiveRecord? ddr)
+    private static ImmutableArray<S57FeaturePointer> ParseFeaturePointers(Iso8211Record record, Iso8211DataDescriptiveRecord? ddr, ILogger? logger)
     {
         var pointers = ImmutableArray.CreateBuilder<S57FeaturePointer>();
         var fieldDef = ddr?.GetFieldDefinition(S57FieldTags.FFPT);
@@ -543,8 +554,9 @@ public static class S57DocumentReader
                         Comment = comt
                     });
                 }
-                catch
+                catch (Exception ex)
                 {
+                    logger?.LogWarning(ex, "Failed to parse feature pointer in FFPT field.");
                     break;
                 }
             }
@@ -556,7 +568,7 @@ public static class S57DocumentReader
     /// <summary>
     /// Parses vector pointers from VRPT fields.
     /// </summary>
-    private static ImmutableArray<S57VectorPointer> ParseVectorPointers(Iso8211Record record, Iso8211DataDescriptiveRecord? ddr)
+    private static ImmutableArray<S57VectorPointer> ParseVectorPointers(Iso8211Record record, Iso8211DataDescriptiveRecord? ddr, ILogger? logger)
     {
         var pointers = ImmutableArray.CreateBuilder<S57VectorPointer>();
         var fieldDef = ddr?.GetFieldDefinition(S57FieldTags.VRPT);
@@ -593,8 +605,9 @@ public static class S57DocumentReader
                         Mask = (S57MaskingIndicator)mask
                     });
                 }
-                catch
+                catch (Exception ex)
                 {
+                    logger?.LogWarning(ex, "Failed to parse vector pointer in VRPT field.");
                     break;
                 }
             }
@@ -606,7 +619,7 @@ public static class S57DocumentReader
     /// <summary>
     /// Parses 2D coordinates from SG2D fields.
     /// </summary>
-    private static ImmutableArray<S57Coordinate2D> ParseCoordinates2D(Iso8211Record record, Iso8211DataDescriptiveRecord? ddr)
+    private static ImmutableArray<S57Coordinate2D> ParseCoordinates2D(Iso8211Record record, Iso8211DataDescriptiveRecord? ddr, ILogger? logger)
     {
         var coordinates = ImmutableArray.CreateBuilder<S57Coordinate2D>();
         var fieldDef = ddr?.GetFieldDefinition(S57FieldTags.SG2D);
@@ -634,8 +647,9 @@ public static class S57DocumentReader
                         X = xcoo
                     });
                 }
-                catch
+                catch (Exception ex)
                 {
+                    logger?.LogWarning(ex, "Failed to parse 2D coordinate in SG2D field.");
                     break;
                 }
             }
@@ -647,7 +661,7 @@ public static class S57DocumentReader
     /// <summary>
     /// Parses 3D sounding coordinates from SG3D fields.
     /// </summary>
-    private static ImmutableArray<S57Sounding> ParseSoundings(Iso8211Record record, Iso8211DataDescriptiveRecord? ddr)
+    private static ImmutableArray<S57Sounding> ParseSoundings(Iso8211Record record, Iso8211DataDescriptiveRecord? ddr, ILogger? logger)
     {
         var soundings = ImmutableArray.CreateBuilder<S57Sounding>();
         var fieldDef = ddr?.GetFieldDefinition(S57FieldTags.SG3D);
@@ -677,8 +691,9 @@ public static class S57DocumentReader
                         Depth = ve3d
                     });
                 }
-                catch
+                catch (Exception ex)
                 {
+                    logger?.LogWarning(ex, "Failed to parse sounding in SG3D field.");
                     break;
                 }
             }

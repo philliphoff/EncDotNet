@@ -1,10 +1,14 @@
 #!/usr/bin/env dotnet run
 
+#:package Microsoft.Extensions.Logging@9.0.0
+#:package Microsoft.Extensions.Logging.Console@9.0.0
+
 #:project ../src/EncDotNet.Enc/EncDotNet.Enc.csproj
 
 using System.Text;
 using EncDotNet.Enc;
 using EncDotNet.Iso8211;
+using Microsoft.Extensions.Logging;
 
 // ============================================================================
 // DumpChart.cs — Dumps the full contents of an ENC chart file.
@@ -34,6 +38,9 @@ Console.WriteLine($"File: {filePath}");
 Console.WriteLine($"Size: {new FileInfo(filePath).Length} bytes");
 Console.WriteLine();
 
+using var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole(options => options.IncludeScopes = true));
+var logger = loggerFactory.CreateLogger("DumpChart");
+
 // ============================================================================
 // PART 1 — ISO 8211 Raw Dump
 // ============================================================================
@@ -43,13 +50,13 @@ Console.WriteLine("║                     PART 1: ISO 8211 RAW DUMP            
 Console.WriteLine("╚══════════════════════════════════════════════════════════════════════╝");
 Console.WriteLine();
 
-var iso8211Doc = Iso8211Reader.ReadFromFile(filePath);
+var iso8211Doc = Iso8211DocumentReader.ReadFromFile(filePath);
 
 // Parse DDR for subfield-aware dumping in Part 2
 Iso8211DataDescriptiveRecord? ddr = null;
 if (iso8211Doc.DataDescriptiveRecord is not null)
 {
-    ddr = Iso8211DdrParser.Parse(iso8211Doc.DataDescriptiveRecord);
+    ddr = Iso8211DataDescriptiveRecordReader.Read(iso8211Doc.DataDescriptiveRecord);
 }
 
 for (int r = 0; r < iso8211Doc.Records.Length; r++)
@@ -118,7 +125,7 @@ Console.WriteLine("║                    PART 2: S-57 PARSED DUMP              
 Console.WriteLine("╚══════════════════════════════════════════════════════════════════════╝");
 Console.WriteLine();
 
-var s57Doc = S57Reader.ReadFromFile(filePath);
+var s57Doc = S57DocumentReader.ReadFromFile(filePath, logger);
 
 // --- DDR Field Definitions ---
 if (ddr is not null)

@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Globalization;
 using EncDotNet.Iso8211;
+using Microsoft.Extensions.Logging;
 
 namespace EncDotNet.Enc.Catalogs;
 
@@ -23,71 +24,77 @@ public static class S57CatalogReader
     /// Reads an S-57 catalog from a byte array.
     /// </summary>
     /// <param name="data">The catalog data to read.</param>
+    /// <param name="logger">An optional logger for reporting parsing warnings.</param>
     /// <returns>The parsed catalog.</returns>
-    public static S57Catalog Read(byte[] data)
+    public static S57Catalog Read(byte[] data, ILogger? logger = null)
     {
         var iso8211Document = Iso8211DocumentReader.Read(data);
-        return ParseCatalog(iso8211Document);
+        return ParseCatalog(iso8211Document, logger);
     }
 
     /// <summary>
     /// Reads an S-57 catalog from a span of bytes.
     /// </summary>
     /// <param name="data">The catalog data to read.</param>
+    /// <param name="logger">An optional logger for reporting parsing warnings.</param>
     /// <returns>The parsed catalog.</returns>
-    public static S57Catalog Read(ReadOnlySpan<byte> data)
+    public static S57Catalog Read(ReadOnlySpan<byte> data, ILogger? logger = null)
     {
         var iso8211Document = Iso8211DocumentReader.Read(data);
-        return ParseCatalog(iso8211Document);
+        return ParseCatalog(iso8211Document, logger);
     }
 
     /// <summary>
     /// Reads an S-57 catalog from a file.
     /// </summary>
     /// <param name="path">The path to the CATALOG.031 file.</param>
+    /// <param name="logger">An optional logger for reporting parsing warnings.</param>
     /// <returns>The parsed catalog.</returns>
-    public static S57Catalog ReadFromFile(string path)
+    public static S57Catalog ReadFromFile(string path, ILogger? logger = null)
     {
         var iso8211Document = Iso8211DocumentReader.ReadFromFile(path);
-        return ParseCatalog(iso8211Document);
+        return ParseCatalog(iso8211Document, logger);
     }
 
     /// <summary>
     /// Asynchronously reads an S-57 catalog from a file.
     /// </summary>
     /// <param name="path">The path to the CATALOG.031 file.</param>
+    /// <param name="logger">An optional logger for reporting parsing warnings.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>A task that represents the asynchronous read operation.</returns>
-    public static async Task<S57Catalog> ReadFromFileAsync(string path, CancellationToken cancellationToken = default)
+    public static async Task<S57Catalog> ReadFromFileAsync(string path, ILogger? logger = null, CancellationToken cancellationToken = default)
     {
         var iso8211Document = await Iso8211DocumentReader.ReadFromFileAsync(path, cancellationToken).ConfigureAwait(false);
-        return ParseCatalog(iso8211Document);
+        return ParseCatalog(iso8211Document, logger);
     }
 
     /// <summary>
     /// Reads an S-57 catalog from a stream.
     /// </summary>
     /// <param name="stream">The stream containing catalog data.</param>
+    /// <param name="logger">An optional logger for reporting parsing warnings.</param>
     /// <returns>The parsed catalog.</returns>
-    public static S57Catalog Read(Stream stream)
+    public static S57Catalog Read(Stream stream, ILogger? logger = null)
     {
         var iso8211Document = Iso8211DocumentReader.Read(stream);
-        return ParseCatalog(iso8211Document);
+        return ParseCatalog(iso8211Document, logger);
     }
 
     /// <summary>
     /// Asynchronously reads an S-57 catalog from a stream.
     /// </summary>
     /// <param name="stream">The stream containing catalog data.</param>
+    /// <param name="logger">An optional logger for reporting parsing warnings.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>A task that represents the asynchronous read operation.</returns>
-    public static async Task<S57Catalog> ReadAsync(Stream stream, CancellationToken cancellationToken = default)
+    public static async Task<S57Catalog> ReadAsync(Stream stream, ILogger? logger = null, CancellationToken cancellationToken = default)
     {
         var iso8211Document = await Iso8211DocumentReader.ReadAsync(stream, cancellationToken).ConfigureAwait(false);
-        return ParseCatalog(iso8211Document);
+        return ParseCatalog(iso8211Document, logger);
     }
 
-    private static S57Catalog ParseCatalog(Iso8211Document iso8211Document)
+    private static S57Catalog ParseCatalog(Iso8211Document iso8211Document, ILogger? logger)
     {
         var ddr = iso8211Document.DataDescriptiveRecord is not null
             ? Iso8211DataDescriptiveRecordReader.Read(iso8211Document.DataDescriptiveRecord)

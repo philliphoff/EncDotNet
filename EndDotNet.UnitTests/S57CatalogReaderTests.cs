@@ -560,7 +560,7 @@ public class S57CatalogReaderTests
             await File.WriteAllBytesAsync(tempFile, data);
 
             // Act
-            var catalog = await S57CatalogReader.ReadFromFileAsync(tempFile, cts.Token);
+            var catalog = await S57CatalogReader.ReadFromFileAsync(tempFile, cancellationToken: cts.Token);
 
             // Assert
             Assert.Single(catalog.Entries);

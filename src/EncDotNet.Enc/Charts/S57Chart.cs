@@ -220,7 +220,7 @@ public sealed class S57Chart
     /// <returns>A task that represents the asynchronous load operation.</returns>
     public static async Task<S57Chart> FromFileAsync(string path, CancellationToken cancellationToken = default)
     {
-        var document = await S57DocumentReader.ReadFromFileAsync(path, cancellationToken).ConfigureAwait(false);
+        var document = await S57DocumentReader.ReadFromFileAsync(path, cancellationToken: cancellationToken).ConfigureAwait(false);
         return FromDocument(document);
     }
 
@@ -243,7 +243,7 @@ public sealed class S57Chart
     /// <returns>A task that represents the asynchronous load operation.</returns>
     public static async Task<S57Chart> FromStreamAsync(Stream stream, CancellationToken cancellationToken = default)
     {
-        var document = await S57DocumentReader.ReadAsync(stream, cancellationToken).ConfigureAwait(false);
+        var document = await S57DocumentReader.ReadAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
         return FromDocument(document);
     }
 

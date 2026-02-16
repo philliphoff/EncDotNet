@@ -1,11 +1,15 @@
 #!/usr/bin/env dotnet run
 
+#:package Microsoft.Extensions.Logging@9.0.0
+#:package Microsoft.Extensions.Logging.Console@9.0.0
+
 #:project ../src/EncDotNet.Enc/EncDotNet.Enc.csproj
 
 using System.Diagnostics;
 using EncDotNet.Enc;
 using EncDotNet.Enc.Charts;
 using EncDotNet.Iso8211;
+using Microsoft.Extensions.Logging;
 
 // Define the folders relative to the repo root
 string scriptDir = Path.GetDirectoryName(GetScriptPath())!;
@@ -34,6 +38,10 @@ if (files.Length == 0)
 Console.WriteLine($"Found {files.Length} .000 files in expanded folder.");
 Console.WriteLine();
 
+using var loggerFactory = LoggerFactory.Create(builder =>
+    builder.AddConsole(options => options.IncludeScopes = true));
+var logger = loggerFactory.CreateLogger("ReadCatalogS57");
+
 int totalFeatures = 0;
 int totalVectors = 0;
 int totalFiles = 0;
@@ -44,7 +52,8 @@ foreach (var file in files)
 {
     try
     {
-        var document = S57DocumentReader.ReadFromFile(file);
+        using var scope = logger.BeginScope("Chart: {ChartPath}", file);
+        var document = S57DocumentReader.ReadFromFile(file, logger);
         var chart = S57Chart.FromDocument(document);
         totalFeatures += document.FeatureRecords.Length;
         totalVectors += document.VectorRecords.Length;

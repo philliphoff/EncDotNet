@@ -42,7 +42,7 @@ foreach (var file in files)
 {
     try
     {
-        var document = Iso8211Reader.ReadFromFile(file);
+        var document = Iso8211DocumentReader.ReadFromFile(file);
         totalRecords += document.Records.Length;
         totalFiles++;
     }

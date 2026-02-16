@@ -44,19 +44,25 @@ public sealed class Iso8211FieldReader
     private readonly byte[] _data;
     private readonly ImmutableArray<ParsedSubfield> _parsedSubfields;
     private readonly int _groupCount;
+    private readonly int _lexicalLevel;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="Iso8211FieldReader"/> class.
     /// </summary>
     /// <param name="fieldDefinition">The field definition from the DDR describing this field's structure.</param>
     /// <param name="data">The raw field data to read.</param>
+    /// <param name="lexicalLevel">
+    /// The lexical level for character data (0 or 1 = ASCII/ISO 8859, 2 = UCS-2/UTF-16LE).
+    /// When set to 2, variable-length character subfields use 2-byte terminators (0x1F 0x00 / 0x1E 0x00).
+    /// </param>
     /// <exception cref="ArgumentNullException">
     /// Thrown when <paramref name="fieldDefinition"/> is <c>null</c>.
     /// </exception>
-    public Iso8211FieldReader(Iso8211FieldDefinition fieldDefinition, ReadOnlySpan<byte> data)
+    public Iso8211FieldReader(Iso8211FieldDefinition fieldDefinition, ReadOnlySpan<byte> data, int lexicalLevel = 0)
     {
         _fieldDefinition = fieldDefinition ?? throw new ArgumentNullException(nameof(fieldDefinition));
         _data = data.ToArray();
+        _lexicalLevel = lexicalLevel;
         (_parsedSubfields, _groupCount) = ParseSubfields();
     }
 
@@ -65,13 +71,18 @@ public sealed class Iso8211FieldReader
     /// </summary>
     /// <param name="fieldDefinition">The field definition from the DDR describing this field's structure.</param>
     /// <param name="data">The raw field data to read.</param>
+    /// <param name="lexicalLevel">
+    /// The lexical level for character data (0 or 1 = ASCII/ISO 8859, 2 = UCS-2/UTF-16LE).
+    /// When set to 2, variable-length character subfields use 2-byte terminators (0x1F 0x00 / 0x1E 0x00).
+    /// </param>
     /// <exception cref="ArgumentNullException">
     /// Thrown when <paramref name="fieldDefinition"/> or <paramref name="data"/> is <c>null</c>.
     /// </exception>
-    public Iso8211FieldReader(Iso8211FieldDefinition fieldDefinition, byte[] data)
+    public Iso8211FieldReader(Iso8211FieldDefinition fieldDefinition, byte[] data, int lexicalLevel = 0)
     {
         _fieldDefinition = fieldDefinition ?? throw new ArgumentNullException(nameof(fieldDefinition));
         _data = data ?? throw new ArgumentNullException(nameof(data));
+        _lexicalLevel = lexicalLevel;
         (_parsedSubfields, _groupCount) = ParseSubfields();
     }
 
@@ -348,9 +359,7 @@ public sealed class Iso8211FieldReader
             // For variable-length subfields, check if we've hit a field terminator.
             // Fixed-width binary subfields may contain 0x1E (30) as valid data, so we
             // must not treat it as a terminator.
-            // HOWEVER, for repeating groups, if we're at the field terminator position
-            // (last byte and it's 0x1E), that IS the real terminator even for fixed-width.
-            if (!format.IsFixedWidth && data[offset] == FieldTerminator)
+            if (!format.IsFixedWidth && IsFieldTerminator(data, offset))
             {
                 break;
             }
@@ -382,9 +391,17 @@ public sealed class Iso8211FieldReader
 
             // Skip unit terminator if present - only for variable-length subfields
             // Fixed-width binary subfields (b11, b12, b14, b21, b22, b24) don't have UTs
-            if (!format.IsFixedWidth && offset < data.Length && data[offset] == UnitTerminator)
+            if (!format.IsFixedWidth)
             {
-                offset++;
+                if (IsUnitTerminator(data, offset))
+                {
+                    offset += TerminatorWidth;
+                }
+                else if (IsFieldTerminator(data, offset))
+                {
+                    // Field terminator acts as the final unit terminator; don't advance
+                    // past it so the next iteration's FT check can break the loop.
+                }
             }
 
             // Advance to next subfield definition
@@ -424,9 +441,41 @@ public sealed class Iso8211FieldReader
     }
 
     /// <summary>
+    /// Gets the width of terminators based on the lexical level.
+    /// For lexical level 2 (UCS-2), terminators are 2 bytes (e.g. 0x1F 0x00).
+    /// </summary>
+    private int TerminatorWidth => _lexicalLevel >= 2 ? 2 : 1;
+
+    /// <summary>
+    /// Checks if the data at the given offset is a field terminator,
+    /// accounting for the lexical level.
+    /// </summary>
+    private bool IsFieldTerminator(ReadOnlySpan<byte> data, int offset)
+    {
+        if (offset >= data.Length) return false;
+        if (data[offset] != FieldTerminator) return false;
+        if (_lexicalLevel >= 2)
+            return offset + 1 < data.Length && data[offset + 1] == 0x00;
+        return true;
+    }
+
+    /// <summary>
+    /// Checks if the data at the given offset is a unit terminator,
+    /// accounting for the lexical level.
+    /// </summary>
+    private bool IsUnitTerminator(ReadOnlySpan<byte> data, int offset)
+    {
+        if (offset >= data.Length) return false;
+        if (data[offset] != UnitTerminator) return false;
+        if (_lexicalLevel >= 2)
+            return offset + 1 < data.Length && data[offset + 1] == 0x00;
+        return true;
+    }
+
+    /// <summary>
     /// Calculates the length of a subfield based on its format.
     /// </summary>
-    private static int CalculateSubfieldLength(ReadOnlySpan<byte> data, int offset, Iso8211SubfieldFormat format)
+    private int CalculateSubfieldLength(ReadOnlySpan<byte> data, int offset, Iso8211SubfieldFormat format)
     {
         if (format.IsFixedWidth)
         {
@@ -438,8 +487,7 @@ public sealed class Iso8211FieldReader
         int length = 0;
         while (offset + length < data.Length)
         {
-            byte b = data[offset + length];
-            if (b == UnitTerminator || b == FieldTerminator)
+            if (IsUnitTerminator(data, offset + length) || IsFieldTerminator(data, offset + length))
             {
                 break;
             }
@@ -474,9 +522,10 @@ public sealed class Iso8211FieldReader
     /// <summary>
     /// Converts character data to the requested type.
     /// </summary>
-    private static object ConvertCharacterData<T>(ReadOnlySpan<byte> data)
+    private object ConvertCharacterData<T>(ReadOnlySpan<byte> data)
     {
-        var str = Encoding.ASCII.GetString(data).TrimEnd('\x1F', '\x1E', '\0', ' ');
+        var encoding = _lexicalLevel >= 2 ? Encoding.Unicode : Encoding.ASCII;
+        var str = encoding.GetString(data).TrimEnd('\x1F', '\x1E', '\0', ' ');
 
         if (typeof(T) == typeof(string))
         {

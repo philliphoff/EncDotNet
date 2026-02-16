@@ -1,10 +1,14 @@
 #!/usr/bin/env dotnet run
 
+#:package Microsoft.Extensions.Logging@9.0.0
+#:package Microsoft.Extensions.Logging.Console@9.0.0
+
 #:project ../src/EncDotNet.Enc/EncDotNet.Enc.csproj
 
 using System.Text;
 using EncDotNet.Enc.Catalogs;
 using EncDotNet.Iso8211;
+using Microsoft.Extensions.Logging;
 
 // ============================================================================
 // DumpCatalog.cs — Dumps the full contents of an ENC CATALOG.031 file.
@@ -32,6 +36,9 @@ if (!File.Exists(filePath))
 Console.WriteLine($"File: {filePath}");
 Console.WriteLine($"Size: {new FileInfo(filePath).Length} bytes");
 Console.WriteLine();
+
+using var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
+var logger = loggerFactory.CreateLogger("DumpCatalog");
 
 // ============================================================================
 // PART 1 — ISO 8211 Raw Dump
@@ -117,7 +124,7 @@ Console.WriteLine("║                  PART 2: S-57 CATALOG PARSED DUMP        
 Console.WriteLine("╚══════════════════════════════════════════════════════════════════════╝");
 Console.WriteLine();
 
-var catalog = S57CatalogReader.ReadFromFile(filePath);
+var catalog = S57CatalogReader.ReadFromFile(filePath, logger);
 
 // --- DDR Field Definitions ---
 if (ddr is not null)
