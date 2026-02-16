@@ -3,6 +3,7 @@ using System.Collections.Immutable;
 using System.Linq;
 using EncDotNet.Enc;
 using EncDotNet.Enc.Charts;
+using EncDotNet.ChartViewer.Models;
 using Mapsui;
 using Mapsui.Layers;
 using Mapsui.Nts;
@@ -90,7 +91,8 @@ public static class S57LayerFactory
     public static MemoryLayer CreateLayerForObjectCodes(
         S57Chart chart,
         ImmutableArray<S57ObjectCode> objectCodes,
-        string layerName)
+        string layerName,
+        DepthUnit depthUnit = DepthUnit.Feet)
     {
         var codeSet = objectCodes.ToHashSet();
         var features = new List<IFeature>();
@@ -135,7 +137,7 @@ public static class S57LayerFactory
 
             if (pointFeature.ObjectCode == S57ObjectCode.SOUNDG)
             {
-                features.AddRange(CreateSoundingFeatures(chart, pointFeature));
+                features.AddRange(CreateSoundingFeatures(chart, pointFeature, depthUnit));
                 continue;
             }
 
@@ -157,7 +159,7 @@ public static class S57LayerFactory
         };
     }
 
-    private static IEnumerable<IFeature> CreateSoundingFeatures(S57Chart chart, S57PointFeature pointFeature)
+    private static IEnumerable<IFeature> CreateSoundingFeatures(S57Chart chart, S57PointFeature pointFeature, DepthUnit depthUnit = DepthUnit.Feet)
     {
         if (!pointFeature.HasSpatialReferences)
             yield break;
@@ -169,16 +171,18 @@ public static class S57LayerFactory
 
         foreach (var sounding in isolatedNode.Soundings)
         {
-            var (lon, lat, depth) = chart.ToDecimalValues(sounding);
+            var (lon, lat, depthMeters) = chart.ToDecimalValues(sounding);
             var (x, y) = SphericalMercator.FromLonLat(lon, lat);
             var point = new Point(x, y);
+
+            var displayDepth = FormatDepth(depthMeters, depthUnit);
 
             var feature = new GeometryFeature(point);
             feature["ObjectCode"] = S57ObjectCode.SOUNDG;
             feature.Styles.Add(new LabelStyle
             {
                 BackColor = null,
-                Text = depth.ToString("0.#"),
+                Text = displayDepth,
                 ForeColor = new Color(0, 0, 120),
                 Font = new Font { Size = 10 },
                 HorizontalAlignment = LabelStyle.HorizontalAlignmentEnum.Center,
@@ -186,6 +190,19 @@ public static class S57LayerFactory
             });
             yield return feature;
         }
+    }
+
+    private const double MetersToFeet = 3.2808399;
+    private const double MetersToFathoms = 0.5468066;
+
+    private static string FormatDepth(double depthMeters, DepthUnit unit)
+    {
+        return unit switch
+        {
+            DepthUnit.Meters => depthMeters.ToString("0.0"),
+            DepthUnit.Fathoms => (depthMeters * MetersToFathoms).ToString("0.0"),
+            _ => ((int)(depthMeters * MetersToFeet)).ToString(),
+        };
     }
 
     private static Point? CreatePointFromPointFeature(S57Chart chart, S57PointFeature pointFeature)

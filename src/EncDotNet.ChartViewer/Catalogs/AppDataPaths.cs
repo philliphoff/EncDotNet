@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
+using EncDotNet.ChartViewer.Models;
 
 namespace EncDotNet.ChartViewer.Catalogs;
 
@@ -28,6 +29,8 @@ internal static class AppDataPaths
     public static string SelectedChartsPath => Path.Combine(Root, "selected-charts.json");
 
     public static string FeatureVisibilityPath => Path.Combine(Root, "feature-visibility.json");
+
+    public static string DepthUnitPath => Path.Combine(Root, "depth-unit.json");
 
     public static bool HasChartIndex() => File.Exists(ChartIndexPath);
 
@@ -149,5 +152,29 @@ internal static class AppDataPaths
         Directory.CreateDirectory(Root);
         var json = JsonSerializer.Serialize(visibility, JsonOptions);
         File.WriteAllText(FeatureVisibilityPath, json);
+    }
+
+    public static DepthUnit LoadDepthUnit()
+    {
+        if (!File.Exists(DepthUnitPath))
+            return DepthUnit.Feet;
+
+        try
+        {
+            var json = File.ReadAllText(DepthUnitPath);
+            var value = JsonSerializer.Deserialize<string>(json, JsonOptions);
+            return Enum.TryParse<DepthUnit>(value, out var unit) ? unit : DepthUnit.Feet;
+        }
+        catch
+        {
+            return DepthUnit.Feet;
+        }
+    }
+
+    public static void SaveDepthUnit(DepthUnit unit)
+    {
+        Directory.CreateDirectory(Root);
+        var json = JsonSerializer.Serialize(unit.ToString(), JsonOptions);
+        File.WriteAllText(DepthUnitPath, json);
     }
 }

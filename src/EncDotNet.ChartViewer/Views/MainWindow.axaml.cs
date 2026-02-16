@@ -237,6 +237,8 @@ public partial class MainWindow : Window
 
             AppDataPaths.SaveFeatureVisibility(
                 vm.FeatureCategories.ToDictionary(f => f.Name, f => f.IsVisible));
+
+            AppDataPaths.SaveDepthUnit(vm.DepthUnit);
         }
     }
 
@@ -262,6 +264,12 @@ public partial class MainWindow : Window
         {
             featureVm.IsVisibleChanged += OnFeatureVisibilityChanged;
         }
+
+        // Subscribe to depth unit changes
+        vm.DepthUnitChanged += OnDepthUnitChanged;
+
+        // Restore saved depth unit
+        vm.DepthUnit = AppDataPaths.LoadDepthUnit();
 
         // Restore saved feature visibility (before selecting charts so layers get correct initial state)
         var savedVisibility = AppDataPaths.LoadFeatureVisibility();
@@ -325,6 +333,7 @@ public partial class MainWindow : Window
             chartVm.IsSelectedChanged -= OnChartSelectionChanged;
         foreach (var featureVm in vm.FeatureCategories)
             featureVm.IsVisibleChanged -= OnFeatureVisibilityChanged;
+        vm.DepthUnitChanged -= OnDepthUnitChanged;
 
         // Clear in-memory state
         vm.ClearCatalog();
@@ -369,6 +378,7 @@ public partial class MainWindow : Window
             chartVm.IsSelectedChanged -= OnChartSelectionChanged;
         foreach (var featureVm in vm.FeatureCategories)
             featureVm.IsVisibleChanged -= OnFeatureVisibilityChanged;
+        vm.DepthUnitChanged -= OnDepthUnitChanged;
 
         // Clear and reload
         vm.ClearCatalog();
@@ -403,7 +413,8 @@ public partial class MainWindow : Window
                 var layer = S57LayerFactory.CreateLayerForObjectCodes(
                     chart,
                     featureVm.Category.ObjectCodes,
-                    featureVm.Name);
+                    featureVm.Name,
+                    vm.DepthUnit);
 
                 layer.Enabled = featureVm.IsVisible;
                 chartVm.Layers.Add(layer);
@@ -445,6 +456,47 @@ public partial class MainWindow : Window
                 {
                     layer.Enabled = isVisible;
                 }
+            }
+        }
+
+        MyMapControl.Map?.Refresh();
+    }
+
+    private void OnDepthUnitChanged(object? sender, Models.DepthUnit depthUnit)
+    {
+        if (ViewModel is not { } vm)
+            return;
+
+        // Reload sounding layers for all selected charts
+        foreach (var chartVm in vm.AvailableCharts)
+        {
+            if (!chartVm.IsSelected)
+                continue;
+
+            for (int i = chartVm.Layers.Count - 1; i >= 0; i--)
+            {
+                var layer = chartVm.Layers[i];
+                if (layer.Name != S57FeatureCategory.Soundings.Name)
+                    continue;
+
+                // Remove old sounding layer
+                MyMapControl.Map?.Layers.Remove(layer);
+                chartVm.Layers.RemoveAt(i);
+
+                // Create new sounding layer with updated depth unit
+                var chart = vm.GetChartAsync(chartVm.Entry).GetAwaiter().GetResult();
+                var newLayer = S57LayerFactory.CreateLayerForObjectCodes(
+                    chart,
+                    S57FeatureCategory.Soundings.ObjectCodes,
+                    S57FeatureCategory.Soundings.Name,
+                    depthUnit);
+
+                var soundingFeatureVm = vm.FeatureCategories.FirstOrDefault(
+                    f => f.Category == S57FeatureCategory.Soundings);
+                newLayer.Enabled = soundingFeatureVm?.IsVisible ?? false;
+
+                chartVm.Layers.Insert(i, newLayer);
+                MyMapControl.Map?.Layers.Add(newLayer);
             }
         }
 

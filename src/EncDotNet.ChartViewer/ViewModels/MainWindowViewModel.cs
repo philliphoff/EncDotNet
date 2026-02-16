@@ -8,6 +8,7 @@ using EncDotNet.ChartViewer.Catalogs;
 using EncDotNet.ChartViewer.Models;
 using EncDotNet.Enc.Charts;
 using ReactiveUI;
+using System.Linq;
 
 namespace EncDotNet.ChartViewer.ViewModels;
 
@@ -18,6 +19,7 @@ public class MainWindowViewModel : ViewModelBase
     private bool _isFeaturesPanelExpanded = true;
     private string _chartSearchText = "";
     private CancellationTokenSource? _filterDebounce;
+    private DepthUnit _depthUnit = DepthUnit.Feet;
 
     /// <summary>
     /// Gets the collection of available charts loaded from the chart index.
@@ -65,6 +67,32 @@ public class MainWindowViewModel : ViewModelBase
     /// Gets the collection of toggleable chart feature categories.
     /// </summary>
     public ObservableCollection<ChartFeatureViewModel> FeatureCategories { get; } = new();
+
+    /// <summary>
+    /// Gets the available depth unit options for the ComboBox.
+    /// </summary>
+    public DepthUnit[] DepthUnitOptions { get; } = Enum.GetValues<DepthUnit>();
+
+    /// <summary>
+    /// Gets or sets the unit used for displaying sounding depths.
+    /// </summary>
+    public DepthUnit DepthUnit
+    {
+        get => _depthUnit;
+        set
+        {
+            if (_depthUnit == value)
+                return;
+
+            this.RaiseAndSetIfChanged(ref _depthUnit, value);
+            DepthUnitChanged?.Invoke(this, value);
+        }
+    }
+
+    /// <summary>
+    /// Raised when the depth unit changes.
+    /// </summary>
+    public event EventHandler<DepthUnit>? DepthUnitChanged;
 
     /// <summary>Command to toggle the charts panel.</summary>
     public ICommand ToggleChartsPanelCommand { get; }
