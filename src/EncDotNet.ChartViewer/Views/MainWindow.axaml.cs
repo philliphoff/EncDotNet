@@ -9,10 +9,12 @@ using Avalonia.Interactivity;
 using EncDotNet.ChartViewer.Catalogs;
 using EncDotNet.ChartViewer.Models;
 using EncDotNet.ChartViewer.ViewModels;
+using EncDotNet.Enc;
 using Mapsui;
 using Microsoft.Extensions.DependencyInjection;
 using Mapsui.Extensions;
 using Mapsui.Layers;
+using System.Collections.Immutable;
 using Mapsui.Manipulations;
 using Mapsui.Nts;
 using Mapsui.Projections;
@@ -246,7 +248,9 @@ public partial class MainWindow : Window
                 vm.SelectedCharts.Select(c => c.Entry.Id));
 
             AppDataPaths.SaveFeatureVisibility(
-                vm.FeatureCategories.ToDictionary(f => f.Name, f => f.IsVisible));
+                vm.FeatureCategories
+                    .SelectMany(c => c.Features)
+                    .ToDictionary(f => f.ObjectCode.ToString(), f => f.IsVisible));
 
             AppDataPaths.SaveDepthUnit(vm.DepthUnit);
         }
@@ -272,7 +276,7 @@ public partial class MainWindow : Window
         // Subscribe to feature visibility changes
         foreach (var featureVm in vm.FeatureCategories)
         {
-            featureVm.IsVisibleChanged += OnFeatureVisibilityChanged;
+            featureVm.FeatureVisibilityChanged += OnFeatureItemVisibilityChanged;
         }
 
         // Subscribe to depth unit changes
@@ -285,9 +289,17 @@ public partial class MainWindow : Window
         var savedVisibility = AppDataPaths.LoadFeatureVisibility();
         foreach (var featureVm in vm.FeatureCategories)
         {
-            if (savedVisibility.TryGetValue(featureVm.Name, out var isVisible))
+            foreach (var featureItem in featureVm.Features)
             {
-                featureVm.IsVisible = isVisible;
+                if (savedVisibility.TryGetValue(featureItem.ObjectCode.ToString(), out var isVisible))
+                {
+                    featureItem.IsVisible = isVisible;
+                }
+                // Backward compat: fall back to category name
+                else if (savedVisibility.TryGetValue(featureVm.Name, out var catVisible))
+                {
+                    featureItem.IsVisible = catVisible;
+                }
             }
         }
 
@@ -342,7 +354,7 @@ public partial class MainWindow : Window
         foreach (var chartVm in vm.AvailableCharts)
             chartVm.IsSelectedChanged -= OnChartSelectionChanged;
         foreach (var featureVm in vm.FeatureCategories)
-            featureVm.IsVisibleChanged -= OnFeatureVisibilityChanged;
+            featureVm.FeatureVisibilityChanged -= OnFeatureItemVisibilityChanged;
         vm.DepthUnitChanged -= OnDepthUnitChanged;
 
         // Clear in-memory state
@@ -387,7 +399,7 @@ public partial class MainWindow : Window
         foreach (var chartVm in vm.AvailableCharts)
             chartVm.IsSelectedChanged -= OnChartSelectionChanged;
         foreach (var featureVm in vm.FeatureCategories)
-            featureVm.IsVisibleChanged -= OnFeatureVisibilityChanged;
+            featureVm.FeatureVisibilityChanged -= OnFeatureItemVisibilityChanged;
         vm.DepthUnitChanged -= OnDepthUnitChanged;
 
         // Clear and reload
@@ -420,15 +432,18 @@ public partial class MainWindow : Window
 
             foreach (var featureVm in vm.FeatureCategories)
             {
-                var layer = S57LayerFactory.CreateLayerForObjectCodes(
-                    chart,
-                    featureVm.Category.ObjectCodes,
-                    featureVm.Name,
-                    vm.DepthUnit);
+                foreach (var featureItem in featureVm.Features)
+                {
+                    var layer = S57LayerFactory.CreateLayerForObjectCodes(
+                        chart,
+                        ImmutableArray.Create(featureItem.ObjectCode),
+                        featureItem.ObjectCode.ToString(),
+                        vm.DepthUnit);
 
-                layer.Enabled = featureVm.IsVisible;
-                chartVm.Layers.Add(layer);
-                MyMapControl.Map?.Layers.Add(layer);
+                    layer.Enabled = featureItem.IsVisible;
+                    chartVm.Layers.Add(layer);
+                    MyMapControl.Map?.Layers.Add(layer);
+                }
             }
 
             System.Diagnostics.Debug.WriteLine($"Loaded chart: {chartVm.Name}");
@@ -450,11 +465,12 @@ public partial class MainWindow : Window
         MyMapControl.Map?.Refresh();
     }
 
-    private void OnFeatureVisibilityChanged(object? sender, bool isVisible)
+    private void OnFeatureItemVisibilityChanged(object? sender, ChartFeatureItemViewModel featureItem)
     {
-        if (sender is not ChartFeatureViewModel featureVm || ViewModel is not { } vm)
+        if (ViewModel is not { } vm)
             return;
 
+        var objectCodeName = featureItem.ObjectCode.ToString();
         foreach (var chartVm in vm.AvailableCharts)
         {
             if (!chartVm.IsSelected)
@@ -462,9 +478,9 @@ public partial class MainWindow : Window
 
             foreach (var layer in chartVm.Layers)
             {
-                if (layer.Name == featureVm.Name)
+                if (layer.Name == objectCodeName)
                 {
-                    layer.Enabled = isVisible;
+                    layer.Enabled = featureItem.IsVisible;
                 }
             }
         }
@@ -486,7 +502,7 @@ public partial class MainWindow : Window
             for (int i = chartVm.Layers.Count - 1; i >= 0; i--)
             {
                 var layer = chartVm.Layers[i];
-                if (layer.Name != S57FeatureCategory.Soundings.Name)
+                if (layer.Name != S57ObjectCode.SOUNDG.ToString())
                     continue;
 
                 // Remove old sounding layer
@@ -497,13 +513,14 @@ public partial class MainWindow : Window
                 var chart = vm.GetChartAsync(chartVm.Entry).GetAwaiter().GetResult();
                 var newLayer = S57LayerFactory.CreateLayerForObjectCodes(
                     chart,
-                    S57FeatureCategory.Soundings.ObjectCodes,
-                    S57FeatureCategory.Soundings.Name,
+                    ImmutableArray.Create(S57ObjectCode.SOUNDG),
+                    S57ObjectCode.SOUNDG.ToString(),
                     depthUnit);
 
-                var soundingFeatureVm = vm.FeatureCategories.FirstOrDefault(
-                    f => f.Category == S57FeatureCategory.Soundings);
-                newLayer.Enabled = soundingFeatureVm?.IsVisible ?? false;
+                var soundingFeatureItem = vm.FeatureCategories
+                    .SelectMany(c => c.Features)
+                    .FirstOrDefault(f => f.ObjectCode == S57ObjectCode.SOUNDG);
+                newLayer.Enabled = soundingFeatureItem?.IsVisible ?? false;
 
                 chartVm.Layers.Insert(i, newLayer);
                 MyMapControl.Map?.Layers.Add(newLayer);

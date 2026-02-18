@@ -1,16 +1,20 @@
 using System;
+using System.Collections.Immutable;
+using System.Linq;
 using EncDotNet.ChartViewer.Models;
-using Mapsui.Layers;
+using EncDotNet.Enc;
 using ReactiveUI;
 
 namespace EncDotNet.ChartViewer.ViewModels;
 
 /// <summary>
-/// ViewModel for a toggleable S-57 chart feature category.
+/// ViewModel for a toggleable S-57 chart feature category containing individual features.
 /// </summary>
 public sealed class ChartFeatureViewModel : ViewModelBase
 {
-    private bool _isVisible;
+    private bool? _isChecked;
+    private bool _updatingChildren;
+    private bool _isExpanded;
 
     /// <summary>Gets the feature category definition.</summary>
     public S57FeatureCategory Category { get; }
@@ -18,33 +22,110 @@ public sealed class ChartFeatureViewModel : ViewModelBase
     /// <summary>Gets the display name.</summary>
     public string Name => Category.Name;
 
-    /// <summary>Gets or sets the associated map layer (set after chart loading).</summary>
-    public MemoryLayer? Layer { get; set; }
+    /// <summary>Gets the individual feature items in this category.</summary>
+    public ImmutableArray<ChartFeatureItemViewModel> Features { get; }
+
+    /// <summary>Gets whether this category contains only a single feature.</summary>
+    public bool IsSingleFeature => Features.Length == 1;
+
+    /// <summary>Gets or sets whether the category's feature list is expanded.</summary>
+    public bool IsExpanded
+    {
+        get => _isExpanded;
+        set => this.RaiseAndSetIfChanged(ref _isExpanded, value);
+    }
 
     /// <summary>
-    /// Gets or sets whether this feature category is visible on the map.
+    /// Gets or sets the tri-state checked state for the category.
+    /// true = all features visible, false = none visible, null = mixed.
     /// </summary>
-    public bool IsVisible
+    public bool? IsChecked
     {
-        get => _isVisible;
+        get => _isChecked;
         set
         {
-            if (_isVisible == value)
+            // When user clicks through to indeterminate, snap to checked (enable all)
+            var effective = value ?? true;
+            if (_isChecked is { } current && current == effective)
                 return;
 
-            this.RaiseAndSetIfChanged(ref _isVisible, value);
-            IsVisibleChanged?.Invoke(this, value);
+            _updatingChildren = true;
+            foreach (var f in Features)
+                f.IsVisible = effective;
+            _updatingChildren = false;
+
+            _isChecked = effective;
+            this.RaisePropertyChanged();
         }
     }
 
     /// <summary>
-    /// Raised when visibility changes. The bool argument is the new visibility value.
+    /// Raised when any child feature's visibility changes.
+    /// The argument is the child feature item that changed.
     /// </summary>
-    public event EventHandler<bool>? IsVisibleChanged;
+    public event EventHandler<ChartFeatureItemViewModel>? FeatureVisibilityChanged;
 
     public ChartFeatureViewModel(S57FeatureCategory category)
     {
         Category = category;
-        _isVisible = category.DefaultEnabled;
+        Features = category.ObjectCodes
+            .Select(code => new ChartFeatureItemViewModel(
+                code, GetDisplayName(code, category), category.DefaultEnabled))
+            .ToImmutableArray();
+
+        foreach (var f in Features)
+            f.IsVisibleChanged += OnChildVisibilityChanged;
+
+        RefreshCheckedState();
+    }
+
+    private void OnChildVisibilityChanged(object? sender, bool isVisible)
+    {
+        if (!_updatingChildren)
+            RefreshCheckedState();
+
+        if (sender is ChartFeatureItemViewModel item)
+            FeatureVisibilityChanged?.Invoke(this, item);
+    }
+
+    private void RefreshCheckedState()
+    {
+        var allVisible = Features.All(f => f.IsVisible);
+        var noneVisible = Features.All(f => !f.IsVisible);
+        _isChecked = allVisible ? true : noneVisible ? false : null;
+        this.RaisePropertyChanged(nameof(IsChecked));
+    }
+
+    private static string GetDisplayName(S57ObjectCode code, S57FeatureCategory category)
+    {
+        // For single-code categories, use the category name
+        if (category.ObjectCodes.Length == 1)
+            return category.Name;
+
+        return code switch
+        {
+            // Buoys
+            S57ObjectCode.BOYLAT => "Lateral Buoy",
+            S57ObjectCode.BOYCAR => "Cardinal Buoy",
+            S57ObjectCode.BOYISD => "Isolated Danger Buoy",
+            S57ObjectCode.BOYSAW => "Safe Water Buoy",
+            S57ObjectCode.BOYSPP => "Special Purpose Buoy",
+            // Beacons
+            S57ObjectCode.BCNLAT => "Lateral Beacon",
+            S57ObjectCode.BCNCAR => "Cardinal Beacon",
+            S57ObjectCode.BCNISD => "Isolated Danger Beacon",
+            S57ObjectCode.BCNSAW => "Safe Water Beacon",
+            S57ObjectCode.BCNSPP => "Special Purpose Beacon",
+            // Traffic Separation Scheme
+            S57ObjectCode.TSSLPT => "Lane Part",
+            S57ObjectCode.TSSRON => "Roundabout",
+            S57ObjectCode.TSSCRS => "Crossing",
+            S57ObjectCode.TSSBND => "Boundary",
+            S57ObjectCode.TSEZNE => "Zone",
+            S57ObjectCode.TSELNE => "Separation Line",
+            S57ObjectCode.TWRTPT => "Two-way Route Part",
+            S57ObjectCode.PRCARE => "Precautionary Area",
+            _ => code.ToString(),
+        };
     }
 }

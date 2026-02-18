@@ -291,11 +291,55 @@
 
                         <ScrollViewer>
                             <ItemsControl ItemsSource="{Binding FeatureCategories}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate DataType="{x:Type vm:ChartFeatureViewModel}">
-                                        <CheckBox IsChecked="{Binding IsVisible}"
-                                                  Content="{Binding Name}"
-                                                  Margin="0,3" />
+                                        <StackPanel>
+                                            <DockPanel Margin="0,3">
+                                                <!-- Expand/collapse toggle for multi-feature categories -->
+                                                <ToggleButton DockPanel.Dock="Right"
+                                                              IsChecked="{Binding IsExpanded}"
+                                                              IsVisible="{Binding !IsSingleFeature}"
+                                                              Background="Transparent"
+                                                              BorderThickness="0"
+                                                              Width="24" Height="24"
+                                                              MinWidth="24" MinHeight="24"
+                                                              Padding="0"
+                                                              Margin="0,0,16,0"
+                                                              VerticalAlignment="Center"
+                                                              HorizontalContentAlignment="Center"
+                                                              VerticalContentAlignment="Center">
+                                                    <Panel>
+                                                        <PathIcon Data="M 0,0 L 4,4 L 8,0"
+                                                                  Width="12" Height="12"
+                                                                  IsVisible="{Binding !IsExpanded}" />
+                                                        <PathIcon Data="M 0,4 L 4,0 L 8,4"
+                                                                  Width="12" Height="12"
+                                                                  IsVisible="{Binding IsExpanded}" />
+                                                    </Panel>
+                                                </ToggleButton>
+                                                <!-- Checkbox always at the same position -->
+                                                <CheckBox IsChecked="{Binding IsChecked}"
+                                                          IsThreeState="{Binding !IsSingleFeature}"
+                                                          Content="{Binding Name}" />
+                                            </DockPanel>
+                                            <!-- Expanded child features -->
+                                            <ItemsControl ItemsSource="{Binding Features}"
+                                                          Margin="24,0,0,0"
+                                                          IsVisible="{Binding IsExpanded}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate DataType="{x:Type vm:ChartFeatureItemViewModel}">
+                                                        <CheckBox IsChecked="{Binding IsVisible}"
+                                                                  Content="{Binding Name}"
+                                                                  Margin="0,2" />
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
