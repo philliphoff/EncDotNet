@@ -191,7 +191,7 @@ public static class S57LayerFactory
                 BackColor = null,
                 Text = displayDepth,
                 ForeColor = new Color(120, 120, 140),
-                Font = new Font { Size = 10 },
+                Font = new Font { Size = 12 },
                 HorizontalAlignment = LabelStyle.HorizontalAlignmentEnum.Center,
                 VerticalAlignment = LabelStyle.VerticalAlignmentEnum.Center
             });
@@ -207,9 +207,23 @@ public static class S57LayerFactory
         return unit switch
         {
             DepthUnit.Meters => depthMeters.ToString("0.0"),
-            DepthUnit.Fathoms => (depthMeters * MetersToFathoms).ToString("0.0"),
+            DepthUnit.Fathoms => FormatFathoms(depthMeters * MetersToFeet),
             _ => ((int)(depthMeters * MetersToFeet)).ToString(),
         };
+    }
+
+    private static string FormatFathoms(double totalFeet)
+    {
+        int wholeFeet = (int)totalFeet;
+        int fathoms = wholeFeet / 6;
+        int remainingFeet = wholeFeet % 6;
+
+        // Unicode subscript digits: ₀₁₂₃₄₅
+        const string subscriptDigits = "₀₁₂₃₄₅";
+
+        return remainingFeet == 0
+            ? fathoms.ToString()
+            : $"{fathoms}{subscriptDigits[remainingFeet]}";
     }
 
     private static Point? CreatePointFromPointFeature(S57Chart chart, S57PointFeature pointFeature)
