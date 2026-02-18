@@ -53,6 +53,33 @@
         <!-- Map control fills the entire area -->
         <mapsui:MapControl x:Name="MyMapControl" />
 
+        <Canvas>
+            <Border x:Name="ChartPopup"
+                    IsVisible="{Binding HasHoveredChart}"
+                    Background="Yellow"
+                    Padding="8,4"
+                    CornerRadius="0,0,0,4">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="{Binding HoveredChart.Name}"
+                               VerticalAlignment="Center"
+                               Foreground="Black"
+                               FontWeight="SemiBold"
+                               FontSize="12"
+                               MaxWidth="160"
+                               TextTrimming="CharacterEllipsis" />
+                    <Button Content="{Binding HoveredChart.SelectionLabel}"
+                            Command="{Binding HoveredChart.ToggleSelectedCommand}"
+                            FontSize="14"
+                            FontWeight="Bold"
+                            Foreground="Black"
+                            Padding="4,0"
+                            MinWidth="24"
+                            HorizontalContentAlignment="Center"
+                            VerticalAlignment="Center" />
+                </StackPanel>
+            </Border>
+        </Canvas>
+
         <!-- Left side: charts panel + toggle button -->
         <Grid HorizontalAlignment="Left" VerticalAlignment="Stretch">
             <Grid.ColumnDefinitions>
@@ -278,31 +305,5 @@
             </Border>
         </Grid>
 
-        <Canvas>
-            <Border x:Name="ChartPopup"
-                    IsVisible="{Binding HasHoveredChart}"
-                    Background="Yellow"
-                    Padding="8,4"
-                    CornerRadius="0,0,0,4">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <TextBlock Text="{Binding HoveredChart.Name}"
-                               VerticalAlignment="Center"
-                               Foreground="Black"
-                               FontWeight="SemiBold"
-                               FontSize="12"
-                               MaxWidth="160"
-                               TextTrimming="CharacterEllipsis" />
-                    <Button Content="{Binding HoveredChart.SelectionLabel}"
-                            Command="{Binding HoveredChart.ToggleSelectedCommand}"
-                            FontSize="14"
-                            FontWeight="Bold"
-                            Foreground="Black"
-                            Padding="4,0"
-                            MinWidth="24"
-                            HorizontalContentAlignment="Center"
-                            VerticalAlignment="Center" />
-                </StackPanel>
-            </Border>
-        </Canvas>
     </Grid>
 </Window>
