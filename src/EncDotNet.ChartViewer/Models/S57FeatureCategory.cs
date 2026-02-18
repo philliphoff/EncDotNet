@@ -183,10 +183,10 @@ public sealed class S57FeatureCategory
     [
         // Hydrographic
         Coastline,
+        SeaArea,
         DepthContours,
         DepthAreas,
         Soundings,
-        SeaArea,
         DredgedArea,
         Lake,
         River,

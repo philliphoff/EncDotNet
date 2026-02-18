@@ -9,7 +9,7 @@
         x:Class="EncDotNet.ChartViewer.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="EncDotNet.ChartViewer">
+        Title="Sound Charts">
 
     <Design.DataContext>
         <!-- This only sets the DataContext for the previewer in an IDE,
