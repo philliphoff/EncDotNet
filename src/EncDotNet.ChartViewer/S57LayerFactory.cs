@@ -155,9 +155,16 @@ public static class S57LayerFactory
         {
             Name = layerName,
             Features = features,
-            Style = null // Use per-feature styles
+            Style = null, // Use per-feature styles
+            MaxVisible = codeSet.Contains(S57ObjectCode.SOUNDG) && codeSet.Count == 1 ? SoundingMaxResolution : double.MaxValue,
         };
     }
+
+    /// <summary>
+    /// The maximum viewport resolution at which soundings are visible.
+    /// Roughly corresponds to OSM zoom level ~16; soundings are hidden when zoomed out further.
+    /// </summary>
+    private const double SoundingMaxResolution = 10;
 
     private static IEnumerable<IFeature> CreateSoundingFeatures(S57Chart chart, S57PointFeature pointFeature, DepthUnit depthUnit = DepthUnit.Feet)
     {
@@ -183,7 +190,7 @@ public static class S57LayerFactory
             {
                 BackColor = null,
                 Text = displayDepth,
-                ForeColor = new Color(0, 0, 120),
+                ForeColor = new Color(120, 120, 140),
                 Font = new Font { Size = 10 },
                 HorizontalAlignment = LabelStyle.HorizontalAlignmentEnum.Center,
                 VerticalAlignment = LabelStyle.VerticalAlignmentEnum.Center
