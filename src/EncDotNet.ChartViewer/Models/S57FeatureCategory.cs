@@ -62,6 +62,12 @@ public sealed class S57FeatureCategory
     /// <summary>Magnetic variation (MAGVAR, object code 81).</summary>
     public static readonly S57FeatureCategory MagneticVariation = new("Magnetic Variation", false, S57ObjectCode.MAGVAR);
 
+    /// <summary>Seabed - seabed area, weed/kelp, swept area (SBDARE 121, WEDKLP 158, SWPARE 134).</summary>
+    public static readonly S57FeatureCategory Seabed = new("Seabed", false, S57ObjectCode.SBDARE, S57ObjectCode.WEDKLP, S57ObjectCode.SWPARE);
+
+    /// <summary>Tides and currents (TS_PRH 136, TS_PNH 137, TS_PAD 138, TS_TIS 139, T_HMON 140, T_NHMN 141, T_TIMS 142, CURENT 36, TIDEWY 143, TS_FEB 160).</summary>
+    public static readonly S57FeatureCategory TidesAndCurrents = new("Tides & Currents", false, S57ObjectCode.TS_PRH, S57ObjectCode.TS_PNH, S57ObjectCode.TS_PAD, S57ObjectCode.TS_TIS, S57ObjectCode.T_HMON, S57ObjectCode.T_NHMN, S57ObjectCode.T_TIMS, S57ObjectCode.CURENT, S57ObjectCode.TIDEWY, S57ObjectCode.TS_FEB);
+
     // --- Land ---
 
     /// <summary>Land area (LNDARE, object code 71).</summary>
@@ -72,6 +78,12 @@ public sealed class S57FeatureCategory
 
     /// <summary>Landmark (LNDMRK, object code 74).</summary>
     public static readonly S57FeatureCategory Landmarks = new("Landmarks", false, S57ObjectCode.LNDMRK);
+
+    /// <summary>Land features - vegetation, land region, land elevation, lake shore, river bank (VEGATN 155, LNDRGN 73, LNDELV 72, LAKSHR 70, RIVBNK 115).</summary>
+    public static readonly S57FeatureCategory LandFeatures = new("Land Features", false, S57ObjectCode.VEGATN, S57ObjectCode.LNDRGN, S57ObjectCode.LNDELV, S57ObjectCode.LAKSHR, S57ObjectCode.RIVBNK);
+
+    /// <summary>Transport - railway, road, runway, airport/airfield (RAILWY 106, ROADWY 116, RUNWAY 117, AIRARE 2).</summary>
+    public static readonly S57FeatureCategory Transport = new("Transport", false, S57ObjectCode.RAILWY, S57ObjectCode.ROADWY, S57ObjectCode.RUNWAY, S57ObjectCode.AIRARE);
 
     // --- Structures ---
 
@@ -93,13 +105,19 @@ public sealed class S57FeatureCategory
     /// <summary>Dock area (DOCARE, object code 45).</summary>
     public static readonly S57FeatureCategory DockArea = new("Dock Area", false, S57ObjectCode.DOCARE);
 
+    /// <summary>Harbour and port facilities (HRBARE 63, HRBFAC 64, BERTHS 10, SMCFAC 128, CRANES 35).</summary>
+    public static readonly S57FeatureCategory HarbourFacilities = new("Harbour Facilities", false, S57ObjectCode.HRBARE, S57ObjectCode.HRBFAC, S57ObjectCode.BERTHS, S57ObjectCode.SMCFAC, S57ObjectCode.CRANES);
+
+    /// <summary>Dams, dykes, and waterway structures (DAMCON 38, DYKCON 49, CAUSWY 26, TUNNEL 151, GATCON 61).</summary>
+    public static readonly S57FeatureCategory DamsAndDykes = new("Dams & Dykes", false, S57ObjectCode.DAMCON, S57ObjectCode.DYKCON, S57ObjectCode.CAUSWY, S57ObjectCode.TUNNEL, S57ObjectCode.GATCON);
+
     // --- Navigation aids ---
 
     /// <summary>Lights (LIGHTS, object code 75).</summary>
     public static readonly S57FeatureCategory Lights = new("Lights", false, S57ObjectCode.LIGHTS);
 
-    /// <summary>Buoys - lateral, cardinal, isolated danger, safe water, special purpose (BOYLAT 17, BOYCAR 14, BOYISD 16, BOYSAW 18, BOYSPP 19).</summary>
-    public static readonly S57FeatureCategory Buoys = new("Buoys", false, S57ObjectCode.BOYLAT, S57ObjectCode.BOYCAR, S57ObjectCode.BOYISD, S57ObjectCode.BOYSAW, S57ObjectCode.BOYSPP);
+    /// <summary>Buoys - lateral, cardinal, installation, isolated danger, safe water, special purpose (BOYLAT 17, BOYCAR 14, BOYINB 15, BOYISD 16, BOYSAW 18, BOYSPP 19).</summary>
+    public static readonly S57FeatureCategory Buoys = new("Buoys", false, S57ObjectCode.BOYLAT, S57ObjectCode.BOYCAR, S57ObjectCode.BOYINB, S57ObjectCode.BOYISD, S57ObjectCode.BOYSAW, S57ObjectCode.BOYSPP);
 
     /// <summary>Beacons - lateral, cardinal, isolated danger, safe water, special purpose (BCNLAT 7, BCNCAR 5, BCNISD 6, BCNSAW 8, BCNSPP 9).</summary>
     public static readonly S57FeatureCategory Beacons = new("Beacons", false, S57ObjectCode.BCNLAT, S57ObjectCode.BCNCAR, S57ObjectCode.BCNISD, S57ObjectCode.BCNSAW, S57ObjectCode.BCNSPP);
@@ -116,6 +134,12 @@ public sealed class S57FeatureCategory
     /// <summary>Pilot boarding place (PILBOP, object code 91).</summary>
     public static readonly S57FeatureCategory PilotBoardingPlaces = new("Pilot Boarding Places", false, S57ObjectCode.PILBOP);
 
+    /// <summary>Other navigation aids - light float, light vessel, radar transponder, daymark, topmark (LITFLT 76, LITVES 77, RTPBCN 103, DAYMAR 39, TOPMAR 144).</summary>
+    public static readonly S57FeatureCategory OtherNavAids = new("Other Nav Aids", false, S57ObjectCode.LITFLT, S57ObjectCode.LITVES, S57ObjectCode.RTPBCN, S57ObjectCode.DAYMAR, S57ObjectCode.TOPMAR);
+
+    /// <summary>Safety stations - rescue, coastguard, signal stations (RSCSTA 111, CGUSTA 29, SISTAT 123, SISTAW 124).</summary>
+    public static readonly S57FeatureCategory SafetyStations = new("Safety Stations", false, S57ObjectCode.RSCSTA, S57ObjectCode.CGUSTA, S57ObjectCode.SISTAT, S57ObjectCode.SISTAW);
+
     // --- Hazards ---
 
     /// <summary>Wrecks (WRECKS, object code 159).</summary>
@@ -127,13 +151,19 @@ public sealed class S57FeatureCategory
     /// <summary>Underwater rocks (UWTROC, object code 153).</summary>
     public static readonly S57FeatureCategory UnderwaterRocks = new("Underwater Rocks", false, S57ObjectCode.UWTROC);
 
+    /// <summary>Sand waves and water turbulence (SNDWAV 118, WATTUR 156).</summary>
+    public static readonly S57FeatureCategory SandWavesAndTurbulence = new("Sand Waves & Turbulence", false, S57ObjectCode.SNDWAV, S57ObjectCode.WATTUR);
+
     // --- Navigation routing ---
 
-    /// <summary>Traffic separation scheme - lane part, roundabout, crossing, boundary, zone, separation line (TSSLPT 148, TSSRON 149, TSSCRS 147, TSSBND 146, TSEZNE 150, TSELNE 145).</summary>
-    public static readonly S57FeatureCategory TrafficSeparationScheme = new("Traffic Separation Scheme", false, S57ObjectCode.TSSLPT, S57ObjectCode.TSSRON, S57ObjectCode.TSSCRS, S57ObjectCode.TSSBND, S57ObjectCode.TSEZNE, S57ObjectCode.TSELNE, S57ObjectCode.TWRTPT, S57ObjectCode.PRCARE);
+    /// <summary>Traffic separation scheme - lane part, roundabout, crossing, boundary, zone, separation line, precautionary area (TSSLPT 148, TSSRON 149, TSSCRS 147, TSSBND 146, TSEZNE 150, TSELNE 145, TWRTPT 152, PRCARE 96, ISTZNE 68).</summary>
+    public static readonly S57FeatureCategory TrafficSeparationScheme = new("Traffic Separation Scheme", false, S57ObjectCode.TSSLPT, S57ObjectCode.TSSRON, S57ObjectCode.TSSCRS, S57ObjectCode.TSSBND, S57ObjectCode.TSEZNE, S57ObjectCode.TSELNE, S57ObjectCode.TWRTPT, S57ObjectCode.PRCARE, S57ObjectCode.ISTZNE);
+
+    /// <summary>Deep water routes - centerline and route part (DWRTCL 40, DWRTPT 41).</summary>
+    public static readonly S57FeatureCategory DeepWaterRoutes = new("Deep Water Routes", false, S57ObjectCode.DWRTCL, S57ObjectCode.DWRTPT);
 
     /// <summary>Recommended track (RECTRC, object code 109).</summary>
-    public static readonly S57FeatureCategory RecommendedTrack = new("Recommended Track", false, S57ObjectCode.RECTRC);
+    public static readonly S57FeatureCategory RecommendedTrack = new("Recommended Track", false, S57ObjectCode.RECTRC, S57ObjectCode.RCRTCL, S57ObjectCode.RCTLPT);
 
     /// <summary>Navigation line (NAVLNE, object code 85).</summary>
     public static readonly S57FeatureCategory NavigationLine = new("Navigation Line", false, S57ObjectCode.NAVLNE);
@@ -143,6 +173,9 @@ public sealed class S57FeatureCategory
 
     /// <summary>Ferry route (FERYRT, object code 53).</summary>
     public static readonly S57FeatureCategory FerryRoute = new("Ferry Route", false, S57ObjectCode.FERYRT);
+
+    /// <summary>Submarine transit lane (SUBTLN, object code 133).</summary>
+    public static readonly S57FeatureCategory SubmarineTransitLane = new("Submarine Transit Lane", false, S57ObjectCode.SUBTLN);
 
     // --- Regulated/restricted areas ---
 
@@ -160,6 +193,15 @@ public sealed class S57FeatureCategory
 
     /// <summary>Caution area (CTNARE, object code 27).</summary>
     public static readonly S57FeatureCategory CautionArea = new("Caution Area", false, S57ObjectCode.CTNARE);
+
+    /// <summary>Offshore/industrial areas - production, incineration, free port, cargo transhipment (OSPARE 88, ICNARE 67, FRPARE 60, CTSARE 25).</summary>
+    public static readonly S57FeatureCategory OffshoreIndustrialAreas = new("Offshore/Industrial Areas", false, S57ObjectCode.OSPARE, S57ObjectCode.ICNARE, S57ObjectCode.FRPARE, S57ObjectCode.CTSARE);
+
+    /// <summary>Boundaries and zones - contiguous zone, exclusive economic zone, territorial sea, fishery zone, custom zone, administration area (CONZNE 31, EXEZNE 50, TESARE 135, FSHZNE 54, CUSZNE 37, ADMARE 1).</summary>
+    public static readonly S57FeatureCategory BoundariesAndZones = new("Boundaries & Zones", false, S57ObjectCode.CONZNE, S57ObjectCode.EXEZNE, S57ObjectCode.TESARE, S57ObjectCode.FSHZNE, S57ObjectCode.CUSZNE, S57ObjectCode.ADMARE);
+
+    /// <summary>Fishing - fishing facility, fishing ground, marine farm/culture (FSHFAC 55, FSHGRD 56, MARCUL 82).</summary>
+    public static readonly S57FeatureCategory Fishing = new("Fishing", false, S57ObjectCode.FSHFAC, S57ObjectCode.FSHGRD, S57ObjectCode.MARCUL);
 
     // --- Cables & pipelines ---
 
@@ -193,10 +235,14 @@ public sealed class S57FeatureCategory
         Canal,
         UnsurveyedArea,
         MagneticVariation,
+        Seabed,
+        TidesAndCurrents,
         // Land
         LandArea,
         BuiltUpArea,
         Landmarks,
+        LandFeatures,
+        Transport,
         // Structures
         ShorelineConstruction,
         Bridges,
@@ -204,6 +250,8 @@ public sealed class S57FeatureCategory
         OffshorePlatforms,
         Pontoons,
         DockArea,
+        HarbourFacilities,
+        DamsAndDykes,
         // Navigation aids
         Lights,
         Buoys,
@@ -212,22 +260,30 @@ public sealed class S57FeatureCategory
         RadarStations,
         RadioCallingInPoints,
         PilotBoardingPlaces,
+        OtherNavAids,
+        SafetyStations,
         // Hazards
         Wrecks,
         Obstructions,
         UnderwaterRocks,
+        SandWavesAndTurbulence,
         // Navigation routing
         TrafficSeparationScheme,
+        DeepWaterRoutes,
         RecommendedTrack,
         NavigationLine,
         Fairway,
         FerryRoute,
+        SubmarineTransitLane,
         // Regulated/restricted areas
         AnchorageArea,
         RestrictedArea,
         DumpingGround,
         MilitaryPracticeArea,
         CautionArea,
+        OffshoreIndustrialAreas,
+        BoundariesAndZones,
+        Fishing,
         // Cables & pipelines
         CableArea,
         CableOverhead,
