@@ -281,6 +281,7 @@ public static class S57LayerFactory
                 {
                     PenStyle = PenStyle.Dash,
                 },
+                Outline = null,
             };
         }
 
