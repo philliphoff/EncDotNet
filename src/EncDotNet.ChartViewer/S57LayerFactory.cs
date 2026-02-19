@@ -272,6 +272,18 @@ public static class S57LayerFactory
 
     private static VectorStyle CreateLineStyle(S57ObjectCode objectCode)
     {
+        // Traffic boundaries: darker purple, thicker, dashed
+        if (objectCode is S57ObjectCode.TSSBND or S57ObjectCode.TSELNE)
+        {
+            return new VectorStyle
+            {
+                Line = new Pen(new Color(180, 100, 200, 200), 3)
+                {
+                    PenStyle = PenStyle.Dash,
+                },
+            };
+        }
+
         // Different colors for different object types
         var (color, width) = objectCode switch
         {
@@ -285,8 +297,6 @@ public static class S57LayerFactory
             S57ObjectCode.FERYRT => (new Color(160, 0, 160, 180), 1),
             S57ObjectCode.NAVLNE => (new Color(200, 0, 200, 180), 1),
             S57ObjectCode.RECTRC => (new Color(200, 0, 200, 200), 1),
-            S57ObjectCode.TSSBND => (new Color(150, 100, 200, 180), 1),
-            S57ObjectCode.TSELNE => (new Color(150, 100, 200, 180), 1),
             S57ObjectCode.RIVERS => (new Color(0, 100, 200, 180), 1),
             S57ObjectCode.CANALS => (new Color(0, 100, 200, 180), 1),
             _ => (new Color(0, 0, 255, 150), 1)
@@ -298,8 +308,41 @@ public static class S57LayerFactory
         };
     }
 
-    private static VectorStyle CreateAreaStyle(S57ObjectCode objectCode)
+    private static IStyle CreateAreaStyle(S57ObjectCode objectCode)
     {
+        // Precautionary area: purple fill with dashed purple border
+        if (objectCode == S57ObjectCode.PRCARE)
+        {
+            return new VectorStyle
+            {
+                Fill = new Brush(new Color(180, 100, 200, 40)),
+                Outline = new Pen(new Color(180, 100, 200, 200), 2)
+                {
+                    PenStyle = PenStyle.Dash,
+                },
+            };
+        }
+
+        // Traffic separation zone: light purple fill, no border
+        if (objectCode == S57ObjectCode.TSEZNE)
+        {
+            return new VectorStyle
+            {
+                Fill = new Brush(new Color(220, 200, 255, 60)),
+                Outline = null,
+            };
+        }
+
+        // Traffic separation lane: transparent, no border
+        if (objectCode == S57ObjectCode.TSSLPT)
+        {
+            return new VectorStyle
+            {
+                Fill = null,
+                Outline = null,
+            };
+        }
+
         // Different colors for different object types
         var (fillColor, outlineColor) = objectCode switch
         {
@@ -316,9 +359,7 @@ public static class S57LayerFactory
             S57ObjectCode.MIPARE => (new Color(255, 200, 200, 60), new Color(200, 80, 80, 120)),
             S57ObjectCode.CTNARE => (new Color(255, 230, 180, 80), new Color(200, 150, 50, 150)),
             S57ObjectCode.FAIRWY => (new Color(200, 220, 255, 60), new Color(100, 140, 200, 120)),
-            S57ObjectCode.TSSLPT => (new Color(220, 200, 255, 60), new Color(150, 100, 200, 120)),
             S57ObjectCode.TSSRON => (new Color(220, 200, 255, 60), new Color(150, 100, 200, 120)),
-            S57ObjectCode.TSEZNE => (new Color(220, 200, 255, 60), new Color(150, 100, 200, 120)),
             S57ObjectCode.TSSCRS => (new Color(220, 200, 255, 60), new Color(150, 100, 200, 120)),
             S57ObjectCode.CBLARE => (new Color(220, 180, 255, 60), new Color(160, 100, 200, 120)),
             S57ObjectCode.PIPARE => (new Color(180, 255, 180, 60), new Color(80, 160, 80, 120)),
