@@ -41,10 +41,10 @@ public sealed class S57FeatureCategory
     /// <summary>Soundings (SOUNDG, object code 129).</summary>
     public static readonly S57FeatureCategory Soundings = new("Soundings", false, S57ObjectCode.SOUNDG);
 
-    /// <summary>Sea area (SEAARE, object code 112).</summary>
+    /// <summary>Sea area (SEAARE, object code 119).</summary>
     public static readonly S57FeatureCategory SeaArea = new("Sea Area", false, S57ObjectCode.SEAARE);
 
-    /// <summary>Dredged area (DRGARE, object code 47).</summary>
+    /// <summary>Dredged area (DRGARE, object code 46).</summary>
     public static readonly S57FeatureCategory DredgedArea = new("Dredged Area", false, S57ObjectCode.DRGARE);
 
     /// <summary>Lake (LAKARE, object code 69).</summary>
@@ -59,7 +59,7 @@ public sealed class S57FeatureCategory
     /// <summary>Unsurveyed area (UNSARE, object code 154).</summary>
     public static readonly S57FeatureCategory UnsurveyedArea = new("Unsurveyed Area", false, S57ObjectCode.UNSARE);
 
-    /// <summary>Magnetic variation (MAGVAR, object code 77).</summary>
+    /// <summary>Magnetic variation (MAGVAR, object code 81).</summary>
     public static readonly S57FeatureCategory MagneticVariation = new("Magnetic Variation", false, S57ObjectCode.MAGVAR);
 
     // --- Land ---
@@ -67,7 +67,7 @@ public sealed class S57FeatureCategory
     /// <summary>Land area (LNDARE, object code 71).</summary>
     public static readonly S57FeatureCategory LandArea = new("Land Area", false, S57ObjectCode.LNDARE);
 
-    /// <summary>Built-up area (BUAARE, object code 25).</summary>
+    /// <summary>Built-up area (BUAARE, object code 13).</summary>
     public static readonly S57FeatureCategory BuiltUpArea = new("Built-up Area", false, S57ObjectCode.BUAARE);
 
     /// <summary>Landmark (LNDMRK, object code 74).</summary>
@@ -78,7 +78,7 @@ public sealed class S57FeatureCategory
     /// <summary>Shoreline construction (SLCONS, object code 122).</summary>
     public static readonly S57FeatureCategory ShorelineConstruction = new("Shoreline Construction", true, S57ObjectCode.SLCONS);
 
-    /// <summary>Bridge (BRIDGE, object code 12).</summary>
+    /// <summary>Bridge (BRIDGE, object code 11).</summary>
     public static readonly S57FeatureCategory Bridges = new("Bridges", false, S57ObjectCode.BRIDGE);
 
     /// <summary>Mooring/warping facility (MORFAC, object code 84).</summary>
@@ -98,22 +98,22 @@ public sealed class S57FeatureCategory
     /// <summary>Lights (LIGHTS, object code 75).</summary>
     public static readonly S57FeatureCategory Lights = new("Lights", false, S57ObjectCode.LIGHTS);
 
-    /// <summary>Buoys - lateral, cardinal, isolated danger, safe water, special purpose (BOYLAT 17, BOYCAR 14, BOYISD 15, BOYSAW 16, BOYSPP 18).</summary>
+    /// <summary>Buoys - lateral, cardinal, isolated danger, safe water, special purpose (BOYLAT 17, BOYCAR 14, BOYISD 16, BOYSAW 18, BOYSPP 19).</summary>
     public static readonly S57FeatureCategory Buoys = new("Buoys", false, S57ObjectCode.BOYLAT, S57ObjectCode.BOYCAR, S57ObjectCode.BOYISD, S57ObjectCode.BOYSAW, S57ObjectCode.BOYSPP);
 
-    /// <summary>Beacons - lateral, cardinal, isolated danger, safe water, special purpose (BCNLAT 6, BCNCAR 3, BCNISD 4, BCNSAW 5, BCNSPP 7).</summary>
+    /// <summary>Beacons - lateral, cardinal, isolated danger, safe water, special purpose (BCNLAT 7, BCNCAR 5, BCNISD 6, BCNSAW 8, BCNSPP 9).</summary>
     public static readonly S57FeatureCategory Beacons = new("Beacons", false, S57ObjectCode.BCNLAT, S57ObjectCode.BCNCAR, S57ObjectCode.BCNISD, S57ObjectCode.BCNSAW, S57ObjectCode.BCNSPP);
 
-    /// <summary>Fog signal (FOGSIG, object code 59).</summary>
+    /// <summary>Fog signal (FOGSIG, object code 58).</summary>
     public static readonly S57FeatureCategory FogSignals = new("Fog Signals", false, S57ObjectCode.FOGSIG);
 
-    /// <summary>Radar station (RADSTA, object code 100).</summary>
+    /// <summary>Radar station (RADSTA, object code 102).</summary>
     public static readonly S57FeatureCategory RadarStations = new("Radar Stations", false, S57ObjectCode.RADSTA);
 
-    /// <summary>Radio calling-in point (RDOCAL, object code 97).</summary>
+    /// <summary>Radio calling-in point (RDOCAL, object code 104).</summary>
     public static readonly S57FeatureCategory RadioCallingInPoints = new("Radio Calling-in Points", false, S57ObjectCode.RDOCAL);
 
-    /// <summary>Pilot boarding place (PILBOP, object code 90).</summary>
+    /// <summary>Pilot boarding place (PILBOP, object code 91).</summary>
     public static readonly S57FeatureCategory PilotBoardingPlaces = new("Pilot Boarding Places", false, S57ObjectCode.PILBOP);
 
     // --- Hazards ---
@@ -129,53 +129,53 @@ public sealed class S57FeatureCategory
 
     // --- Navigation routing ---
 
-    /// <summary>Traffic separation scheme - lane part, roundabout, crossing, boundary, zone, separation line (TSSLPT 145, TSSRON 146, TSSCRS 148, TSSBND 144, TSEZNE 147, TSELNE 143).</summary>
+    /// <summary>Traffic separation scheme - lane part, roundabout, crossing, boundary, zone, separation line (TSSLPT 148, TSSRON 149, TSSCRS 147, TSSBND 146, TSEZNE 150, TSELNE 145).</summary>
     public static readonly S57FeatureCategory TrafficSeparationScheme = new("Traffic Separation Scheme", false, S57ObjectCode.TSSLPT, S57ObjectCode.TSSRON, S57ObjectCode.TSSCRS, S57ObjectCode.TSSBND, S57ObjectCode.TSEZNE, S57ObjectCode.TSELNE, S57ObjectCode.TWRTPT, S57ObjectCode.PRCARE);
 
-    /// <summary>Recommended track (RECTRC, object code 96).</summary>
+    /// <summary>Recommended track (RECTRC, object code 109).</summary>
     public static readonly S57FeatureCategory RecommendedTrack = new("Recommended Track", false, S57ObjectCode.RECTRC);
 
     /// <summary>Navigation line (NAVLNE, object code 85).</summary>
     public static readonly S57FeatureCategory NavigationLine = new("Navigation Line", false, S57ObjectCode.NAVLNE);
 
-    /// <summary>Fairway (FAIRWY, object code 57).</summary>
+    /// <summary>Fairway (FAIRWY, object code 51).</summary>
     public static readonly S57FeatureCategory Fairway = new("Fairway", false, S57ObjectCode.FAIRWY);
 
-    /// <summary>Ferry route (FERYRT, object code 58).</summary>
+    /// <summary>Ferry route (FERYRT, object code 53).</summary>
     public static readonly S57FeatureCategory FerryRoute = new("Ferry Route", false, S57ObjectCode.FERYRT);
 
     // --- Regulated/restricted areas ---
 
-    /// <summary>Anchorage area (ACHARE, object code 2).</summary>
+    /// <summary>Anchorage area (ACHARE, object code 4).</summary>
     public static readonly S57FeatureCategory AnchorageArea = new("Anchorage Area", false, S57ObjectCode.ACHARE);
 
-    /// <summary>Restricted area (RESARE, object code 120).</summary>
+    /// <summary>Restricted area (RESARE, object code 112).</summary>
     public static readonly S57FeatureCategory RestrictedArea = new("Restricted Area", false, S57ObjectCode.RESARE);
 
-    /// <summary>Dumping ground (DMPGRD, object code 46).</summary>
+    /// <summary>Dumping ground (DMPGRD, object code 48).</summary>
     public static readonly S57FeatureCategory DumpingGround = new("Dumping Ground", false, S57ObjectCode.DMPGRD);
 
     /// <summary>Military practice area (MIPARE, object code 83).</summary>
     public static readonly S57FeatureCategory MilitaryPracticeArea = new("Military Practice Area", false, S57ObjectCode.MIPARE);
 
-    /// <summary>Caution area (CTNARE, object code 40).</summary>
+    /// <summary>Caution area (CTNARE, object code 27).</summary>
     public static readonly S57FeatureCategory CautionArea = new("Caution Area", false, S57ObjectCode.CTNARE);
 
     // --- Cables & pipelines ---
 
-    /// <summary>Cable area (CBLARE, object code 27).</summary>
+    /// <summary>Cable area (CBLARE, object code 20).</summary>
     public static readonly S57FeatureCategory CableArea = new("Cable Area", false, S57ObjectCode.CBLARE);
 
-    /// <summary>Cable overhead (CBLOHD, object code 28).</summary>
+    /// <summary>Cable overhead (CBLOHD, object code 21).</summary>
     public static readonly S57FeatureCategory CableOverhead = new("Cable Overhead", false, S57ObjectCode.CBLOHD);
 
-    /// <summary>Cable submarine (CBLSUB, object code 29).</summary>
+    /// <summary>Cable submarine (CBLSUB, object code 22).</summary>
     public static readonly S57FeatureCategory CableSubmarine = new("Cable Submarine", false, S57ObjectCode.CBLSUB);
 
     /// <summary>Pipeline area (PIPARE, object code 92).</summary>
     public static readonly S57FeatureCategory PipelineArea = new("Pipeline Area", false, S57ObjectCode.PIPARE);
 
-    /// <summary>Pipeline submarine/on land (PIPSOL, object code 93).</summary>
+    /// <summary>Pipeline submarine/on land (PIPSOL, object code 94).</summary>
     public static readonly S57FeatureCategory PipelineSubmarineOnLand = new("Pipeline Submarine/On Land", false, S57ObjectCode.PIPSOL);
 
     /// <summary>All predefined feature categories.</summary>
