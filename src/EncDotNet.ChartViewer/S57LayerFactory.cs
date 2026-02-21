@@ -330,8 +330,21 @@ public static class S57LayerFactory
         return null;
     }
 
-    private static VectorStyle CreatePointStyle(S57ObjectCode objectCode)
+    private static IStyle CreatePointStyle(S57ObjectCode objectCode)
     {
+        if (objectCode == S57ObjectCode.LNDARE)
+        {
+            return new LabelStyle
+            {
+                BackColor = null,
+                Text = "*",
+                ForeColor = Color.Black,
+                Font = new Font { Size = 14 },
+                HorizontalAlignment = LabelStyle.HorizontalAlignmentEnum.Center,
+                VerticalAlignment = LabelStyle.VerticalAlignmentEnum.Center,
+            };
+        }
+
         // Basic point styling - can be expanded based on object codes
         return new VectorStyle
         {
