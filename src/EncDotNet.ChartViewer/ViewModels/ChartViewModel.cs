@@ -20,6 +20,9 @@ public sealed class ChartViewModel : ViewModelBase
     /// <summary>Gets the display name.</summary>
     public string Name => Entry.Name;
 
+    /// <summary>Gets or sets the compilation scale (CSCL) of this chart, set after loading.</summary>
+    public int CompilationScale { get; set; }
+
     /// <summary>Command to deselect this chart from the selected charts list.</summary>
     public ICommand DeselectCommand { get; }
 

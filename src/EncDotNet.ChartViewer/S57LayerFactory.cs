@@ -19,69 +19,6 @@ namespace EncDotNet.ChartViewer;
 public static class S57LayerFactory
 {
     /// <summary>
-    /// Creates a MemoryLayer containing all features from an S-57 chart.
-    /// </summary>
-    /// <param name="chart">The S-57 chart to render.</param>
-    /// <param name="layerName">Optional name for the layer.</param>
-    /// <returns>A MemoryLayer containing the chart features.</returns>
-    public static MemoryLayer CreateLayer(S57Chart chart, string? layerName = null)
-    {
-        var features = new List<IFeature>();
-
-        // Add area features (polygons)
-        foreach (var areaFeature in chart.AreaFeatures)
-        {
-            var polygon = CreatePolygonFromAreaFeature(chart, areaFeature);
-            if (polygon != null)
-            {
-                var feature = new GeometryFeature(polygon);
-                feature["ObjectCode"] = areaFeature.ObjectCode;
-                feature.Styles.Add(CreateAreaStyle(areaFeature.ObjectCode));
-                features.Add(feature);
-            }
-        }
-
-        // Add line features
-        foreach (var lineFeature in chart.LineFeatures)
-        {
-            var lineString = CreateLineStringFromLineFeature(chart, lineFeature);
-            if (lineString != null)
-            {
-                var feature = new GeometryFeature(lineString);
-                feature["ObjectCode"] = lineFeature.ObjectCode;
-                feature.Styles.Add(CreateLineStyle(lineFeature.ObjectCode));
-                features.Add(feature);
-            }
-        }
-
-        // Add point features
-        foreach (var pointFeature in chart.PointFeatures)
-        {
-            if (pointFeature.ObjectCode == S57ObjectCode.SOUNDG)
-            {
-                features.AddRange(CreateSoundingFeatures(chart, pointFeature));
-                continue;
-            }
-
-            var point = CreatePointFromPointFeature(chart, pointFeature);
-            if (point != null)
-            {
-                var feature = new GeometryFeature(point);
-                feature["ObjectCode"] = pointFeature.ObjectCode;
-                feature.Styles.Add(CreatePointStyle(pointFeature.ObjectCode));
-                features.Add(feature);
-            }
-        }
-
-        return new MemoryLayer
-        {
-            Name = layerName ?? "S-57 Features",
-            Features = features,
-            Style = null // Use per-feature styles
-        };
-    }
-
-    /// <summary>
     /// Creates a MemoryLayer containing only features matching the specified object codes.
     /// </summary>
     /// <param name="chart">The S-57 chart to render.</param>

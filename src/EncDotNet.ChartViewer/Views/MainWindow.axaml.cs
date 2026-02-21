@@ -429,6 +429,7 @@ public partial class MainWindow : Window
         try
         {
             var chart = await vm.GetChartAsync(chartVm.Entry);
+            chartVm.CompilationScale = chart.CompilationScale;
 
             foreach (var featureVm in vm.FeatureCategories)
             {
@@ -442,8 +443,14 @@ public partial class MainWindow : Window
 
                     layer.Enabled = featureItem.IsVisible;
                     chartVm.Layers.Add(layer);
-                    MyMapControl.Map?.Layers.Add(layer);
                 }
+            }
+
+            // Insert layers ordered by compilation scale (higher CSCL before lower CSCL)
+            if (MyMapControl.Map is { } map)
+            {
+                int insertIndex = FindChartLayerInsertionIndex(map, chartVm.CompilationScale, vm);
+                map.Layers.Insert(insertIndex, chartVm.Layers);
             }
 
             System.Diagnostics.Debug.WriteLine($"Loaded chart: {chartVm.Name}");
@@ -505,6 +512,9 @@ public partial class MainWindow : Window
                 if (layer.Name != S57ObjectCode.SOUNDG.ToString())
                     continue;
 
+                // Find position before removing so we can re-insert at the same spot
+                int mapIndex = FindMapLayerIndex(layer);
+
                 // Remove old sounding layer
                 MyMapControl.Map?.Layers.Remove(layer);
                 chartVm.Layers.RemoveAt(i);
@@ -523,11 +533,53 @@ public partial class MainWindow : Window
                 newLayer.Enabled = soundingFeatureItem?.IsVisible ?? false;
 
                 chartVm.Layers.Insert(i, newLayer);
-                MyMapControl.Map?.Layers.Add(newLayer);
+
+                // Re-insert at the same position to preserve CSCL ordering
+                if (mapIndex >= 0)
+                    MyMapControl.Map?.Layers.Insert(mapIndex, newLayer);
+                else
+                    MyMapControl.Map?.Layers.Add(newLayer);
             }
         }
 
         MyMapControl.Map?.Refresh();
+    }
+
+    /// <summary>
+    /// Finds the insertion index in the map's layer collection for a chart with the given
+    /// compilation scale. Higher CSCL charts are placed before lower CSCL charts.
+    /// </summary>
+    private static int FindChartLayerInsertionIndex(Map map, int compilationScale, MainWindowViewModel vm)
+    {
+        int index = 0;
+        foreach (var existingLayer in map.Layers)
+        {
+            var ownerChart = vm.AvailableCharts.FirstOrDefault(
+                c => c.IsSelected && c.Layers.Contains(existingLayer));
+
+            if (ownerChart != null && ownerChart.CompilationScale < compilationScale)
+            {
+                return index;
+            }
+
+            index++;
+        }
+        return index;
+    }
+
+    private int FindMapLayerIndex(ILayer layer)
+    {
+        if (MyMapControl.Map is not { } map)
+            return -1;
+
+        int index = 0;
+        foreach (var ml in map.Layers)
+        {
+            if (ReferenceEquals(ml, layer))
+                return index;
+            index++;
+        }
+        return -1;
     }
 
     private MemoryLayer CreateChartBoundariesLayer(
