@@ -103,10 +103,28 @@ public static class S57LayerFactory
             if (!codeSet.Contains(areaFeature.ObjectCode))
                 continue;
 
-            var polygon = CreatePolygonFromAreaFeature(chart, areaFeature);
-            if (polygon != null)
+            // For DEPARE, categorize by depth band and skip deep areas
+            if (areaFeature.ObjectCode == S57ObjectCode.DEPARE)
             {
-                var feature = new GeometryFeature(polygon);
+                var style = CreateDepthAreaStyle(areaFeature);
+                if (style == null)
+                    continue; // deep band: not displayed
+
+                var polygon = CreatePolygonFromAreaFeature(chart, areaFeature);
+                if (polygon != null)
+                {
+                    var feature = new GeometryFeature(polygon);
+                    feature["ObjectCode"] = areaFeature.ObjectCode;
+                    feature.Styles.Add(style);
+                    features.Add(feature);
+                }
+                continue;
+            }
+
+            var polygon2 = CreatePolygonFromAreaFeature(chart, areaFeature);
+            if (polygon2 != null)
+            {
+                var feature = new GeometryFeature(polygon2);
                 feature["ObjectCode"] = areaFeature.ObjectCode;
                 feature.Styles.Add(CreateAreaStyle(areaFeature.ObjectCode));
                 features.Add(feature);
@@ -259,6 +277,58 @@ public static class S57LayerFactory
 
     private static Geometry? CreatePolygonFromAreaFeature(S57Chart chart, S57AreaFeature areaFeature)
         => S57AreaGeometryBuilder.CreatePolygonFromAreaFeature(chart, areaFeature);
+
+    // S-57 attribute codes for depth range values
+    private const int DRVAL1 = 87; // Depth Range Value 1 (minimum depth, meters)
+    private const int DRVAL2 = 88; // Depth Range Value 2 (maximum depth, meters)
+
+    /// <summary>
+    /// Creates a depth-band style for a DEPARE feature based on its DRVAL1/DRVAL2 attributes.
+    /// Returns null for "deep" areas (>10m) which should not be displayed.
+    /// </summary>
+    private static IStyle? CreateDepthAreaStyle(S57AreaFeature areaFeature)
+    {
+        // Use DRVAL1 (minimum depth) to classify the band.
+        // DRVAL1 is in meters; if missing, fall back to default area style.
+        var drval1Str = areaFeature.GetAttributeValue(DRVAL1);
+        if (drval1Str == null || !double.TryParse(drval1Str, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var minDepth))
+        {
+            return CreateAreaStyle(S57ObjectCode.DEPARE);
+        }
+
+        // Drying: 0-2m (sage green)
+        if (minDepth < 2)
+        {
+            return new VectorStyle
+            {
+                Fill = new Brush(new Color(180, 210, 170, 130)),  // sage green
+                Outline = new Pen(new Color(130, 170, 120, 150), 1),
+            };
+        }
+
+        // Shallow: 2-5m (baby blue)
+        if (minDepth < 5)
+        {
+            return new VectorStyle
+            {
+                Fill = new Brush(new Color(170, 210, 240, 120)),  // baby blue
+                Outline = new Pen(new Color(100, 170, 220, 150), 1),
+            };
+        }
+
+        // Safe: 5-10m (gray-blue)
+        if (minDepth < 10)
+        {
+            return new VectorStyle
+            {
+                Fill = new Brush(new Color(160, 180, 200, 100)),  // gray-blue
+                Outline = new Pen(new Color(120, 140, 170, 130), 1),
+            };
+        }
+
+        // Deep: >10m — not displayed
+        return null;
+    }
 
     private static VectorStyle CreatePointStyle(S57ObjectCode objectCode)
     {
