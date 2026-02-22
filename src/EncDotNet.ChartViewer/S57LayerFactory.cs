@@ -267,6 +267,12 @@ public static class S57LayerFactory
         return null;
     }
 
+    private const string BuoyIconSource = "embedded://EncDotNet.ChartViewer.Assets.ChartSymbols.NChart-Symbol-INT-Lighted-CanBuoy-Red-ConicalTM.svg";
+
+    private static bool IsBuoyObjectCode(S57ObjectCode objectCode)
+        => objectCode is S57ObjectCode.BOYCAR or S57ObjectCode.BOYINB or S57ObjectCode.BOYISD
+            or S57ObjectCode.BOYLAT or S57ObjectCode.BOYSAW or S57ObjectCode.BOYSPP;
+
     private static IStyle CreatePointStyle(S57ObjectCode objectCode)
     {
         if (objectCode == S57ObjectCode.LNDARE)
@@ -279,6 +285,15 @@ public static class S57LayerFactory
                 Font = new Font { Size = 14 },
                 HorizontalAlignment = LabelStyle.HorizontalAlignmentEnum.Center,
                 VerticalAlignment = LabelStyle.VerticalAlignmentEnum.Center,
+            };
+        }
+
+        if (IsBuoyObjectCode(objectCode))
+        {
+            return new ImageStyle
+            {
+                Image = new Image { Source = BuoyIconSource },
+                SymbolScale = 0.2,
             };
         }
 
