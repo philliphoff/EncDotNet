@@ -17,11 +17,14 @@ namespace EncDotNet.ChartViewer;
 /// </summary>
 internal static class S57LayerTemplates
 {
-    private const string BuoyIconSource = "embedded://EncDotNet.ChartViewer.Assets.ChartSymbols.NChart-Symbol-INT-Lighted-CanBuoy-Red-ConicalTM.svg";
+    private const string BuoyIconPrefix = "embedded://EncDotNet.ChartViewer.Assets.ChartSymbols.NChart-Symbol-INT-";
     private const string UnderwaterRockIconSource = "embedded://EncDotNet.ChartViewer.Assets.ChartSymbols.NChart-Symbol-INT-Rock-Underwater.svg";
 
     // S-57 attribute codes
-    private const int DRVAL1 = 87; // Depth Range Value 1 (minimum depth, meters)
+    private const int BOYSHP = 4;   // Buoy shape
+    private const int COLOUR = 75;  // Colour
+    private const int TOPSHP = 171; // Topmark shape
+    private const int DRVAL1 = 87;  // Depth Range Value 1 (minimum depth, meters)
 
     private const double MetersToFeet = 3.2808399;
     private const double SoundingMaxResolution = 10;
@@ -56,7 +59,7 @@ internal static class S57LayerTemplates
         // Shared templates for groups of related object codes
         var buoyTemplate = new S57LayerTemplate
         {
-            Point = S57LayerTemplate.ImagePointStyle(BuoyIconSource, 0.2),
+            Point = CreateBuoyFeatures,
         };
 
         var tssLineDashed = new S57LayerTemplate
@@ -396,5 +399,104 @@ internal static class S57LayerTemplates
         return remainingFeet == 0
             ? fathoms.ToString()
             : $"{fathoms}{subscriptDigits[remainingFeet]}";
+    }
+
+    // --- Buoy icon selection ---
+
+    private static IEnumerable<IFeature> CreateBuoyFeatures(S57Chart chart, S57PointFeature feature, DepthUnit _)
+    {
+        var iconSource = GetBuoyIconSource(chart, feature);
+        if (iconSource == null)
+        {
+            // No matching icon — fall back to a conspicuous red circle.
+            return S57LayerTemplate.CreatePointFeature(chart, feature, new VectorStyle
+            {
+                Fill = new Brush(new Color(255, 0, 0, 200)),
+                Outline = new Pen(Color.Black, 1),
+            });
+        }
+
+        var style = new ImageStyle { Image = new Image { Source = iconSource }, SymbolScale = 0.2 };
+        return S57LayerTemplate.CreatePointFeature(chart, feature, style);
+    }
+
+    private static string? GetBuoyIconSource(S57Chart chart, S57PointFeature feature)
+    {
+        var shapeName = GetBuoyShapeName(feature);
+        if (shapeName == null)
+            return null;
+
+        var colorName = GetBuoyColorName(feature);
+        var topmarkName = GetTopmarkName(feature);
+        var isLighted = HasRelatedLight(chart, feature);
+
+        var lighted = isLighted ? "Lighted-" : "";
+        var color = colorName != null ? $"-{colorName}" : "";
+        var topmark = topmarkName != null ? $"-{topmarkName}TM" : "";
+
+        return $"{BuoyIconPrefix}{lighted}{shapeName}Buoy{color}{topmark}.svg";
+    }
+
+    private static string? GetBuoyShapeName(S57PointFeature feature)
+    {
+        var boyshp = feature.GetAttributeValue(BOYSHP);
+        if (boyshp == null) return null;
+
+        return boyshp switch
+        {
+            "1" => "Conical",
+            "2" => "Can",
+            "3" => "Spherical",
+            "4" => "Pillar",
+            "5" => "Spar",
+            "6" => "Barrel",
+            _ => null,
+        };
+    }
+
+    private static string? GetBuoyColorName(S57PointFeature feature)
+    {
+        var colour = feature.GetAttributeValue(COLOUR);
+        if (colour == null) return null;
+
+        // COLOUR can be comma-separated; use the first value.
+        var commaIndex = colour.IndexOf(',');
+        var firstColour = commaIndex >= 0 ? colour[..commaIndex] : colour;
+
+        return firstColour switch
+        {
+            "3" => "Red",
+            "4" => "Green",
+            _ => null,
+        };
+    }
+
+    private static string? GetTopmarkName(S57PointFeature feature)
+    {
+        var topshp = feature.GetAttributeValue(TOPSHP);
+        if (topshp == null) return null;
+
+        return topshp switch
+        {
+            "1" or "2" => "Conical",
+            "3" or "4" => "Sphere",
+            "5" => "Cylindrical",
+            "7" or "8" => "XShape",
+            _ => null,
+        };
+    }
+
+    private static bool HasRelatedLight(S57Chart chart, S57PointFeature feature)
+    {
+        if (!feature.HasRelatedFeatures) return false;
+
+        foreach (var related in feature.RelatedFeatures)
+        {
+            var relatedFeature = chart.GetFeature(related.Name);
+            if (relatedFeature?.ObjectCode == S57ObjectCode.LIGHTS)
+                return true;
+        }
+
+        return false;
     }
 }
