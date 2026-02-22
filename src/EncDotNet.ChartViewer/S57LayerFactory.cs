@@ -268,6 +268,7 @@ public static class S57LayerFactory
     }
 
     private const string BuoyIconSource = "embedded://EncDotNet.ChartViewer.Assets.ChartSymbols.NChart-Symbol-INT-Lighted-CanBuoy-Red-ConicalTM.svg";
+    private const string UnderwaterRockIconSource = "embedded://EncDotNet.ChartViewer.Assets.ChartSymbols.NChart-Symbol-INT-Rock-Underwater.svg";
 
     private static bool IsBuoyObjectCode(S57ObjectCode objectCode)
         => objectCode is S57ObjectCode.BOYCAR or S57ObjectCode.BOYINB or S57ObjectCode.BOYISD
@@ -294,6 +295,15 @@ public static class S57LayerFactory
             {
                 Image = new Image { Source = BuoyIconSource },
                 SymbolScale = 0.2,
+            };
+        }
+
+        if (objectCode == S57ObjectCode.UWTROC)
+        {
+            return new ImageStyle
+            {
+                Image = new Image { Source = UnderwaterRockIconSource },
+                SymbolScale = 0.64,
             };
         }
 
