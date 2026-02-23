@@ -15,4 +15,7 @@
   <Folder Name="/tests/">
     <Project Path="EndDotNet.UnitTests/EndDotNet.UnitTests.csproj" />
   </Folder>
+  <Folder Name="/benchmarks/">
+    <Project Path="EncDotNet.Benchmarks/EncDotNet.Benchmarks.csproj" />
+  </Folder>
 </Solution>
