@@ -600,6 +600,42 @@ public ref struct Iso8211Reader
         return true;
     }
 
+    /// <summary>
+    /// Reads the next field using pre-parsed directory entry information,
+    /// avoiding redundant directory re-parsing.
+    /// </summary>
+    /// <param name="position">The field position within the field area (from the directory entry).</param>
+    /// <param name="length">The field length including terminator (from the directory entry).</param>
+    /// <returns><c>true</c> if the field was successfully read; <c>false</c> if there are no more fields.</returns>
+    /// <remarks>
+    /// This method is intended for use by higher-level readers that have already parsed
+    /// the directory entries and can supply the position and length directly.
+    /// </remarks>
+    public bool TryReadFieldDirect(int position, int length)
+    {
+        if (_state != Iso8211ReaderState.InFieldArea || _currentFieldIndex >= _directoryEntryCount)
+        {
+            return false;
+        }
+
+        // Set tag from directory (span slice only, no numeric parsing)
+        var entryOffset = _directoryOffset + (_currentFieldIndex * _directoryEntrySize);
+        _currentFieldTag = _buffer.Slice(entryOffset, _leader.SizeOfFieldTagField);
+
+        _currentFieldLength = length;
+        _currentFieldPosition = position;
+
+        // Field data (excluding terminator)
+        var dataLength = length - 1;
+        var fieldDataOffset = _fieldAreaOffset + position;
+        _currentFieldData = _buffer.Slice(fieldDataOffset, dataLength);
+
+        _currentFieldIndex++;
+        _tokenType = Iso8211TokenType.Field;
+
+        return true;
+    }
+
     private bool EndRecord()
     {
         // Move consumed to end of record

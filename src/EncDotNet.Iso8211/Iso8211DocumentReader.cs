@@ -140,9 +140,8 @@ public static class Iso8211DocumentReader
             }
             else if (parser.TokenType == Iso8211TokenType.Field)
             {
-                // Read first field and break to field reading loop
-                var field = ReadField(ref parser, directoryEntries[fields.Count].Tag);
-                fields.Add(field);
+                // First field read via auto-transition from directory to field area
+                fields.Add(new Iso8211Field { Tag = directoryEntries[fields.Count].Tag, Data = parser.ValueSpan.ToArray() });
                 break;
             }
             else if (parser.TokenType == Iso8211TokenType.EndRecord)
@@ -152,18 +151,19 @@ public static class Iso8211DocumentReader
             }
         }
 
-        // Read remaining fields
-        while (parser.Read())
+        // Read remaining fields using pre-parsed directory entry info,
+        // bypassing redundant directory re-parsing in TryReadField
+        for (int i = fields.Count; i < directoryEntries.Count; i++)
         {
-            if (parser.TokenType == Iso8211TokenType.Field)
-            {
-                var field = ReadField(ref parser, directoryEntries[fields.Count].Tag);
-                fields.Add(field);
-            }
-            else if (parser.TokenType == Iso8211TokenType.EndRecord)
-            {
-                break;
-            }
+            var entry = directoryEntries[i];
+            parser.TryReadFieldDirect(entry.Position, entry.Length);
+            fields.Add(new Iso8211Field { Tag = entry.Tag, Data = parser.ValueSpan.ToArray() });
+        }
+
+        // Advance past end of record
+        if (parser.TokenType != Iso8211TokenType.EndRecord)
+        {
+            parser.Read();
         }
 
         return new Iso8211Record
@@ -171,27 +171,6 @@ public static class Iso8211DocumentReader
             Leader = leader,
             Directory = directoryEntries.ToImmutable(),
             Fields = fields.ToImmutable()
-        };
-    }
-
-    /// <summary>
-    /// Reads a single field from the reader.
-    /// </summary>
-    /// <param name="parser">The forward-only reader positioned at a Field token.</param>
-    /// <returns>The parsed field.</returns>
-    private static Iso8211Field ReadField(ref Iso8211Reader parser, string tag)
-    {
-        if (parser.TokenType != Iso8211TokenType.Field)
-        {
-            throw new InvalidOperationException("Reader must be positioned at a Field token.");
-        }
-
-        var data = parser.ValueSpan.ToArray();
-
-        return new Iso8211Field
-        {
-            Tag = tag,
-            Data = data
         };
     }
 }
