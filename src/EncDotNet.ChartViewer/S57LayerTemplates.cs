@@ -442,6 +442,20 @@ internal static class S57LayerTemplates
         var topmarkName = GetTopmarkName(feature);
         var isLighted = HasRelatedLight(chart, feature);
 
+        // Pillar and Spar buoy icons only exist with topmark variants;
+        // default to Cylindrical for green, Conical for red.
+        if (topmarkName == null && shapeName is "Pillar" or "Spar")
+        {
+            topmarkName = colorName switch
+            {
+                "Green" => "Cylindrical",
+                "Red" => "Conical",
+                _ => null,
+            };
+            if (topmarkName == null)
+                return null;
+        }
+
         var lighted = isLighted ? "Lighted-" : "";
         var color = colorName != null ? $"-{colorName}" : "";
         var topmark = topmarkName != null ? $"-{topmarkName}TM" : "";
@@ -540,10 +554,21 @@ internal static class S57LayerTemplates
         var topmarkName = GetBeaconTopmarkName(feature);
         var isLighted = HasRelatedLight(chart, feature);
 
-        // Standard (non-tower) beacon icons only include color when a topmark is also present.
+        // Standard (non-tower) beacons without a topmark default to
+        // Cylindrical for green, Conical for red (matching the buoy convention).
         var isTower = shapeName.Length > 0;
         if (!isTower && topmarkName == null)
-            colorName = null;
+        {
+            topmarkName = colorName switch
+            {
+                "Green" => "Cylindrical",
+                "Red" => "Conical",
+                _ => null,
+            };
+            // If still no topmark (unknown color), drop color to fall back to plain Beacon icon.
+            if (topmarkName == null)
+                colorName = null;
+        }
 
         var lighted = isLighted ? "Lighted-" : "";
         var color = colorName != null ? $"-{colorName}" : "";
