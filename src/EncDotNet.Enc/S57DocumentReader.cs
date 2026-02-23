@@ -72,6 +72,78 @@ public static class S57DocumentReader
     }
 
     /// <summary>
+    /// Reads an S-57 base chart file (.000) from a directory and applies any update files
+    /// (.001, .002, etc.) found in the same directory, in order.
+    /// </summary>
+    /// <param name="directoryPath">The path to the directory containing the chart files.</param>
+    /// <param name="logger">An optional logger for reporting parsing warnings.</param>
+    /// <returns>The fully updated S-57 document.</returns>
+    /// <exception cref="FileNotFoundException">No base chart file (.000) was found in the directory.</exception>
+    public static S57Document ReadFromDirectory(string directoryPath, ILogger? logger = null)
+    {
+        var (basePath, updatePaths) = GetChartFiles(directoryPath);
+
+        var document = ReadFromFile(basePath, logger);
+
+        foreach (var updatePath in updatePaths)
+        {
+            var update = ReadFromFile(updatePath, logger);
+            document = document.ApplyChanges(update);
+        }
+
+        return document;
+    }
+
+    /// <summary>
+    /// Asynchronously reads an S-57 base chart file (.000) from a directory and applies any update
+    /// files (.001, .002, etc.) found in the same directory, in order.
+    /// </summary>
+    /// <param name="directoryPath">The path to the directory containing the chart files.</param>
+    /// <param name="logger">An optional logger for reporting parsing warnings.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A task that represents the asynchronous read operation.</returns>
+    /// <exception cref="FileNotFoundException">No base chart file (.000) was found in the directory.</exception>
+    public static async Task<S57Document> ReadFromDirectoryAsync(string directoryPath, ILogger? logger = null, CancellationToken cancellationToken = default)
+    {
+        var (basePath, updatePaths) = GetChartFiles(directoryPath);
+
+        var document = await ReadFromFileAsync(basePath, logger, cancellationToken).ConfigureAwait(false);
+
+        foreach (var updatePath in updatePaths)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var update = await ReadFromFileAsync(updatePath, logger, cancellationToken).ConfigureAwait(false);
+            document = document.ApplyChanges(update);
+        }
+
+        return document;
+    }
+
+    /// <summary>
+    /// Locates the base chart file (.000) and any update files (.001, .002, etc.) in the specified directory.
+    /// </summary>
+    private static (string BasePath, string[] UpdatePaths) GetChartFiles(string directoryPath)
+    {
+        var basePath = Directory.EnumerateFiles(directoryPath, "*.000").FirstOrDefault()
+            ?? throw new FileNotFoundException($"No base chart file (.000) found in directory: {directoryPath}");
+
+        var stem = Path.GetFileNameWithoutExtension(basePath);
+
+        var updatePaths = Directory.EnumerateFiles(directoryPath, $"{stem}.*")
+            .Where(f =>
+            {
+                var ext = Path.GetExtension(f);
+                return ext.Length == 4
+                    && int.TryParse(ext.AsSpan(1), out var n)
+                    && n > 0;
+            })
+            .OrderBy(f => int.Parse(Path.GetExtension(f).AsSpan(1)))
+            .ToArray();
+
+        return (basePath, updatePaths);
+    }
+
+    /// <summary>
     /// Reads an S-57 document from a stream.
     /// </summary>
     /// <param name="stream">The stream containing S-57 data.</param>
