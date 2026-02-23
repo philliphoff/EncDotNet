@@ -377,7 +377,7 @@ internal static class S57LayerTemplates
 
             var feature = new GeometryFeature(new Point(x, y));
             feature["ObjectCode"] = S57ObjectCode.SOUNDG;
-            feature.Styles.Add(new LabelStyle
+            var labelStyle = new LabelStyle
             {
                 BackColor = null,
                 Text = FormatDepth(depthMeters, depthUnit),
@@ -385,7 +385,8 @@ internal static class S57LayerTemplates
                 Font = new Font { Size = 12 },
                 HorizontalAlignment = LabelStyle.HorizontalAlignmentEnum.Center,
                 VerticalAlignment = LabelStyle.VerticalAlignmentEnum.Center,
-            });
+            };
+            feature.Styles.Add(S57LayerTemplate.MaybeWrapWithScamin(labelStyle, pointFeature));
             yield return feature;
         }
     }

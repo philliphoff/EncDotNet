@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using EncDotNet.Enc.Charts;
 using EncDotNet.ChartViewer.Models;
 using Mapsui;
@@ -16,6 +17,8 @@ namespace EncDotNet.ChartViewer;
 /// </summary>
 public sealed class S57LayerTemplate
 {
+    // S-57 attribute code for Scale Minimum (ATTL=133)
+    private const int SCAMIN = 133;
     /// <summary>
     /// Handler that produces Mapsui features from an S-57 area feature.
     /// Return an empty sequence to skip the feature.
@@ -78,6 +81,21 @@ public sealed class S57LayerTemplate
     public static Func<S57Chart, S57PointFeature, DepthUnit, IEnumerable<IFeature>> ImagePointStyle(string source, double symbolScale)
         => PointStyle(new ImageStyle { Image = new Image { Source = source }, SymbolScale = symbolScale });
 
+    /// <summary>
+    /// Returns a copy of the style with <see cref="IStyle.MaxVisible"/> set to the feature's
+    /// SCAMIN threshold when present, so the feature is hidden at inappropriate zoom levels.
+    /// When the feature has no SCAMIN attribute the original style is returned unchanged.
+    /// </summary>
+    internal static IStyle MaybeWrapWithScamin(IStyle style, S57TypedFeature s57Feature)
+    {
+        var scaminStr = s57Feature.GetAttributeValue(SCAMIN);
+        if (scaminStr != null && int.TryParse(scaminStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var scamin) && scamin > 0)
+        {
+            return ScaminStyleHelper.CloneWithScamin(style, scamin);
+        }
+        return style;
+    }
+
     // --- Geometry helpers (internal, shared with templates) ---
 
     internal static IEnumerable<IFeature> CreateAreaFeature(S57Chart chart, S57AreaFeature areaFeature, IStyle style)
@@ -87,7 +105,7 @@ public sealed class S57LayerTemplate
         {
             var feature = new GeometryFeature(polygon);
             feature["ObjectCode"] = areaFeature.ObjectCode;
-            feature.Styles.Add(style);
+            feature.Styles.Add(MaybeWrapWithScamin(style, areaFeature));
             yield return feature;
         }
     }
@@ -99,7 +117,7 @@ public sealed class S57LayerTemplate
         {
             var feature = new GeometryFeature(lineString);
             feature["ObjectCode"] = lineFeature.ObjectCode;
-            feature.Styles.Add(style);
+            feature.Styles.Add(MaybeWrapWithScamin(style, lineFeature));
             yield return feature;
         }
     }
@@ -111,7 +129,7 @@ public sealed class S57LayerTemplate
         {
             var feature = new GeometryFeature(point);
             feature["ObjectCode"] = pointFeature.ObjectCode;
-            feature.Styles.Add(style);
+            feature.Styles.Add(MaybeWrapWithScamin(style, pointFeature));
             yield return feature;
         }
     }
