@@ -225,6 +225,33 @@ public sealed class S57Chart
     }
 
     /// <summary>
+    /// Loads a chart from a directory containing an S-57 base chart file (.000) and optional
+    /// update files (.001, .002, etc.), applying updates in order.
+    /// </summary>
+    /// <param name="directoryPath">The path to the directory containing the chart files.</param>
+    /// <returns>A strongly-typed chart model with all updates applied.</returns>
+    /// <exception cref="FileNotFoundException">No base chart file (.000) was found in the directory.</exception>
+    public static S57Chart FromDirectory(string directoryPath)
+    {
+        var document = S57DocumentReader.ReadFromDirectory(directoryPath);
+        return FromDocument(document);
+    }
+
+    /// <summary>
+    /// Asynchronously loads a chart from a directory containing an S-57 base chart file (.000)
+    /// and optional update files (.001, .002, etc.), applying updates in order.
+    /// </summary>
+    /// <param name="directoryPath">The path to the directory containing the chart files.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A task that represents the asynchronous load operation.</returns>
+    /// <exception cref="FileNotFoundException">No base chart file (.000) was found in the directory.</exception>
+    public static async Task<S57Chart> FromDirectoryAsync(string directoryPath, CancellationToken cancellationToken = default)
+    {
+        var document = await S57DocumentReader.ReadFromDirectoryAsync(directoryPath, cancellationToken: cancellationToken).ConfigureAwait(false);
+        return FromDocument(document);
+    }
+
+    /// <summary>
     /// Loads a chart from a stream.
     /// </summary>
     /// <param name="stream">The stream containing S-57 data.</param>

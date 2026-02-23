@@ -46,6 +46,7 @@ internal sealed class FileSystemCatalogSource : ICatalogSource
     public async Task<S57Chart> GetChartAsync(ChartIndexEntry entry, CancellationToken cancellationToken = default)
     {
         var chartPath = Path.Combine(_baseDirectory, entry.Path);
-        return await S57Chart.FromFileAsync(chartPath, cancellationToken).ConfigureAwait(false);
+        var chartDirectory = Path.GetDirectoryName(chartPath)!;
+        return await S57Chart.FromDirectoryAsync(chartDirectory, cancellationToken).ConfigureAwait(false);
     }
 }
