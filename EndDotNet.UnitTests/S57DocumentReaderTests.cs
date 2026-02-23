@@ -163,6 +163,34 @@ public class S57DocumentReaderTests
             "(b24,b24,b24)",
             dataStructure: 1)));
 
+        // FSPC - Feature Record to Spatial Record Pointer Control Field
+        // Format: FSUI(b11), FSIX(b12), NSPT(b12)
+        fields.Add(("FSPC", CreateDdrFieldData(
+            "FSPC",
+            "FSUI!FSIX!NSPT",
+            "(b11,b12,b12)")));
+
+        // FFPC - Feature Record to Feature Object Pointer Control Field
+        // Format: FFUI(b11), FFIX(b12), NFPT(b12)
+        fields.Add(("FFPC", CreateDdrFieldData(
+            "FFPC",
+            "FFUI!FFIX!NFPT",
+            "(b11,b12,b12)")));
+
+        // VRPC - Vector Record Pointer Control Field
+        // Format: VPUI(b11), VPIX(b12), NVPT(b12)
+        fields.Add(("VRPC", CreateDdrFieldData(
+            "VRPC",
+            "VPUI!VPIX!NVPT",
+            "(b11,b12,b12)")));
+
+        // SGCC - Coordinate Control Field
+        // Format: CCUI(b11), CCIX(b12), CCNC(b12)
+        fields.Add(("SGCC", CreateDdrFieldData(
+            "SGCC",
+            "CCUI!CCIX!CCNC",
+            "(b11,b12,b12)")));
+
         return CreateDdrRecord(fields.ToArray());
     }
 
@@ -342,7 +370,10 @@ public class S57DocumentReaderTests
         ushort rver = 1,
         byte ruin = 1,
         S57AttributeValue[]? attributes = null,
-        S57SpatialPointer[]? spatialPointers = null)
+        S57SpatialPointer[]? spatialPointers = null,
+        S57FieldUpdateControl? spatialPointerControl = null,
+        S57FeaturePointer[]? featurePointers = null,
+        S57FieldUpdateControl? featurePointerControl = null)
     {
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms);
@@ -381,6 +412,20 @@ public class S57DocumentReaderTests
             fields.Add(("ATTF", attfMs.ToArray()));
         }
         
+        // Add FSPC field if spatial pointer control provided
+        if (spatialPointerControl.HasValue)
+        {
+            using var fspcMs = new MemoryStream();
+            using var fspcWriter = new BinaryWriter(fspcMs);
+            
+            fspcWriter.Write((byte)spatialPointerControl.Value.UpdateInstruction);
+            fspcWriter.Write((ushort)spatialPointerControl.Value.Index);
+            fspcWriter.Write((ushort)spatialPointerControl.Value.Count);
+            fspcWriter.Write((byte)0x1E);
+            
+            fields.Add(("FSPC", fspcMs.ToArray()));
+        }
+
         // Add FSPT field if spatial pointers provided
         if (spatialPointers != null && spatialPointers.Length > 0)
         {
@@ -399,6 +444,40 @@ public class S57DocumentReaderTests
             
             fields.Add(("FSPT", fsptMs.ToArray()));
         }
+
+        // Add FFPC field if feature pointer control provided
+        if (featurePointerControl.HasValue)
+        {
+            using var ffpcMs = new MemoryStream();
+            using var ffpcWriter = new BinaryWriter(ffpcMs);
+            
+            ffpcWriter.Write((byte)featurePointerControl.Value.UpdateInstruction);
+            ffpcWriter.Write((ushort)featurePointerControl.Value.Index);
+            ffpcWriter.Write((ushort)featurePointerControl.Value.Count);
+            ffpcWriter.Write((byte)0x1E);
+            
+            fields.Add(("FFPC", ffpcMs.ToArray()));
+        }
+
+        // Add FFPT field if feature pointers provided
+        if (featurePointers != null && featurePointers.Length > 0)
+        {
+            using var ffptMs = new MemoryStream();
+            using var ffptWriter = new BinaryWriter(ffptMs);
+            
+            foreach (var ptr in featurePointers)
+            {
+                // LNAM: AGEN(2) + FIDN(4) + FIDS(2)
+                ffptWriter.Write((ushort)ptr.Name.AgencyCode);
+                ffptWriter.Write((uint)ptr.Name.FeatureId);
+                ffptWriter.Write((ushort)ptr.Name.FeatureSubdivision);
+                ffptWriter.Write((byte)ptr.Relationship);
+                WriteString(ffptWriter, ptr.Comment);
+            }
+            ffptWriter.Write((byte)0x1E);
+            
+            fields.Add(("FFPT", ffptMs.ToArray()));
+        }
         
         return CreateDataRecordMultiField(fields.ToArray());
     }
@@ -412,7 +491,10 @@ public class S57DocumentReaderTests
         ushort rver = 1,
         byte ruin = 1,
         S57Coordinate2D[]? coordinates = null,
-        S57Sounding[]? soundings = null)
+        S57Sounding[]? soundings = null,
+        S57VectorPointer[]? vectorPointers = null,
+        S57FieldUpdateControl? vectorPointerControl = null,
+        S57FieldUpdateControl? coordinateControl = null)
     {
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms);
@@ -432,6 +514,54 @@ public class S57DocumentReaderTests
             ("VRID", vridData)
         };
         
+        // Add VRPC field if vector pointer control provided
+        if (vectorPointerControl.HasValue)
+        {
+            using var vrpcMs = new MemoryStream();
+            using var vrpcWriter = new BinaryWriter(vrpcMs);
+            
+            vrpcWriter.Write((byte)vectorPointerControl.Value.UpdateInstruction);
+            vrpcWriter.Write((ushort)vectorPointerControl.Value.Index);
+            vrpcWriter.Write((ushort)vectorPointerControl.Value.Count);
+            vrpcWriter.Write((byte)0x1E);
+            
+            fields.Add(("VRPC", vrpcMs.ToArray()));
+        }
+
+        // Add VRPT field if vector pointers provided
+        if (vectorPointers != null && vectorPointers.Length > 0)
+        {
+            using var vrptMs = new MemoryStream();
+            using var vrptWriter = new BinaryWriter(vrptMs);
+            
+            foreach (var ptr in vectorPointers)
+            {
+                vrptWriter.Write((byte)ptr.Name.RecordNameCode);
+                vrptWriter.Write((uint)ptr.Name.RecordId);
+                vrptWriter.Write((byte)ptr.Orientation);
+                vrptWriter.Write((byte)ptr.Usage);
+                vrptWriter.Write((byte)ptr.Topology);
+                vrptWriter.Write((byte)ptr.Mask);
+            }
+            vrptWriter.Write((byte)0x1E);
+            
+            fields.Add(("VRPT", vrptMs.ToArray()));
+        }
+
+        // Add SGCC field if coordinate control provided
+        if (coordinateControl.HasValue)
+        {
+            using var sgccMs = new MemoryStream();
+            using var sgccWriter = new BinaryWriter(sgccMs);
+            
+            sgccWriter.Write((byte)coordinateControl.Value.UpdateInstruction);
+            sgccWriter.Write((ushort)coordinateControl.Value.Index);
+            sgccWriter.Write((ushort)coordinateControl.Value.Count);
+            sgccWriter.Write((byte)0x1E);
+            
+            fields.Add(("SGCC", sgccMs.ToArray()));
+        }
+
         // Add SG2D field if coordinates provided
         if (coordinates != null && coordinates.Length > 0)
         {
@@ -1261,6 +1391,357 @@ public class S57DocumentReaderTests
         {
             File.Delete(tempFile);
         }
+    }
+
+    #endregion
+
+    #region Update Control Field Tests
+
+    [Fact]
+    public void Read_FeatureRecordWithFspc_ParsesSpatialPointerControl()
+    {
+        // Arrange
+        var fspc = new S57FieldUpdateControl
+        {
+            UpdateInstruction = S57UpdateInstruction.Insert,
+            Index = 3,
+            Count = 2
+        };
+        var spatialPointers = new[]
+        {
+            new S57SpatialPointer
+            {
+                Name = S57RecordName.FromRcnmRcid(S57RecordNameCodes.Edge, 10),
+                Orientation = S57Orientation.Forward,
+                Usage = S57UsageIndicator.Exterior,
+                Mask = S57MaskingIndicator.Show
+            },
+            new S57SpatialPointer
+            {
+                Name = S57RecordName.FromRcnmRcid(S57RecordNameCodes.Edge, 11),
+                Orientation = S57Orientation.Reverse,
+                Usage = S57UsageIndicator.Exterior,
+                Mask = S57MaskingIndicator.Show
+            }
+        };
+        var featureRecord = CreateFeatureRecord(
+            rcnm: 100,
+            rcid: 1,
+            prim: 3,
+            objl: (ushort)S57ObjectCode.DEPARE,
+            ruin: (byte)S57UpdateInstruction.Modify,
+            spatialPointerControl: fspc,
+            spatialPointers: spatialPointers
+        );
+        var data = CreateS57Document(featureRecord);
+
+        // Act
+        var document = S57DocumentReader.Read(data);
+
+        // Assert
+        Assert.Single(document.FeatureRecords);
+        var feature = document.FeatureRecords[0];
+        Assert.NotNull(feature.SpatialPointerControl);
+        Assert.Equal(S57UpdateInstruction.Insert, feature.SpatialPointerControl.Value.UpdateInstruction);
+        Assert.Equal(3, feature.SpatialPointerControl.Value.Index);
+        Assert.Equal(2, feature.SpatialPointerControl.Value.Count);
+        Assert.Equal(2, feature.SpatialPointers.Length);
+    }
+
+    [Fact]
+    public void Read_FeatureRecordWithFfpc_ParsesFeaturePointerControl()
+    {
+        // Arrange
+        var ffpc = new S57FieldUpdateControl
+        {
+            UpdateInstruction = S57UpdateInstruction.Delete,
+            Index = 1,
+            Count = 3
+        };
+        var featureRecord = CreateFeatureRecord(
+            rcnm: 100,
+            rcid: 5,
+            prim: 1,
+            objl: (ushort)S57ObjectCode.LIGHTS,
+            ruin: (byte)S57UpdateInstruction.Modify,
+            featurePointerControl: ffpc
+        );
+        var data = CreateS57Document(featureRecord);
+
+        // Act
+        var document = S57DocumentReader.Read(data);
+
+        // Assert
+        Assert.Single(document.FeatureRecords);
+        var feature = document.FeatureRecords[0];
+        Assert.NotNull(feature.FeaturePointerControl);
+        Assert.Equal(S57UpdateInstruction.Delete, feature.FeaturePointerControl.Value.UpdateInstruction);
+        Assert.Equal(1, feature.FeaturePointerControl.Value.Index);
+        Assert.Equal(3, feature.FeaturePointerControl.Value.Count);
+    }
+
+    [Fact]
+    public void Read_FeatureRecordWithBothControls_ParsesBothControls()
+    {
+        // Arrange
+        var fspc = new S57FieldUpdateControl
+        {
+            UpdateInstruction = S57UpdateInstruction.Modify,
+            Index = 2,
+            Count = 1
+        };
+        var ffpc = new S57FieldUpdateControl
+        {
+            UpdateInstruction = S57UpdateInstruction.Insert,
+            Index = 5,
+            Count = 4
+        };
+        var featureRecord = CreateFeatureRecord(
+            rcnm: 100,
+            rcid: 1,
+            ruin: (byte)S57UpdateInstruction.Modify,
+            spatialPointerControl: fspc,
+            featurePointerControl: ffpc
+        );
+        var data = CreateS57Document(featureRecord);
+
+        // Act
+        var document = S57DocumentReader.Read(data);
+
+        // Assert
+        var feature = document.FeatureRecords[0];
+        Assert.NotNull(feature.SpatialPointerControl);
+        Assert.Equal(S57UpdateInstruction.Modify, feature.SpatialPointerControl.Value.UpdateInstruction);
+        Assert.Equal(2, feature.SpatialPointerControl.Value.Index);
+        Assert.Equal(1, feature.SpatialPointerControl.Value.Count);
+
+        Assert.NotNull(feature.FeaturePointerControl);
+        Assert.Equal(S57UpdateInstruction.Insert, feature.FeaturePointerControl.Value.UpdateInstruction);
+        Assert.Equal(5, feature.FeaturePointerControl.Value.Index);
+        Assert.Equal(4, feature.FeaturePointerControl.Value.Count);
+    }
+
+    [Fact]
+    public void Read_FeatureRecordWithoutControls_HasNullControlProperties()
+    {
+        // Arrange
+        var featureRecord = CreateFeatureRecord(rcnm: 100, rcid: 1, objl: 75);
+        var data = CreateS57Document(featureRecord);
+
+        // Act
+        var document = S57DocumentReader.Read(data);
+
+        // Assert
+        var feature = document.FeatureRecords[0];
+        Assert.Null(feature.SpatialPointerControl);
+        Assert.Null(feature.FeaturePointerControl);
+    }
+
+    [Fact]
+    public void Read_VectorRecordWithVrpc_ParsesVectorPointerControl()
+    {
+        // Arrange
+        var vrpc = new S57FieldUpdateControl
+        {
+            UpdateInstruction = S57UpdateInstruction.Insert,
+            Index = 1,
+            Count = 2
+        };
+        var vectorPointers = new[]
+        {
+            new S57VectorPointer
+            {
+                Name = S57RecordName.FromRcnmRcid(S57RecordNameCodes.ConnectedNode, 5),
+                Orientation = S57Orientation.Forward,
+                Usage = S57UsageIndicator.NotApplicable,
+                Topology = S57TopologyIndicator.Beginning,
+                Mask = S57MaskingIndicator.NotApplicable
+            },
+            new S57VectorPointer
+            {
+                Name = S57RecordName.FromRcnmRcid(S57RecordNameCodes.ConnectedNode, 6),
+                Orientation = S57Orientation.Forward,
+                Usage = S57UsageIndicator.NotApplicable,
+                Topology = S57TopologyIndicator.End,
+                Mask = S57MaskingIndicator.NotApplicable
+            }
+        };
+        var vectorRecord = CreateVectorRecord(
+            rcnm: S57RecordNameCodes.Edge,
+            rcid: 42,
+            ruin: (byte)S57UpdateInstruction.Modify,
+            vectorPointerControl: vrpc,
+            vectorPointers: vectorPointers
+        );
+        var data = CreateS57Document(vectorRecord);
+
+        // Act
+        var document = S57DocumentReader.Read(data);
+
+        // Assert
+        Assert.Single(document.VectorRecords);
+        var vector = document.VectorRecords[0];
+        Assert.NotNull(vector.VectorPointerControl);
+        Assert.Equal(S57UpdateInstruction.Insert, vector.VectorPointerControl.Value.UpdateInstruction);
+        Assert.Equal(1, vector.VectorPointerControl.Value.Index);
+        Assert.Equal(2, vector.VectorPointerControl.Value.Count);
+        Assert.Equal(2, vector.VectorPointers.Length);
+    }
+
+    [Fact]
+    public void Read_VectorRecordWithSgcc_ParsesCoordinateControl()
+    {
+        // Arrange
+        var sgcc = new S57FieldUpdateControl
+        {
+            UpdateInstruction = S57UpdateInstruction.Insert,
+            Index = 6,
+            Count = 3
+        };
+        var coordinates = new[]
+        {
+            new S57Coordinate2D { X = 100, Y = 200 },
+            new S57Coordinate2D { X = 150, Y = 250 },
+            new S57Coordinate2D { X = 200, Y = 300 }
+        };
+        var vectorRecord = CreateVectorRecord(
+            rcnm: S57RecordNameCodes.Edge,
+            rcid: 10,
+            ruin: (byte)S57UpdateInstruction.Modify,
+            coordinateControl: sgcc,
+            coordinates: coordinates
+        );
+        var data = CreateS57Document(vectorRecord);
+
+        // Act
+        var document = S57DocumentReader.Read(data);
+
+        // Assert
+        Assert.Single(document.VectorRecords);
+        var vector = document.VectorRecords[0];
+        Assert.NotNull(vector.CoordinateControl);
+        Assert.Equal(S57UpdateInstruction.Insert, vector.CoordinateControl.Value.UpdateInstruction);
+        Assert.Equal(6, vector.CoordinateControl.Value.Index);
+        Assert.Equal(3, vector.CoordinateControl.Value.Count);
+        Assert.Equal(3, vector.Coordinates2D.Length);
+    }
+
+    [Fact]
+    public void Read_VectorRecordWithSgccForSoundings_ParsesCoordinateControl()
+    {
+        // Arrange
+        var sgcc = new S57FieldUpdateControl
+        {
+            UpdateInstruction = S57UpdateInstruction.Delete,
+            Index = 2,
+            Count = 1
+        };
+        var vectorRecord = CreateVectorRecord(
+            rcnm: S57RecordNameCodes.IsolatedNode,
+            rcid: 20,
+            ruin: (byte)S57UpdateInstruction.Modify,
+            coordinateControl: sgcc
+        );
+        var data = CreateS57Document(vectorRecord);
+
+        // Act
+        var document = S57DocumentReader.Read(data);
+
+        // Assert
+        var vector = document.VectorRecords[0];
+        Assert.NotNull(vector.CoordinateControl);
+        Assert.Equal(S57UpdateInstruction.Delete, vector.CoordinateControl.Value.UpdateInstruction);
+        Assert.Equal(2, vector.CoordinateControl.Value.Index);
+        Assert.Equal(1, vector.CoordinateControl.Value.Count);
+    }
+
+    [Fact]
+    public void Read_VectorRecordWithBothControls_ParsesBothControls()
+    {
+        // Arrange
+        var vrpc = new S57FieldUpdateControl
+        {
+            UpdateInstruction = S57UpdateInstruction.Modify,
+            Index = 1,
+            Count = 1
+        };
+        var sgcc = new S57FieldUpdateControl
+        {
+            UpdateInstruction = S57UpdateInstruction.Insert,
+            Index = 10,
+            Count = 5
+        };
+        var vectorRecord = CreateVectorRecord(
+            rcnm: S57RecordNameCodes.Edge,
+            rcid: 30,
+            ruin: (byte)S57UpdateInstruction.Modify,
+            vectorPointerControl: vrpc,
+            coordinateControl: sgcc
+        );
+        var data = CreateS57Document(vectorRecord);
+
+        // Act
+        var document = S57DocumentReader.Read(data);
+
+        // Assert
+        var vector = document.VectorRecords[0];
+        Assert.NotNull(vector.VectorPointerControl);
+        Assert.Equal(S57UpdateInstruction.Modify, vector.VectorPointerControl.Value.UpdateInstruction);
+        Assert.Equal(1, vector.VectorPointerControl.Value.Index);
+
+        Assert.NotNull(vector.CoordinateControl);
+        Assert.Equal(S57UpdateInstruction.Insert, vector.CoordinateControl.Value.UpdateInstruction);
+        Assert.Equal(10, vector.CoordinateControl.Value.Index);
+        Assert.Equal(5, vector.CoordinateControl.Value.Count);
+    }
+
+    [Fact]
+    public void Read_VectorRecordWithoutControls_HasNullControlProperties()
+    {
+        // Arrange
+        var vectorRecord = CreateVectorRecord(
+            rcnm: S57RecordNameCodes.Edge,
+            rcid: 1
+        );
+        var data = CreateS57Document(vectorRecord);
+
+        // Act
+        var document = S57DocumentReader.Read(data);
+
+        // Assert
+        var vector = document.VectorRecords[0];
+        Assert.Null(vector.VectorPointerControl);
+        Assert.Null(vector.CoordinateControl);
+    }
+
+    [Theory]
+    [InlineData(S57UpdateInstruction.Insert)]
+    [InlineData(S57UpdateInstruction.Delete)]
+    [InlineData(S57UpdateInstruction.Modify)]
+    public void Read_SgccWithAllUpdateInstructions_ParsesCorrectly(S57UpdateInstruction instruction)
+    {
+        // Arrange
+        var sgcc = new S57FieldUpdateControl
+        {
+            UpdateInstruction = instruction,
+            Index = 1,
+            Count = 1
+        };
+        var vectorRecord = CreateVectorRecord(
+            rcnm: S57RecordNameCodes.Edge,
+            rcid: 1,
+            ruin: (byte)S57UpdateInstruction.Modify,
+            coordinateControl: sgcc
+        );
+        var data = CreateS57Document(vectorRecord);
+
+        // Act
+        var document = S57DocumentReader.Read(data);
+
+        // Assert
+        var control = document.VectorRecords[0].CoordinateControl;
+        Assert.NotNull(control);
+        Assert.Equal(instruction, control.Value.UpdateInstruction);
     }
 
     #endregion

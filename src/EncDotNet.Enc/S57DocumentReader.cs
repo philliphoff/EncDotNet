@@ -361,8 +361,16 @@ public static class S57DocumentReader
         // Parse FSPT (spatial pointers)
         var spatialPointers = ParseSpatialPointers(record, ddr, logger);
 
+        // Parse FSPC (spatial pointer update control)
+        var spatialPointerControl = ParseFieldUpdateControl(record, S57FieldTags.FSPC,
+            S57SubfieldNames.FSUI, S57SubfieldNames.FSIX, S57SubfieldNames.NSPT, ddr, logger);
+
         // Parse FFPT (feature pointers)
         var featurePointers = ParseFeaturePointers(record, ddr, logger);
+
+        // Parse FFPC (feature pointer update control)
+        var featurePointerControl = ParseFieldUpdateControl(record, S57FieldTags.FFPC,
+            S57SubfieldNames.FFUI, S57SubfieldNames.FFIX, S57SubfieldNames.NFPT, ddr, logger);
 
         return new S57FeatureRecord
         {
@@ -375,7 +383,9 @@ public static class S57DocumentReader
             Attributes = attributes,
             NationalAttributes = nationalAttributes,
             SpatialPointers = spatialPointers,
-            FeaturePointers = featurePointers
+            SpatialPointerControl = spatialPointerControl,
+            FeaturePointers = featurePointers,
+            FeaturePointerControl = featurePointerControl
         };
     }
 
@@ -411,11 +421,19 @@ public static class S57DocumentReader
         // Parse VRPT (vector pointers)
         var vectorPointers = ParseVectorPointers(record, ddr, logger);
 
+        // Parse VRPC (vector pointer update control)
+        var vectorPointerControl = ParseFieldUpdateControl(record, S57FieldTags.VRPC,
+            S57SubfieldNames.VPUI, S57SubfieldNames.VPIX, S57SubfieldNames.NVPT, ddr, logger);
+
         // Parse SG2D (2D coordinates)
         var coordinates2D = ParseCoordinates2D(record, ddr, logger);
 
         // Parse SG3D (3D soundings)
         var soundings = ParseSoundings(record, ddr, logger);
+
+        // Parse SGCC (coordinate/sounding update control)
+        var coordinateControl = ParseFieldUpdateControl(record, S57FieldTags.SGCC,
+            S57SubfieldNames.CCUI, S57SubfieldNames.CCIX, S57SubfieldNames.CCNC, ddr, logger);
 
         return new S57VectorRecord
         {
@@ -424,8 +442,10 @@ public static class S57DocumentReader
             UpdateInstruction = (S57UpdateInstruction)ruin,
             Attributes = attributes,
             VectorPointers = vectorPointers,
+            VectorPointerControl = vectorPointerControl,
             Coordinates2D = coordinates2D,
-            Soundings = soundings
+            Soundings = soundings,
+            CoordinateControl = coordinateControl
         };
     }
 
@@ -731,5 +751,60 @@ public static class S57DocumentReader
         var fidn = BinaryPrimitives.ReadUInt32LittleEndian(data.Slice(2, 4));
         var fids = BinaryPrimitives.ReadUInt16LittleEndian(data.Slice(6, 2));
         return S57RecordName.FromLongName(agen, (int)fidn, fids);
+    }
+
+    /// <summary>
+    /// Parses an update control field (FSPC, FFPC, VRPC, or SGCC) from a record.
+    /// </summary>
+    /// <param name="record">The ISO 8211 record.</param>
+    /// <param name="fieldTag">The field tag (e.g. FSPC, FFPC, VRPC, SGCC).</param>
+    /// <param name="uiSubfield">The update instruction subfield name (e.g. FSUI, FFUI, VPUI, CCUI).</param>
+    /// <param name="ixSubfield">The index subfield name (e.g. FSIX, FFIX, VPIX, CCIX).</param>
+    /// <param name="ncSubfield">The count subfield name (e.g. NSPT, NFPT, NVPT, CCNC).</param>
+    /// <param name="ddr">The data descriptive record.</param>
+    /// <param name="logger">An optional logger.</param>
+    /// <returns>The parsed control field, or <c>null</c> if the field is not present.</returns>
+    private static S57FieldUpdateControl? ParseFieldUpdateControl(
+        Iso8211Record record,
+        string fieldTag,
+        string uiSubfield,
+        string ixSubfield,
+        string ncSubfield,
+        Iso8211DataDescriptiveRecord? ddr,
+        ILogger? logger)
+    {
+        var field = record.GetFieldByTag(fieldTag);
+        if (field == null)
+        {
+            return null;
+        }
+
+        var fieldDef = ddr?.GetFieldDefinition(fieldTag);
+        if (fieldDef == null)
+        {
+            logger?.LogWarning("DDR field definition not found for {FieldTag}.", fieldTag);
+            return null;
+        }
+
+        try
+        {
+            var reader = new Iso8211FieldReader(fieldDef, field.Data);
+
+            var ui = reader.GetSubfield<byte>(uiSubfield);
+            var ix = reader.GetSubfield<ushort>(ixSubfield);
+            var nc = reader.GetSubfield<ushort>(ncSubfield);
+
+            return new S57FieldUpdateControl
+            {
+                UpdateInstruction = (S57UpdateInstruction)ui,
+                Index = ix,
+                Count = nc
+            };
+        }
+        catch (Exception ex)
+        {
+            logger?.LogWarning(ex, "Failed to parse update control field {FieldTag}.", fieldTag);
+            return null;
+        }
     }
 }

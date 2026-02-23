@@ -74,6 +74,25 @@ internal static class S57SubfieldNames
     public const string XCOO = "XCOO";  // X coordinate
     public const string VE3D = "VE3D";  // 3D (sounding) value
 
+    // FSPC subfields
+    public const string FSUI = "FSUI";  // Feature to Spatial record update instruction
+    public const string FSIX = "FSIX";  // Feature to Spatial record pointer index
+    public const string NSPT = "NSPT";  // Number of Spatial record pointers
+
+    // FFPC subfields
+    public const string FFIX = "FFIX";  // Feature to Feature record pointer index
+    public const string NFPT = "NFPT";  // Number of Feature record pointers
+
+    // VRPC subfields
+    public const string VPUI = "VPUI";  // Vector record pointer update instruction
+    public const string VPIX = "VPIX";  // Vector record pointer index
+    public const string NVPT = "NVPT";  // Number of Vector record pointers
+
+    // SGCC subfields
+    public const string CCUI = "CCUI";  // Coordinate update instruction
+    public const string CCIX = "CCIX";  // Coordinate index
+    public const string CCNC = "CCNC";  // Number of coordinates
+
     // CATD subfields
     public const string FILE = "FILE";  // File name
     public const string LFIL = "LFIL";  // Long file name

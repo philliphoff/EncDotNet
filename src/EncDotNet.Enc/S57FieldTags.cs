@@ -62,6 +62,19 @@ internal static class S57FieldTags
     /// <summary>Arc/Curve Definition</summary>
     public const string ARCC = "ARCC";
 
+    // Update Control Fields
+    /// <summary>Feature Record to Spatial Record Pointer Control</summary>
+    public const string FSPC = "FSPC";
+
+    /// <summary>Feature Record to Feature Object Pointer Control</summary>
+    public const string FFPC = "FFPC";
+
+    /// <summary>Vector Record Pointer Control</summary>
+    public const string VRPC = "VRPC";
+
+    /// <summary>Coordinate Control</summary>
+    public const string SGCC = "SGCC";
+
     // Catalogue Records
     /// <summary>Catalogue Directory Field</summary>
     public const string CATD = "CATD";
