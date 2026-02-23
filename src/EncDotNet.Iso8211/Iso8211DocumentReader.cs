@@ -141,7 +141,7 @@ public static class Iso8211DocumentReader
             else if (parser.TokenType == Iso8211TokenType.Field)
             {
                 // Read first field and break to field reading loop
-                var field = ReadField(ref parser);
+                var field = ReadField(ref parser, directoryEntries[fields.Count].Tag);
                 fields.Add(field);
                 break;
             }
@@ -157,7 +157,7 @@ public static class Iso8211DocumentReader
         {
             if (parser.TokenType == Iso8211TokenType.Field)
             {
-                var field = ReadField(ref parser);
+                var field = ReadField(ref parser, directoryEntries[fields.Count].Tag);
                 fields.Add(field);
             }
             else if (parser.TokenType == Iso8211TokenType.EndRecord)
@@ -179,14 +179,13 @@ public static class Iso8211DocumentReader
     /// </summary>
     /// <param name="parser">The forward-only reader positioned at a Field token.</param>
     /// <returns>The parsed field.</returns>
-    private static Iso8211Field ReadField(ref Iso8211Reader parser)
+    private static Iso8211Field ReadField(ref Iso8211Reader parser, string tag)
     {
         if (parser.TokenType != Iso8211TokenType.Field)
         {
             throw new InvalidOperationException("Reader must be positioned at a Field token.");
         }
 
-        var tag = parser.GetTagString();
         var data = parser.ValueSpan.ToArray();
 
         return new Iso8211Field
