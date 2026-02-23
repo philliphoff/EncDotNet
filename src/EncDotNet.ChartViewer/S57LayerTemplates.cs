@@ -17,10 +17,11 @@ namespace EncDotNet.ChartViewer;
 /// </summary>
 internal static class S57LayerTemplates
 {
-    private const string BuoyIconPrefix = "embedded://EncDotNet.ChartViewer.Assets.ChartSymbols.NChart-Symbol-INT-";
+    private const string IconPrefix = "embedded://EncDotNet.ChartViewer.Assets.ChartSymbols.NChart-Symbol-INT-";
     private const string UnderwaterRockIconSource = "embedded://EncDotNet.ChartViewer.Assets.ChartSymbols.NChart-Symbol-INT-Rock-Underwater.svg";
 
     // S-57 attribute codes
+    private const int BCNSHP = 3;   // Beacon shape
     private const int BOYSHP = 4;   // Buoy shape
     private const int COLOUR = 75;  // Colour
     private const int TOPSHP = 171; // Topmark shape
@@ -60,6 +61,11 @@ internal static class S57LayerTemplates
         var buoyTemplate = new S57LayerTemplate
         {
             Point = CreateBuoyFeatures,
+        };
+
+        var beaconTemplate = new S57LayerTemplate
+        {
+            Point = CreateBeaconFeatures,
         };
 
         var tssLineDashed = new S57LayerTemplate
@@ -181,6 +187,12 @@ internal static class S57LayerTemplates
             [S57ObjectCode.BOYLAT] = buoyTemplate,
             [S57ObjectCode.BOYSAW] = buoyTemplate,
             [S57ObjectCode.BOYSPP] = buoyTemplate,
+
+            [S57ObjectCode.BCNCAR] = beaconTemplate,
+            [S57ObjectCode.BCNISD] = beaconTemplate,
+            [S57ObjectCode.BCNLAT] = beaconTemplate,
+            [S57ObjectCode.BCNSAW] = beaconTemplate,
+            [S57ObjectCode.BCNSPP] = beaconTemplate,
 
             // --- Hazards ---
 
@@ -426,7 +438,7 @@ internal static class S57LayerTemplates
         if (shapeName == null)
             return null;
 
-        var colorName = GetBuoyColorName(feature);
+        var colorName = GetColorName(feature);
         var topmarkName = GetTopmarkName(feature);
         var isLighted = HasRelatedLight(chart, feature);
 
@@ -434,7 +446,7 @@ internal static class S57LayerTemplates
         var color = colorName != null ? $"-{colorName}" : "";
         var topmark = topmarkName != null ? $"-{topmarkName}TM" : "";
 
-        return $"{BuoyIconPrefix}{lighted}{shapeName}Buoy{color}{topmark}.svg";
+        return $"{IconPrefix}{lighted}{shapeName}Buoy{color}{topmark}.svg";
     }
 
     private static string? GetBuoyShapeName(S57PointFeature feature)
@@ -454,7 +466,7 @@ internal static class S57LayerTemplates
         };
     }
 
-    private static string? GetBuoyColorName(S57PointFeature feature)
+    private static string? GetColorName(S57PointFeature feature)
     {
         var colour = feature.GetAttributeValue(COLOUR);
         if (colour == null) return null;
@@ -488,15 +500,79 @@ internal static class S57LayerTemplates
 
     private static bool HasRelatedLight(S57Chart chart, S57PointFeature feature)
     {
-        if (!feature.HasRelatedFeatures) return false;
-
-        foreach (var related in feature.RelatedFeatures)
+        // In S-57, LIGHTS features are co-located on the same spatial node (isolated node)
+        // as the buoy/beacon they illuminate, rather than linked via FFPT.
+        if (feature.HasSpatialReferences)
         {
-            var relatedFeature = chart.GetFeature(related.Name);
-            if (relatedFeature?.ObjectCode == S57ObjectCode.LIGHTS)
-                return true;
+            var spatialName = feature.PrimarySpatialReference!.Value.Name;
+            foreach (var colocated in chart.GetColocatedPointFeatures(spatialName))
+            {
+                if (colocated.ObjectCode == S57ObjectCode.LIGHTS)
+                    return true;
+            }
         }
 
         return false;
+    }
+
+    // --- Beacon icon selection ---
+
+    private static IEnumerable<IFeature> CreateBeaconFeatures(S57Chart chart, S57PointFeature feature, DepthUnit _)
+    {
+        var iconSource = GetBeaconIconSource(chart, feature);
+        if (iconSource == null)
+        {
+            return S57LayerTemplate.CreatePointFeature(chart, feature, new VectorStyle
+            {
+                Fill = new Brush(new Color(255, 0, 0, 200)),
+                Outline = new Pen(Color.Black, 1),
+            });
+        }
+
+        var style = new ImageStyle { Image = new Image { Source = iconSource }, SymbolScale = 0.2 };
+        return S57LayerTemplate.CreatePointFeature(chart, feature, style);
+    }
+
+    private static string? GetBeaconIconSource(S57Chart chart, S57PointFeature feature)
+    {
+        var shapeName = GetBeaconShapeName(feature);
+        var colorName = GetColorName(feature);
+        var topmarkName = GetBeaconTopmarkName(feature);
+        var isLighted = HasRelatedLight(chart, feature);
+
+        // Standard (non-tower) beacon icons only include color when a topmark is also present.
+        var isTower = shapeName.Length > 0;
+        if (!isTower && topmarkName == null)
+            colorName = null;
+
+        var lighted = isLighted ? "Lighted-" : "";
+        var color = colorName != null ? $"-{colorName}" : "";
+        var topmark = topmarkName != null ? $"-{topmarkName}TM" : "";
+
+        return $"{IconPrefix}{lighted}{shapeName}Beacon{color}{topmark}.svg";
+    }
+
+    private static string GetBeaconShapeName(S57PointFeature feature)
+    {
+        var bcnshp = feature.GetAttributeValue(BCNSHP);
+
+        return bcnshp switch
+        {
+            "3" => "Tower",
+            _ => "",
+        };
+    }
+
+    private static string? GetBeaconTopmarkName(S57PointFeature feature)
+    {
+        var topshp = feature.GetAttributeValue(TOPSHP);
+        if (topshp == null) return null;
+
+        return topshp switch
+        {
+            "1" or "2" => "Conical",
+            "5" => "Cylindrical",
+            _ => null,
+        };
     }
 }

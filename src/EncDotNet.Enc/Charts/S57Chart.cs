@@ -54,6 +54,18 @@ public sealed class S57Chart
     public ImmutableDictionary<S57RecordName, S57TypedFeature> AllFeatures { get; }
 
     /// <summary>
+    /// Gets the reverse feature-pointer index: maps a feature's record name to all features
+    /// that reference it via FFPT (feature-to-feature pointers).
+    /// </summary>
+    public ImmutableDictionary<S57RecordName, ImmutableArray<S57TypedFeature>> ReferencingFeatures { get; }
+
+    /// <summary>
+    /// Gets the spatial co-location index: maps a spatial record name to all point features
+    /// that reference it via FSPT (feature-to-spatial pointers).
+    /// </summary>
+    public ImmutableDictionary<S57RecordName, ImmutableArray<S57PointFeature>> ColocatedPointFeatures { get; }
+
+    /// <summary>
     /// Gets the coordinate multiplication factor for converting integer coordinates to decimal degrees.
     /// </summary>
     public int CoordinateMultiplicationFactor =>
@@ -101,6 +113,8 @@ public sealed class S57Chart
         AreaFeatures = areaFeatures ?? ImmutableArray<S57AreaFeature>.Empty;
         MetaFeatures = metaFeatures ?? ImmutableArray<S57MetaFeature>.Empty;
         AllFeatures = BuildAllFeaturesIndex(PointFeatures, LineFeatures, AreaFeatures, MetaFeatures);
+        ReferencingFeatures = BuildReferencingFeaturesIndex(AllFeatures);
+        ColocatedPointFeatures = BuildColocatedPointFeaturesIndex(PointFeatures);
     }
 
     private static ImmutableDictionary<S57RecordName, S57TypedFeature> BuildAllFeaturesIndex(
@@ -115,6 +129,60 @@ public sealed class S57Chart
         foreach (var f in areaFeatures) builder[f.RecordName] = f;
         foreach (var f in metaFeatures) builder[f.RecordName] = f;
         return builder.ToImmutable();
+    }
+
+    private static ImmutableDictionary<S57RecordName, ImmutableArray<S57TypedFeature>> BuildReferencingFeaturesIndex(
+        ImmutableDictionary<S57RecordName, S57TypedFeature> allFeatures)
+    {
+        var builder = new Dictionary<S57RecordName, ImmutableArray<S57TypedFeature>.Builder>();
+
+        foreach (var feature in allFeatures.Values)
+        {
+            if (!feature.HasRelatedFeatures) continue;
+
+            foreach (var pointer in feature.RelatedFeatures)
+            {
+                if (!builder.TryGetValue(pointer.Name, out var list))
+                {
+                    list = ImmutableArray.CreateBuilder<S57TypedFeature>();
+                    builder[pointer.Name] = list;
+                }
+                list.Add(feature);
+            }
+        }
+
+        var result = ImmutableDictionary.CreateBuilder<S57RecordName, ImmutableArray<S57TypedFeature>>();
+        foreach (var (name, list) in builder)
+        {
+            result[name] = list.ToImmutable();
+        }
+        return result.ToImmutable();
+    }
+
+    private static ImmutableDictionary<S57RecordName, ImmutableArray<S57PointFeature>> BuildColocatedPointFeaturesIndex(
+        ImmutableArray<S57PointFeature> pointFeatures)
+    {
+        var builder = new Dictionary<S57RecordName, ImmutableArray<S57PointFeature>.Builder>();
+
+        foreach (var feature in pointFeatures)
+        {
+            if (!feature.HasSpatialReferences) continue;
+
+            var spatialName = feature.PrimarySpatialReference!.Value.Name;
+            if (!builder.TryGetValue(spatialName, out var list))
+            {
+                list = ImmutableArray.CreateBuilder<S57PointFeature>();
+                builder[spatialName] = list;
+            }
+            list.Add(feature);
+        }
+
+        var result = ImmutableDictionary.CreateBuilder<S57RecordName, ImmutableArray<S57PointFeature>>();
+        foreach (var (name, list) in builder)
+        {
+            result[name] = list.ToImmutable();
+        }
+        return result.ToImmutable();
     }
 
     private S57Chart(S57Document document)
@@ -188,6 +256,8 @@ public sealed class S57Chart
         AreaFeatures = areaFeatures.ToImmutable();
         MetaFeatures = metaFeatures.ToImmutable();
         AllFeatures = allFeatures.ToImmutable();
+        ReferencingFeatures = BuildReferencingFeaturesIndex(AllFeatures);
+        ColocatedPointFeatures = BuildColocatedPointFeaturesIndex(PointFeatures);
     }
 
     /// <summary>
@@ -332,6 +402,26 @@ public sealed class S57Chart
     public IEnumerable<S57TypedFeature> GetFeaturesByObjectCode(S57ObjectCode objectCode)
     {
         return AllFeatures.Values.Where(f => f.ObjectCode == objectCode);
+    }
+
+    /// <summary>
+    /// Gets all features that reference the specified feature via FFPT (feature-to-feature pointers).
+    /// </summary>
+    /// <param name="name">The record name of the target feature.</param>
+    /// <returns>All features that reference the specified feature, or an empty array if none.</returns>
+    public ImmutableArray<S57TypedFeature> GetReferencingFeatures(S57RecordName name)
+    {
+        return ReferencingFeatures.TryGetValue(name, out var features) ? features : [];
+    }
+
+    /// <summary>
+    /// Gets all point features that reference the specified spatial record (co-located features).
+    /// </summary>
+    /// <param name="spatialName">The record name of the spatial record.</param>
+    /// <returns>All point features at the same spatial node, or an empty array if none.</returns>
+    public ImmutableArray<S57PointFeature> GetColocatedPointFeatures(S57RecordName spatialName)
+    {
+        return ColocatedPointFeatures.TryGetValue(spatialName, out var features) ? features : [];
     }
 
     /// <summary>
