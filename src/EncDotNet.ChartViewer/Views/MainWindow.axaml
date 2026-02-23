@@ -130,10 +130,18 @@
                                                     Padding="4,2"
                                                     Margin="4,0,0,0"
                                                     VerticalAlignment="Center" />
+                                            <Button DockPanel.Dock="Right"
+                                                    Content="📋"
+                                                    Command="{Binding CopyPathCommand}"
+                                                    FontSize="10"
+                                                    Padding="4,2"
+                                                    Margin="4,0,0,0"
+                                                    VerticalAlignment="Center"
+                                                    ToolTip.Tip="Copy chart path" />
                                             <TextBlock Text="{Binding Name}"
                                                        VerticalAlignment="Center"
                                                        TextTrimming="CharacterEllipsis"
-                                                       ToolTip.Tip="{Binding Entry.Path}" />
+                                                       ToolTip.Tip="{Binding FullPath}" />
                                         </DockPanel>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
