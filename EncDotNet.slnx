@@ -13,9 +13,9 @@
     <Project Path="src/EncDotNet.ProductCatalog/EncDotNet.ProductCatalog.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="EndDotNet.UnitTests/EndDotNet.UnitTests.csproj" />
+    <Project Path="tests/EndDotNet.UnitTests/EndDotNet.UnitTests.csproj" />
   </Folder>
   <Folder Name="/benchmarks/">
-    <Project Path="EncDotNet.Benchmarks/EncDotNet.Benchmarks.csproj" />
+    <Project Path="tests/EncDotNet.Benchmarks/EncDotNet.Benchmarks.csproj" />
   </Folder>
 </Solution>
