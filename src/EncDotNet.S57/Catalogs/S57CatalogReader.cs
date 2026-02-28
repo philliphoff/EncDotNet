@@ -3,7 +3,7 @@ using System.Globalization;
 using EncDotNet.Iso8211;
 using Microsoft.Extensions.Logging;
 
-namespace EncDotNet.Enc.Catalogs;
+namespace EncDotNet.S57.Catalogs;
 
 /// <summary>
 /// Provides methods to read S-57 CATALOG.031 files.

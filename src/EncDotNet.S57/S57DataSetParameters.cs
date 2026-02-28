@@ -1,4 +1,4 @@
-namespace EncDotNet.Enc;
+namespace EncDotNet.S57;
 
 /// <summary>
 /// Represents the Data Set Parameter field (DSPM) from S-57.

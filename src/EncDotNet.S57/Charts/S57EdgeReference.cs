@@ -1,4 +1,4 @@
-namespace EncDotNet.Enc.Charts;
+namespace EncDotNet.S57.Charts;
 
 /// <summary>
 /// Represents a reference to an edge in a face boundary.

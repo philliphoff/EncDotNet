@@ -1,4 +1,4 @@
-namespace EncDotNet.Enc;
+namespace EncDotNet.S57;
 
 /// <summary>
 /// Contains S-57 field tag constants used in ISO 8211 encoded ENC files.

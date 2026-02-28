@@ -1,6 +1,6 @@
 using System.Collections.Immutable;
 
-namespace EncDotNet.Enc;
+namespace EncDotNet.S57;
 
 /// <summary>
 /// Represents a complete S-57 Electronic Navigational Chart (ENC) document.

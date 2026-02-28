@@ -1,4 +1,4 @@
-namespace EncDotNet.Enc;
+namespace EncDotNet.S57;
 
 /// <summary>
 /// Represents a spatial record pointer (VRPT) in S-57.

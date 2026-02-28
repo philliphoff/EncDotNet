@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
 using System.Linq;
 
-namespace EncDotNet.Enc.Charts;
+namespace EncDotNet.S57.Charts;
 
 /// <summary>
 /// Represents an area feature in an S-57 chart.

@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
 using EncDotNet.ChartViewer;
-using EncDotNet.Enc;
-using EncDotNet.Enc.Charts;
+using EncDotNet.S57;
+using EncDotNet.S57.Charts;
 using Mapsui.Projections;
 using NetTopologySuite.Geometries;
 

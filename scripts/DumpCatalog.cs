@@ -6,7 +6,7 @@
 #:project ../src/EncDotNet.S57/EncDotNet.S57.csproj
 
 using System.Text;
-using EncDotNet.Enc.Catalogs;
+using EncDotNet.S57.Catalogs;
 using EncDotNet.Iso8211;
 using Microsoft.Extensions.Logging;
 

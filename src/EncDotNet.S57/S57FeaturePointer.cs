@@ -1,4 +1,4 @@
-namespace EncDotNet.Enc;
+namespace EncDotNet.S57;
 
 /// <summary>
 /// Represents a feature-to-feature object pointer (FFPT) in S-57.

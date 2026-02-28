@@ -10,7 +10,7 @@ using System.Text.Json.Serialization.Metadata;
 using System.Threading;
 using System.Threading.Tasks;
 using EncDotNet.ChartViewer.Models;
-using EncDotNet.Enc.Catalogs;
+using EncDotNet.S57.Catalogs;
 using EncDotNet.Noaa;
 
 namespace EncDotNet.ChartViewer.Catalogs;

@@ -1,6 +1,6 @@
 using System.Collections.Immutable;
 
-namespace EncDotNet.Enc.Charts;
+namespace EncDotNet.S57.Charts;
 
 /// <summary>
 /// Base class for all strongly-typed feature records in an S-57 chart.

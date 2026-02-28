@@ -1,6 +1,6 @@
 using System.Collections.Generic;
-using EncDotNet.Enc;
-using EncDotNet.Enc.Charts;
+using EncDotNet.S57;
+using EncDotNet.S57.Charts;
 using NetTopologySuite.Geometries;
 
 namespace EncDotNet.ChartViewer;

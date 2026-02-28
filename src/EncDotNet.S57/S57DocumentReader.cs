@@ -3,7 +3,7 @@ using System.Collections.Immutable;
 using EncDotNet.Iso8211;
 using Microsoft.Extensions.Logging;
 
-namespace EncDotNet.Enc;
+namespace EncDotNet.S57;
 
 /// <summary>
 /// Provides methods to read S-57 Electronic Navigational Chart (ENC) files.

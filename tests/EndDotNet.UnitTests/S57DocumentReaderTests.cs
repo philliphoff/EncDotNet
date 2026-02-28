@@ -1,5 +1,5 @@
 using System.Text;
-using EncDotNet.Enc;
+using EncDotNet.S57;
 
 namespace EndDotNet.UnitTests;
 

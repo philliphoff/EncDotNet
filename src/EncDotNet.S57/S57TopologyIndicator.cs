@@ -1,4 +1,4 @@
-namespace EncDotNet.Enc;
+namespace EncDotNet.S57;
 
 /// <summary>
 /// S-57 Topology Indicator (TOPI) - indicates topology of an edge reference.

@@ -1,5 +1,5 @@
 using System.Collections.Immutable;
-using EncDotNet.Enc;
+using EncDotNet.S57;
 
 namespace EncDotNet.ChartViewer.Models;
 

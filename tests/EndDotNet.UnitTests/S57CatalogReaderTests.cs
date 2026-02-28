@@ -1,5 +1,5 @@
 using System.Text;
-using EncDotNet.Enc.Catalogs;
+using EncDotNet.S57.Catalogs;
 
 namespace EndDotNet.UnitTests;
 

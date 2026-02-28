@@ -1,4 +1,4 @@
-namespace EncDotNet.Enc;
+namespace EncDotNet.S57;
 
 /// <summary>
 /// S-57 Orientation (ORNT) - indicates the orientation of a spatial object reference.

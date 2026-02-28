@@ -1,4 +1,4 @@
-namespace EncDotNet.Enc.Catalogs;
+namespace EncDotNet.S57.Catalogs;
 
 /// <summary>
 /// Represents a single entry in an S-57 CATALOG.031 file.

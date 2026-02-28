@@ -1,6 +1,6 @@
 using System.Collections.Immutable;
 
-namespace EncDotNet.Enc;
+namespace EncDotNet.S57;
 
 /// <summary>
 /// Base class for S-57 feature records.

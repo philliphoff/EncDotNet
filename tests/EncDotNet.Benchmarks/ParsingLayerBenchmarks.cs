@@ -1,5 +1,5 @@
 using BenchmarkDotNet.Attributes;
-using EncDotNet.Enc;
+using EncDotNet.S57;
 using EncDotNet.Iso8211;
 
 namespace EncDotNet.Benchmarks;

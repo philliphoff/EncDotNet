@@ -2,7 +2,7 @@ using System;
 using System.Collections.Immutable;
 using System.Linq;
 using EncDotNet.ChartViewer.Models;
-using EncDotNet.Enc;
+using EncDotNet.S57;
 using ReactiveUI;
 
 namespace EncDotNet.ChartViewer.ViewModels;

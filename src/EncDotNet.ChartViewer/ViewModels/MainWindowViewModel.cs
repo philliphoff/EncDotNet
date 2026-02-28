@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using System.Windows.Input;
 using EncDotNet.ChartViewer.Catalogs;
 using EncDotNet.ChartViewer.Models;
-using EncDotNet.Enc.Charts;
+using EncDotNet.S57.Charts;
 using ReactiveUI;
 using System.Linq;
 

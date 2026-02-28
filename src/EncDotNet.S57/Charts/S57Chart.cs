@@ -1,6 +1,6 @@
 using System.Collections.Immutable;
 
-namespace EncDotNet.Enc.Charts;
+namespace EncDotNet.S57.Charts;
 
 /// <summary>
 /// Represents a strongly-typed S-57 Electronic Navigational Chart (ENC).

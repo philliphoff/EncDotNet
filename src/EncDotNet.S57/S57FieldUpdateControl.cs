@@ -1,4 +1,4 @@
-namespace EncDotNet.Enc;
+namespace EncDotNet.S57;
 
 /// <summary>
 /// Represents an update control field (FSPC, FFPC, VRPC, or SGCC) that describes

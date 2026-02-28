@@ -1,4 +1,4 @@
-namespace EncDotNet.Enc;
+namespace EncDotNet.S57;
 
 /// <summary>
 /// S-57 Relationship Indicator (RIND) - indicates the relationship between a feature and its spatial object.

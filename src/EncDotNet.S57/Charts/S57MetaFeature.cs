@@ -1,4 +1,4 @@
-namespace EncDotNet.Enc.Charts;
+namespace EncDotNet.S57.Charts;
 
 /// <summary>
 /// Represents a meta feature (no geometry) in an S-57 chart.

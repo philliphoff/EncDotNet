@@ -1,4 +1,4 @@
-namespace EncDotNet.Enc;
+namespace EncDotNet.S57;
 
 /// <summary>
 /// S-57 Masking Indicator (MASK) - indicates masking behavior.

@@ -3,7 +3,7 @@
 #:project ../src/EncDotNet.S57/EncDotNet.S57.csproj
 
 using System.Text.Json;
-using EncDotNet.Enc.Catalogs;
+using EncDotNet.S57.Catalogs;
 
 // ============================================================================
 // BuildChartIndex.cs — Scans an expanded ENC directory and generates a JSON

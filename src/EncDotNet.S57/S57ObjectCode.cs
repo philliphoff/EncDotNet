@@ -1,4 +1,4 @@
-namespace EncDotNet.Enc;
+namespace EncDotNet.S57;
 
 /// <summary>
 /// S-57 object class codes (OBJL) as defined in IHO S-57 Appendix A - Object Catalogue.

@@ -9,7 +9,7 @@ using Avalonia.Interactivity;
 using EncDotNet.ChartViewer.Catalogs;
 using EncDotNet.ChartViewer.Models;
 using EncDotNet.ChartViewer.ViewModels;
-using EncDotNet.Enc;
+using EncDotNet.S57;
 using Mapsui;
 using Microsoft.Extensions.DependencyInjection;
 using Mapsui.Extensions;

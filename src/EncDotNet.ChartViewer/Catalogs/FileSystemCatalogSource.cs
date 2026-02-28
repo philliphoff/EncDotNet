@@ -6,7 +6,7 @@ using System.Text.Json.Serialization.Metadata;
 using System.Threading;
 using System.Threading.Tasks;
 using EncDotNet.ChartViewer.Models;
-using EncDotNet.Enc.Charts;
+using EncDotNet.S57.Charts;
 
 namespace EncDotNet.ChartViewer.Catalogs;
 
