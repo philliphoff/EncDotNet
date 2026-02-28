@@ -9,7 +9,7 @@
     <Project Path="src/EncDotNet.ChartViewer/EncDotNet.ChartViewer.csproj" />
     <Project Path="src/EncDotNet.S57/EncDotNet.S57.csproj" />
     <Project Path="src/EncDotNet.Iso8211/EncDotNet.Iso8211.csproj" />
-    <Project Path="src/EncDotNet.ProductCatalog/EncDotNet.ProductCatalog.csproj" />
+    <Project Path="src/EncDotNet.Noaa/EncDotNet.Noaa.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/EndDotNet.UnitTests/EndDotNet.UnitTests.csproj" />

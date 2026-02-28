@@ -1,8 +1,8 @@
 #!/usr/bin/env dotnet run
 
-#:project ../src/EncDotNet.ProductCatalog/EncDotNet.ProductCatalog.csproj
+#:project ../src/EncDotNet.Noaa/EncDotNet.Noaa.csproj
 
-using EncDotNet.ProductCatalog;
+using EncDotNet.Noaa;
 
 // Parse command line arguments
 bool forceRedownload = args.Contains("--force") || args.Contains("-f");

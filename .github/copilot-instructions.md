@@ -22,7 +22,7 @@ This project is a .NET 10 library suite and Avalonia desktop application for rea
 |---|---|
 | `EncDotNet.Iso8211` | Low-level ISO 8211 binary format parser (DDR, field definitions, subfield readers) |
 | `EncDotNet.Enc` | S-57 domain model (documents, features, vectors, catalogs, charts, topology) |
-| `EncDotNet.ProductCatalog` | NOAA ENC product catalog integration (downloading/managing chart data) |
+| `EncDotNet.Noaa` | NOAA ENC product catalog integration (downloading/managing chart data) |
 | `EncDotNet.ChartViewer` | Avalonia/Mapsui desktop viewer for rendering charts on an interactive map |
 | `EncDotNet.Console` | CLI tools for inspecting and dumping chart data |
 | `EndDotNet.UnitTests` | xUnit tests for the parsing and domain libraries |
@@ -31,7 +31,7 @@ This project is a .NET 10 library suite and Avalonia desktop application for rea
 
 ```
 Iso8211  →  Enc  →  ChartViewer
-                 →  ProductCatalog
+                 →  Noaa
                  →  Console
 ```
 

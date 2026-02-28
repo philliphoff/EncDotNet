@@ -1,6 +1,6 @@
 using System.Xml.Serialization;
 
-namespace EncDotNet.ProductCatalog;
+namespace EncDotNet.Noaa;
 
 public class CoastGuardDistricts
 {

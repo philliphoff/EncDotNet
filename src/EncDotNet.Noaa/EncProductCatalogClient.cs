@@ -1,6 +1,6 @@
 using System.Xml.Serialization;
 
-namespace EncDotNet.ProductCatalog;
+namespace EncDotNet.Noaa;
 
 // HTTP Client Wrapper
 public class EncProductCatalogClient : IDisposable

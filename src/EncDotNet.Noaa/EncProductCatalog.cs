@@ -1,6 +1,6 @@
 using System.Xml.Serialization;
 
-namespace EncDotNet.ProductCatalog;
+namespace EncDotNet.Noaa;
 
 [XmlRoot("EncProductCatalog")]
 public class EncProductCatalog

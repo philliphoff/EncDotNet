@@ -11,7 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EncDotNet.ChartViewer.Models;
 using EncDotNet.Enc.Catalogs;
-using EncDotNet.ProductCatalog;
+using EncDotNet.Noaa;
 
 namespace EncDotNet.ChartViewer.Catalogs;
 

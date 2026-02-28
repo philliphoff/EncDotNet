@@ -35,6 +35,6 @@
     
     <ItemGroup>
         <ProjectReference Include="..\EncDotNet.S57\EncDotNet.S57.csproj" />
-        <ProjectReference Include="..\EncDotNet.ProductCatalog\EncDotNet.ProductCatalog.csproj" />
+        <ProjectReference Include="..\EncDotNet.Noaa\EncDotNet.Noaa.csproj" />
     </ItemGroup>
 </Project>
