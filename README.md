@@ -1,5 +1,7 @@
 # ENC.NET
 
+[![CI](https://github.com/philliphoff/EncDotNet/actions/workflows/ci.yml/badge.svg)](https://github.com/philliphoff/EncDotNet/actions/workflows/ci.yml)
+
 A .NET 10 library suite and desktop application for reading, parsing, and rendering [IHO S-57](https://iho.int/en/s-57-unc) Electronic Navigational Charts (ENCs).
 
 EncDotNet implements:

@@ -5,6 +5,7 @@
         "dotnet run": true,
         "dotnet tool": true,
         "true": true,
-        "dotnet add": true
+        "dotnet add": true,
+        "dotnet nuget": true
     }
 }
