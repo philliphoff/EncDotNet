@@ -45,3 +45,36 @@ jobs:
         with:
           name: nupkgs
           path: nupkgs/*.nupkg
+
+  publish:
+    needs: build
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            rid: osx-arm64
+            artifact: ChartViewer-osx-arm64
+          - os: windows-latest
+            rid: win-x64
+            artifact: ChartViewer-win-x64
+          - os: ubuntu-latest
+            rid: linux-x64
+            artifact: ChartViewer-linux-x64
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish ChartViewer
+        run: dotnet publish src/EncDotNet.ChartViewer/EncDotNet.ChartViewer.csproj --configuration Release --runtime ${{ matrix.rid }}
+
+      - name: Upload published app
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: src/EncDotNet.ChartViewer/bin/Release/net10.0/${{ matrix.rid }}/publish/
