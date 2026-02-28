@@ -1,6 +1,6 @@
 using System.Collections.Immutable;
 
-namespace EncDotNet.S57.Catalogs;
+namespace EncDotNet.S57.ExchangeSets;
 
 /// <summary>
 /// Represents the contents of an S-57 CATALOG.031 file.
