@@ -26,7 +26,7 @@ public static class S57ExchangeSetReader
     /// <param name="path">The path to the root directory of the exchange set.</param>
     /// <returns>The exchange set describing the files found in the directory.</returns>
     /// <exception cref="DirectoryNotFoundException">The directory does not exist.</exception>
-    /// <exception cref="FileNotFoundException">No <c>CATALOG.031</c> or base cell file was found.</exception>
+    /// <exception cref="FileNotFoundException">No base cell file was found.</exception>
     public static S57ExchangeSet Read(string path)
     {
         if (!Directory.Exists(path))
@@ -34,14 +34,9 @@ public static class S57ExchangeSetReader
             throw new DirectoryNotFoundException($"Exchange set directory not found: {path}");
         }
 
-        // Find the CATALOG.031 file.
+        // Find the CATALOG.031 file (optional).
         string? catalogPath = Directory.EnumerateFiles(path, CatalogFileName, SearchOption.TopDirectoryOnly)
             .FirstOrDefault();
-
-        if (catalogPath is null)
-        {
-            throw new FileNotFoundException($"Catalog file not found in exchange set: {CatalogFileName}", CatalogFileName);
-        }
 
         // Find the base cell file (.000) anywhere under the root.
         string? baseCellPath = Directory.EnumerateFiles(path, $"*{BaseCellExtension}", SearchOption.AllDirectories)
@@ -64,7 +59,7 @@ public static class S57ExchangeSetReader
 
         return new S57ExchangeSet
         {
-            CatalogFileName = Path.GetRelativePath(path, catalogPath),
+            CatalogFileName = catalogPath is not null ? Path.GetRelativePath(path, catalogPath) : null,
             BaseCellFileName = Path.GetRelativePath(path, baseCellPath),
             UpdateFileNames = updatePaths.Select(f => Path.GetRelativePath(path, f)).ToImmutableArray()
         };

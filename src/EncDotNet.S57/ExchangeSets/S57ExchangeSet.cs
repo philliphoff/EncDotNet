@@ -21,8 +21,8 @@ namespace EncDotNet.S57.ExchangeSets;
 /// </remarks>
 public sealed class S57ExchangeSet
 {
-    /// <summary>Gets the relative path to the catalogue file (e.g. <c>CATALOG.031</c>).</summary>
-    public required string CatalogFileName { get; init; }
+    /// <summary>Gets the relative path to the catalogue file (e.g. <c>CATALOG.031</c>), or <see langword="null"/> if no catalogue is present.</summary>
+    public string? CatalogFileName { get; init; }
 
     /// <summary>Gets the relative path to the base cell file (e.g. <c>US5CA12M/US5CA12M.000</c>).</summary>
     public required string BaseCellFileName { get; init; }
@@ -39,8 +39,14 @@ public sealed class S57ExchangeSet
     /// <param name="rootPath">The absolute path to the root directory of the exchange set.</param>
     /// <param name="logger">An optional logger for reporting parsing warnings.</param>
     /// <returns>The parsed catalog.</returns>
+    /// <exception cref="InvalidOperationException"><see cref="CatalogFileName"/> is <see langword="null"/>.</exception>
     public S57Catalog ReadCatalog(string rootPath, ILogger? logger = null)
     {
+        if (CatalogFileName is null)
+        {
+            throw new InvalidOperationException("The exchange set does not contain a catalog file.");
+        }
+
         string catalogPath = Path.Combine(rootPath, CatalogFileName);
         return S57CatalogReader.ReadFromFile(catalogPath, logger);
     }
@@ -52,8 +58,14 @@ public sealed class S57ExchangeSet
     /// <param name="logger">An optional logger for reporting parsing warnings.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>A task that represents the asynchronous read operation.</returns>
+    /// <exception cref="InvalidOperationException"><see cref="CatalogFileName"/> is <see langword="null"/>.</exception>
     public Task<S57Catalog> ReadCatalogAsync(string rootPath, ILogger? logger = null, CancellationToken cancellationToken = default)
     {
+        if (CatalogFileName is null)
+        {
+            throw new InvalidOperationException("The exchange set does not contain a catalog file.");
+        }
+
         string catalogPath = Path.Combine(rootPath, CatalogFileName);
         return S57CatalogReader.ReadFromFileAsync(catalogPath, logger, cancellationToken);
     }
