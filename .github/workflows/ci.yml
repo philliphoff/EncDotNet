@@ -73,6 +73,45 @@ jobs:
       - name: Publish ChartViewer
         run: dotnet publish src/EncDotNet.ChartViewer/EncDotNet.ChartViewer.csproj --configuration Release --runtime ${{ matrix.rid }}
 
+      - name: Import signing certificate
+        if: matrix.rid == 'osx-arm64' && secrets.APPLE_DEVELOPER_CERTIFICATE_P12 != ''
+        env:
+          P12_BASE64: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12 }}
+          P12_PASSWORD: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_PASSWORD }}
+        run: |
+          echo "$P12_BASE64" | base64 --decode > cert.p12
+          security create-keychain -p "" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "" build.keychain
+          security import cert.p12 -k build.keychain -P "$P12_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "" build.keychain
+
+      - name: Sign macOS binary
+        if: matrix.rid == 'osx-arm64' && secrets.APPLE_DEVELOPER_CERTIFICATE_P12 != ''
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          codesign --force --deep --options runtime --timestamp \
+            --sign "$APPLE_SIGNING_IDENTITY" \
+            src/EncDotNet.ChartViewer/bin/Release/net10.0/osx-arm64/publish/EncDotNet.ChartViewer
+
+      - name: Notarize macOS binary
+        if: matrix.rid == 'osx-arm64' && secrets.APPLE_DEVELOPER_CERTIFICATE_P12 != ''
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: |
+          ditto -c -k --keepParent \
+            src/EncDotNet.ChartViewer/bin/Release/net10.0/osx-arm64/publish/EncDotNet.ChartViewer \
+            ChartViewer.zip
+          xcrun notarytool submit ChartViewer.zip \
+            --apple-id "$APPLE_ID" \
+            --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_APP_PASSWORD" \
+            --wait
+
       - name: Upload published app
         uses: actions/upload-artifact@v4
         with:
