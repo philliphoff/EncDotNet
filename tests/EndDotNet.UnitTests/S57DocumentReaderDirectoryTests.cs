@@ -1,18 +1,19 @@
 using System.Collections.Immutable;
 using System.Text;
 using EncDotNet.S57;
+using EncDotNet.S57.ExchangeSets;
 
 namespace EndDotNet.UnitTests;
 
 /// <summary>
-/// Unit tests for <see cref="S57DocumentReader.ReadFromDirectory"/> and
-/// <see cref="S57DocumentReader.ReadFromDirectoryAsync"/>.
+/// Unit tests for <see cref="S57ExchangeSet.ReadDocument"/> and
+/// <see cref="S57ExchangeSet.ReadDocumentAsync"/>.
 /// </summary>
-public class S57DocumentReaderDirectoryTests : IDisposable
+public class S57ExchangeSetDocumentTests : IDisposable
 {
     private readonly string _tempDir;
 
-    public S57DocumentReaderDirectoryTests()
+    public S57ExchangeSetDocumentTests()
     {
         _tempDir = Path.Combine(Path.GetTempPath(), $"EncDotNet_Tests_{Guid.NewGuid():N}");
         Directory.CreateDirectory(_tempDir);
@@ -246,12 +247,34 @@ public class S57DocumentReaderDirectoryTests : IDisposable
         File.WriteAllBytes(Path.Combine(_tempDir, $"{stem}{extension}"), data);
     }
 
+    private S57ExchangeSet CreateExchangeSet(string stem = "US5WA51M")
+    {
+        var updateFileNames = Directory.EnumerateFiles(_tempDir, $"{stem}.*")
+            .Where(f =>
+            {
+                var ext = Path.GetExtension(f);
+                return ext.Length == 4
+                    && int.TryParse(ext.AsSpan(1), out var n)
+                    && n > 0;
+            })
+            .OrderBy(f => int.Parse(Path.GetExtension(f).AsSpan(1)))
+            .Select(Path.GetFileName)
+            .ToImmutableArray();
+
+        return new S57ExchangeSet
+        {
+            CatalogFileName = "CATALOG.031",
+            BaseCellFileName = $"{stem}.000",
+            UpdateFileNames = updateFileNames!,
+        };
+    }
+
     #endregion
 
-    #region ReadFromDirectory Tests
+    #region ReadDocument Tests
 
     [Fact]
-    public void ReadFromDirectory_BaseOnly_ReturnsBaseDocument()
+    public void ReadDocument_BaseOnly_ReturnsBaseDocument()
     {
         // Arrange — base file with two features
         var baseData = CreateS57FileData(
@@ -261,7 +284,7 @@ public class S57DocumentReaderDirectoryTests : IDisposable
         WriteChartFile("US5WA51M", ".000", baseData);
 
         // Act
-        var doc = S57DocumentReader.ReadFromDirectory(_tempDir);
+        var doc = CreateExchangeSet().ReadDocument(_tempDir);
 
         // Assert
         Assert.Equal(2, doc.FeatureRecords.Length);
@@ -270,7 +293,7 @@ public class S57DocumentReaderDirectoryTests : IDisposable
     }
 
     [Fact]
-    public void ReadFromDirectory_BaseAndOneUpdate_AppliesUpdate()
+    public void ReadDocument_BaseAndOneUpdate_AppliesUpdate()
     {
         // Arrange — base with feature RCID=1, update inserts RCID=2
         var baseData = CreateS57FileData(
@@ -283,7 +306,7 @@ public class S57DocumentReaderDirectoryTests : IDisposable
         WriteChartFile("US5WA51M", ".001", updateData);
 
         // Act
-        var doc = S57DocumentReader.ReadFromDirectory(_tempDir);
+        var doc = CreateExchangeSet().ReadDocument(_tempDir);
 
         // Assert
         Assert.Equal(2, doc.FeatureRecords.Length);
@@ -292,7 +315,7 @@ public class S57DocumentReaderDirectoryTests : IDisposable
     }
 
     [Fact]
-    public void ReadFromDirectory_MultipleUpdatesAppliedInOrder()
+    public void ReadDocument_MultipleUpdatesAppliedInOrder()
     {
         // Arrange — base with RCID=1, update 1 inserts RCID=2, update 2 deletes RCID=1
         var baseData = CreateS57FileData(
@@ -310,7 +333,7 @@ public class S57DocumentReaderDirectoryTests : IDisposable
         WriteChartFile("US5WA51M", ".002", update2);
 
         // Act
-        var doc = S57DocumentReader.ReadFromDirectory(_tempDir);
+        var doc = CreateExchangeSet().ReadDocument(_tempDir);
 
         // Assert — only RCID=2 should remain
         Assert.Single(doc.FeatureRecords);
@@ -319,7 +342,7 @@ public class S57DocumentReaderDirectoryTests : IDisposable
     }
 
     [Fact]
-    public void ReadFromDirectory_UpdateModifiesAttributes()
+    public void ReadDocument_UpdateModifiesAttributes()
     {
         // Arrange
         var baseData = CreateS57FileData(
@@ -334,7 +357,7 @@ public class S57DocumentReaderDirectoryTests : IDisposable
         WriteChartFile("US5WA51M", ".001", updateData);
 
         // Act
-        var doc = S57DocumentReader.ReadFromDirectory(_tempDir);
+        var doc = CreateExchangeSet().ReadDocument(_tempDir);
 
         // Assert
         Assert.Single(doc.FeatureRecords);
@@ -345,7 +368,7 @@ public class S57DocumentReaderDirectoryTests : IDisposable
     }
 
     [Fact]
-    public void ReadFromDirectory_IgnoresUnrelatedFiles()
+    public void ReadDocument_IgnoresUnrelatedFiles()
     {
         // Arrange
         var baseData = CreateS57FileData(
@@ -357,14 +380,14 @@ public class S57DocumentReaderDirectoryTests : IDisposable
         File.WriteAllText(Path.Combine(_tempDir, "OTHER.001"), "not a chart");
 
         // Act
-        var doc = S57DocumentReader.ReadFromDirectory(_tempDir);
+        var doc = CreateExchangeSet().ReadDocument(_tempDir);
 
         // Assert — only the base record, no crash from unrelated files
         Assert.Single(doc.FeatureRecords);
     }
 
     [Fact]
-    public void ReadFromDirectory_UpdatesAppliedInNumericOrder()
+    public void ReadDocument_UpdatesAppliedInNumericOrder()
     {
         // Arrange — write updates out of filesystem order to verify numeric sorting
         var baseData = CreateS57FileData(
@@ -384,7 +407,7 @@ public class S57DocumentReaderDirectoryTests : IDisposable
         WriteChartFile("US5WA51M", ".002", update2);
 
         // Act
-        var doc = S57DocumentReader.ReadFromDirectory(_tempDir);
+        var doc = CreateExchangeSet().ReadDocument(_tempDir);
 
         // Assert — update 2 applied first (insert RCID=2), then update 10 (delete RCID=1)
         Assert.Single(doc.FeatureRecords);
@@ -392,16 +415,16 @@ public class S57DocumentReaderDirectoryTests : IDisposable
     }
 
     [Fact]
-    public void ReadFromDirectory_NoBaseFile_ThrowsFileNotFoundException()
+    public void ReadDocument_NoBaseFile_ThrowsFileNotFoundException()
     {
         // Arrange — empty directory (no .000 file)
 
         // Act & Assert
-        Assert.Throws<FileNotFoundException>(() => S57DocumentReader.ReadFromDirectory(_tempDir));
+        Assert.Throws<FileNotFoundException>(() => CreateExchangeSet().ReadDocument(_tempDir));
     }
 
     [Fact]
-    public void ReadFromDirectory_BaseWithVectors_ReturnsVectors()
+    public void ReadDocument_BaseWithVectors_ReturnsVectors()
     {
         // Arrange
         var baseData = CreateS57FileData(
@@ -410,7 +433,7 @@ public class S57DocumentReaderDirectoryTests : IDisposable
         WriteChartFile("US5WA51M", ".000", baseData);
 
         // Act
-        var doc = S57DocumentReader.ReadFromDirectory(_tempDir);
+        var doc = CreateExchangeSet().ReadDocument(_tempDir);
 
         // Assert
         Assert.Single(doc.VectorRecords);
@@ -420,10 +443,10 @@ public class S57DocumentReaderDirectoryTests : IDisposable
 
     #endregion
 
-    #region ReadFromDirectoryAsync Tests
+    #region ReadDocumentAsync Tests
 
     [Fact]
-    public async Task ReadFromDirectoryAsync_BaseAndUpdate_AppliesUpdate()
+    public async Task ReadDocumentAsync_BaseAndUpdate_AppliesUpdate()
     {
         // Arrange
         var baseData = CreateS57FileData(
@@ -436,7 +459,7 @@ public class S57DocumentReaderDirectoryTests : IDisposable
         WriteChartFile("US5WA51M", ".001", updateData);
 
         // Act
-        var doc = await S57DocumentReader.ReadFromDirectoryAsync(_tempDir);
+        var doc = await CreateExchangeSet().ReadDocumentAsync(_tempDir);
 
         // Assert
         Assert.Equal(2, doc.FeatureRecords.Length);
@@ -445,14 +468,14 @@ public class S57DocumentReaderDirectoryTests : IDisposable
     }
 
     [Fact]
-    public async Task ReadFromDirectoryAsync_NoBaseFile_ThrowsFileNotFoundException()
+    public async Task ReadDocumentAsync_NoBaseFile_ThrowsFileNotFoundException()
     {
         await Assert.ThrowsAsync<FileNotFoundException>(
-            () => S57DocumentReader.ReadFromDirectoryAsync(_tempDir));
+            () => CreateExchangeSet().ReadDocumentAsync(_tempDir));
     }
 
     [Fact]
-    public async Task ReadFromDirectoryAsync_CancellationRequested_ThrowsOperationCanceled()
+    public async Task ReadDocumentAsync_CancellationRequested_ThrowsOperationCanceled()
     {
         // Arrange
         var baseData = CreateS57FileData(
@@ -469,7 +492,7 @@ public class S57DocumentReaderDirectoryTests : IDisposable
 
         // Act & Assert
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => S57DocumentReader.ReadFromDirectoryAsync(_tempDir, cancellationToken: cts.Token));
+            () => CreateExchangeSet().ReadDocumentAsync(_tempDir, cancellationToken: cts.Token));
     }
 
     #endregion

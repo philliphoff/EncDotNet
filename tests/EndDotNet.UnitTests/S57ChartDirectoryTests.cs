@@ -2,18 +2,19 @@ using System.Collections.Immutable;
 using System.Text;
 using EncDotNet.S57;
 using EncDotNet.S57.Charts;
+using EncDotNet.S57.ExchangeSets;
 
 namespace EndDotNet.UnitTests;
 
 /// <summary>
-/// Unit tests for <see cref="S57Chart.FromDirectory"/> and
-/// <see cref="S57Chart.FromDirectoryAsync"/>.
+/// Unit tests for <see cref="S57ExchangeSet.ReadChart"/> and
+/// <see cref="S57ExchangeSet.ReadChartAsync"/>.
 /// </summary>
-public class S57ChartDirectoryTests : IDisposable
+public class S57ExchangeSetChartTests : IDisposable
 {
     private readonly string _tempDir;
 
-    public S57ChartDirectoryTests()
+    public S57ExchangeSetChartTests()
     {
         _tempDir = Path.Combine(Path.GetTempPath(), $"EncDotNet_ChartDirTests_{Guid.NewGuid():N}");
         Directory.CreateDirectory(_tempDir);
@@ -266,12 +267,34 @@ public class S57ChartDirectoryTests : IDisposable
         File.WriteAllBytes(Path.Combine(_tempDir, $"{stem}{extension}"), data);
     }
 
+    private S57ExchangeSet CreateExchangeSet(string stem = "US5WA51M")
+    {
+        var updateFileNames = Directory.EnumerateFiles(_tempDir, $"{stem}.*")
+            .Where(f =>
+            {
+                var ext = Path.GetExtension(f);
+                return ext.Length == 4
+                    && int.TryParse(ext.AsSpan(1), out var n)
+                    && n > 0;
+            })
+            .OrderBy(f => int.Parse(Path.GetExtension(f).AsSpan(1)))
+            .Select(Path.GetFileName)
+            .ToImmutableArray();
+
+        return new S57ExchangeSet
+        {
+            CatalogFileName = "CATALOG.031",
+            BaseCellFileName = $"{stem}.000",
+            UpdateFileNames = updateFileNames!,
+        };
+    }
+
     #endregion
 
-    #region FromDirectory Tests
+    #region ReadChart Tests
 
     [Fact]
-    public void FromDirectory_BaseOnly_ReturnsChartWithTypedFeatures()
+    public void ReadChart_BaseOnly_ReturnsChartWithTypedFeatures()
     {
         // Arrange — base file with a point feature and an area feature
         var baseData = CreateS57FileData(
@@ -280,7 +303,7 @@ public class S57ChartDirectoryTests : IDisposable
         WriteChartFile("US5WA51M", ".000", baseData);
 
         // Act
-        var chart = S57Chart.FromDirectory(_tempDir);
+        var chart = CreateExchangeSet().ReadChart(_tempDir);
 
         // Assert
         Assert.Single(chart.PointFeatures);
@@ -290,7 +313,7 @@ public class S57ChartDirectoryTests : IDisposable
     }
 
     [Fact]
-    public void FromDirectory_BaseAndUpdate_AppliesUpdateToChart()
+    public void ReadChart_BaseAndUpdate_AppliesUpdateToChart()
     {
         // Arrange — base with RCID=1 point, update inserts RCID=2 line
         var baseData = CreateS57FileData(
@@ -303,7 +326,7 @@ public class S57ChartDirectoryTests : IDisposable
         WriteChartFile("US5WA51M", ".001", updateData);
 
         // Act
-        var chart = S57Chart.FromDirectory(_tempDir);
+        var chart = CreateExchangeSet().ReadChart(_tempDir);
 
         // Assert
         Assert.Single(chart.PointFeatures);
@@ -313,7 +336,7 @@ public class S57ChartDirectoryTests : IDisposable
     }
 
     [Fact]
-    public void FromDirectory_UpdateDeletesFeature_FeatureRemovedFromChart()
+    public void ReadChart_UpdateDeletesFeature_FeatureRemovedFromChart()
     {
         // Arrange — base with two features, update deletes one
         var baseData = CreateS57FileData(
@@ -327,7 +350,7 @@ public class S57ChartDirectoryTests : IDisposable
         WriteChartFile("US5WA51M", ".001", updateData);
 
         // Act
-        var chart = S57Chart.FromDirectory(_tempDir);
+        var chart = CreateExchangeSet().ReadChart(_tempDir);
 
         // Assert
         Assert.Empty(chart.PointFeatures);
@@ -336,7 +359,7 @@ public class S57ChartDirectoryTests : IDisposable
     }
 
     [Fact]
-    public void FromDirectory_UpdateModifiesAttributes_ChartReflectsChange()
+    public void ReadChart_UpdateModifiesAttributes_ChartReflectsChange()
     {
         // Arrange
         var baseData = CreateS57FileData(
@@ -351,7 +374,7 @@ public class S57ChartDirectoryTests : IDisposable
         WriteChartFile("US5WA51M", ".001", updateData);
 
         // Act
-        var chart = S57Chart.FromDirectory(_tempDir);
+        var chart = CreateExchangeSet().ReadChart(_tempDir);
 
         // Assert
         Assert.Single(chart.PointFeatures);
@@ -359,7 +382,7 @@ public class S57ChartDirectoryTests : IDisposable
     }
 
     [Fact]
-    public void FromDirectory_WithVectors_CategorizesSpatialRecords()
+    public void ReadChart_WithVectors_CategorizesSpatialRecords()
     {
         // Arrange — base with an isolated node and an edge
         var baseData = CreateS57FileData(
@@ -370,7 +393,7 @@ public class S57ChartDirectoryTests : IDisposable
         WriteChartFile("US5WA51M", ".000", baseData);
 
         // Act
-        var chart = S57Chart.FromDirectory(_tempDir);
+        var chart = CreateExchangeSet().ReadChart(_tempDir);
 
         // Assert
         Assert.Single(chart.IsolatedNodes);
@@ -384,7 +407,7 @@ public class S57ChartDirectoryTests : IDisposable
     }
 
     [Fact]
-    public void FromDirectory_MultipleUpdates_AllAppliedInOrder()
+    public void ReadChart_MultipleUpdates_AllAppliedInOrder()
     {
         // Arrange — base with RCID=1, update 1 inserts RCID=2, update 2 inserts RCID=3
         var baseData = CreateS57FileData(
@@ -402,7 +425,7 @@ public class S57ChartDirectoryTests : IDisposable
         WriteChartFile("US5WA51M", ".002", update2);
 
         // Act
-        var chart = S57Chart.FromDirectory(_tempDir);
+        var chart = CreateExchangeSet().ReadChart(_tempDir);
 
         // Assert — chart has all three feature types
         Assert.Single(chart.AreaFeatures);
@@ -412,13 +435,13 @@ public class S57ChartDirectoryTests : IDisposable
     }
 
     [Fact]
-    public void FromDirectory_NoBaseFile_ThrowsFileNotFoundException()
+    public void ReadChart_NoBaseFile_ThrowsFileNotFoundException()
     {
-        Assert.Throws<FileNotFoundException>(() => S57Chart.FromDirectory(_tempDir));
+        Assert.Throws<FileNotFoundException>(() => CreateExchangeSet().ReadChart(_tempDir));
     }
 
     [Fact]
-    public void FromDirectory_FeatureQueryMethods_WorkAfterUpdates()
+    public void ReadChart_FeatureQueryMethods_WorkAfterUpdates()
     {
         // Arrange — base with LIGHTS, update adds a second LIGHTS
         var baseData = CreateS57FileData(
@@ -431,7 +454,7 @@ public class S57ChartDirectoryTests : IDisposable
         WriteChartFile("US5WA51M", ".001", updateData);
 
         // Act
-        var chart = S57Chart.FromDirectory(_tempDir);
+        var chart = CreateExchangeSet().ReadChart(_tempDir);
 
         // Assert — query methods work on updated chart
         var lights = chart.GetPointFeaturesByObjectCode(S57ObjectCode.LIGHTS).ToList();
@@ -446,10 +469,10 @@ public class S57ChartDirectoryTests : IDisposable
 
     #endregion
 
-    #region FromDirectoryAsync Tests
+    #region ReadChartAsync Tests
 
     [Fact]
-    public async Task FromDirectoryAsync_BaseAndUpdate_AppliesUpdateToChart()
+    public async Task ReadChartAsync_BaseAndUpdate_AppliesUpdateToChart()
     {
         // Arrange
         var baseData = CreateS57FileData(
@@ -462,7 +485,7 @@ public class S57ChartDirectoryTests : IDisposable
         WriteChartFile("US5WA51M", ".001", updateData);
 
         // Act
-        var chart = await S57Chart.FromDirectoryAsync(_tempDir);
+        var chart = await CreateExchangeSet().ReadChartAsync(_tempDir);
 
         // Assert
         Assert.Single(chart.AreaFeatures);
@@ -472,14 +495,14 @@ public class S57ChartDirectoryTests : IDisposable
     }
 
     [Fact]
-    public async Task FromDirectoryAsync_NoBaseFile_ThrowsFileNotFoundException()
+    public async Task ReadChartAsync_NoBaseFile_ThrowsFileNotFoundException()
     {
         await Assert.ThrowsAsync<FileNotFoundException>(
-            () => S57Chart.FromDirectoryAsync(_tempDir));
+            () => CreateExchangeSet().ReadChartAsync(_tempDir));
     }
 
     [Fact]
-    public async Task FromDirectoryAsync_CancellationRequested_ThrowsOperationCanceled()
+    public async Task ReadChartAsync_CancellationRequested_ThrowsOperationCanceled()
     {
         // Arrange
         var baseData = CreateS57FileData(
@@ -491,7 +514,7 @@ public class S57ChartDirectoryTests : IDisposable
 
         // Act & Assert
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => S57Chart.FromDirectoryAsync(_tempDir, cts.Token));
+            () => CreateExchangeSet().ReadChartAsync(_tempDir, cancellationToken: cts.Token));
     }
 
     #endregion

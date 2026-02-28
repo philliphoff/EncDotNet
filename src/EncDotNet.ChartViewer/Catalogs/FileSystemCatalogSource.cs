@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EncDotNet.ChartViewer.Models;
 using EncDotNet.S57.Charts;
+using EncDotNet.S57.ExchangeSets;
 
 namespace EncDotNet.ChartViewer.Catalogs;
 
@@ -47,6 +48,7 @@ internal sealed class FileSystemCatalogSource : ICatalogSource
     {
         var chartPath = Path.Combine(_baseDirectory, entry.Path);
         var chartDirectory = Path.GetDirectoryName(chartPath)!;
-        return await S57Chart.FromDirectoryAsync(chartDirectory, cancellationToken).ConfigureAwait(false);
+        var exchangeSet = S57ExchangeSetReader.Read(chartDirectory);
+        return await exchangeSet.ReadChartAsync(chartDirectory, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 }

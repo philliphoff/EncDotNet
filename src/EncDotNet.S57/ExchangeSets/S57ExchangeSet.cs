@@ -59,12 +59,12 @@ public sealed class S57ExchangeSet
     }
 
     /// <summary>
-    /// Reads the base cell file and applies any update files in order, returning the resulting chart.
+    /// Reads the base cell file and applies any update files in order, returning the resulting document.
     /// </summary>
     /// <param name="rootPath">The absolute path to the root directory of the exchange set.</param>
     /// <param name="logger">An optional logger for reporting parsing warnings.</param>
-    /// <returns>A strongly-typed chart model with all updates applied.</returns>
-    public S57Chart ReadChart(string rootPath, ILogger? logger = null)
+    /// <returns>The fully updated S-57 document.</returns>
+    public S57Document ReadDocument(string rootPath, ILogger? logger = null)
     {
         string baseCellPath = Path.Combine(rootPath, BaseCellFileName);
         var document = S57DocumentReader.ReadFromFile(baseCellPath, logger);
@@ -76,17 +76,17 @@ public sealed class S57ExchangeSet
             document = document.ApplyChanges(update);
         }
 
-        return S57Chart.FromDocument(document);
+        return document;
     }
 
     /// <summary>
-    /// Asynchronously reads the base cell file and applies any update files in order, returning the resulting chart.
+    /// Asynchronously reads the base cell file and applies any update files in order, returning the resulting document.
     /// </summary>
     /// <param name="rootPath">The absolute path to the root directory of the exchange set.</param>
     /// <param name="logger">An optional logger for reporting parsing warnings.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
-    /// <returns>A task that represents the asynchronous load operation.</returns>
-    public async Task<S57Chart> ReadChartAsync(string rootPath, ILogger? logger = null, CancellationToken cancellationToken = default)
+    /// <returns>A task that represents the asynchronous read operation.</returns>
+    public async Task<S57Document> ReadDocumentAsync(string rootPath, ILogger? logger = null, CancellationToken cancellationToken = default)
     {
         string baseCellPath = Path.Combine(rootPath, BaseCellFileName);
         var document = await S57DocumentReader.ReadFromFileAsync(baseCellPath, logger, cancellationToken).ConfigureAwait(false);
@@ -99,6 +99,30 @@ public sealed class S57ExchangeSet
             document = document.ApplyChanges(update);
         }
 
+        return document;
+    }
+
+    /// <summary>
+    /// Reads the base cell file and applies any update files in order, returning the resulting chart.
+    /// </summary>
+    /// <param name="rootPath">The absolute path to the root directory of the exchange set.</param>
+    /// <param name="logger">An optional logger for reporting parsing warnings.</param>
+    /// <returns>A strongly-typed chart model with all updates applied.</returns>
+    public S57Chart ReadChart(string rootPath, ILogger? logger = null)
+    {
+        return S57Chart.FromDocument(ReadDocument(rootPath, logger));
+    }
+
+    /// <summary>
+    /// Asynchronously reads the base cell file and applies any update files in order, returning the resulting chart.
+    /// </summary>
+    /// <param name="rootPath">The absolute path to the root directory of the exchange set.</param>
+    /// <param name="logger">An optional logger for reporting parsing warnings.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A task that represents the asynchronous load operation.</returns>
+    public async Task<S57Chart> ReadChartAsync(string rootPath, ILogger? logger = null, CancellationToken cancellationToken = default)
+    {
+        var document = await ReadDocumentAsync(rootPath, logger, cancellationToken).ConfigureAwait(false);
         return S57Chart.FromDocument(document);
     }
 }
