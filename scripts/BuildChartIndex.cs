@@ -1,6 +1,6 @@
 #!/usr/bin/env dotnet run
 
-#:project ../src/EncDotNet.Enc/EncDotNet.Enc.csproj
+#:project ../src/EncDotNet.S57/EncDotNet.S57.csproj
 
 using System.Text.Json;
 using EncDotNet.Enc.Catalogs;

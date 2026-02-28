@@ -13,7 +13,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\src\EncDotNet.Iso8211\EncDotNet.Iso8211.csproj" />
-        <ProjectReference Include="..\..\src\EncDotNet.Enc\EncDotNet.Enc.csproj" />
+        <ProjectReference Include="..\..\src\EncDotNet.S57\EncDotNet.S57.csproj" />
     </ItemGroup>
 
 </Project>

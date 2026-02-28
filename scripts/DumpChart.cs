@@ -3,7 +3,7 @@
 #:package Microsoft.Extensions.Logging@9.0.0
 #:package Microsoft.Extensions.Logging.Console@9.0.0
 
-#:project ../src/EncDotNet.Enc/EncDotNet.Enc.csproj
+#:project ../src/EncDotNet.S57/EncDotNet.S57.csproj
 
 using System.Text;
 using EncDotNet.Enc;

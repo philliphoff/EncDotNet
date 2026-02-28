@@ -7,8 +7,7 @@
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/EncDotNet.ChartViewer/EncDotNet.ChartViewer.csproj" />
-    <Project Path="src/EncDotNet.Console/EncDotNet.Console.csproj" />
-    <Project Path="src/EncDotNet.Enc/EncDotNet.Enc.csproj" />
+    <Project Path="src/EncDotNet.S57/EncDotNet.S57.csproj" />
     <Project Path="src/EncDotNet.Iso8211/EncDotNet.Iso8211.csproj" />
     <Project Path="src/EncDotNet.ProductCatalog/EncDotNet.ProductCatalog.csproj" />
   </Folder>
