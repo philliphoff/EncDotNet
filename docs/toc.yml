@@ -1,5 +1,7 @@
 - name: Documentation
   href: index.md
   items:
+    - name: Getting Started
+      href: getting-started.md
     - name: S-57 Glossary
       href: glossary.md
