@@ -16,7 +16,7 @@ namespace EncDotNet.S57.Charts;
 /// or use <see cref="FromFile"/> to load directly from a file.
 /// </para>
 /// </remarks>
-public sealed class S57Chart
+public sealed record S57Chart
 {
     /// <summary>Gets the data set identification information.</summary>
     public S57DataSetIdentification? Identification { get; }

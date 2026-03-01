@@ -15,7 +15,7 @@ namespace EncDotNet.S57.ExchangeSets;
 /// Use <see cref="S57CatalogReader"/> to parse a CATALOG.031 file into this type.
 /// </para>
 /// </remarks>
-public sealed class S57Catalog
+public sealed record S57Catalog
 {
     /// <summary>Gets all catalog entries.</summary>
     public ImmutableArray<S57CatalogEntry> Entries { get; init; }

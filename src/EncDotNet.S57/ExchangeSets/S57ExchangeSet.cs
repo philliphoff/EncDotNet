@@ -19,7 +19,7 @@ namespace EncDotNet.S57.ExchangeSets;
 /// This type describes only the file layout; it does not parse the files themselves.
 /// </para>
 /// </remarks>
-public sealed class S57ExchangeSet
+public sealed record S57ExchangeSet
 {
     /// <summary>Gets the relative path to the catalogue file (e.g. <c>CATALOG.031</c>), or <see langword="null"/> if no catalogue is present.</summary>
     public string? CatalogFileName { get; init; }

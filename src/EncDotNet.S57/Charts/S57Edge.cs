@@ -16,7 +16,7 @@ namespace EncDotNet.S57.Charts;
 /// to form area boundaries.
 /// </para>
 /// </remarks>
-public sealed class S57Edge : S57SpatialRecord
+public sealed record S57Edge : S57SpatialRecord
 {
     /// <summary>
     /// Gets the record name of the beginning (start) node.

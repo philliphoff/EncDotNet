@@ -10,7 +10,7 @@ namespace EncDotNet.Iso8211;
 /// data records. It includes the field tag, name, data structure type, data type,
 /// and the definitions of all subfields within the field.
 /// </remarks>
-public sealed class Iso8211FieldDefinition
+public sealed record Iso8211FieldDefinition
 {
     /// <summary>
     /// Gets the field tag (e.g., "0001", "DSID", "FRID").

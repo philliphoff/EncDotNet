@@ -5,7 +5,7 @@ namespace EncDotNet.Iso8211;
 /// <summary>
 /// Represents a complete ISO 8211 document containing multiple records.
 /// </summary>
-public sealed class Iso8211Document
+public sealed record Iso8211Document
 {
     /// <summary>
     /// Gets the records contained in this document.

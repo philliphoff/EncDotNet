@@ -5,7 +5,7 @@ namespace EncDotNet.S57.Charts;
 /// <summary>
 /// Base class for all strongly-typed spatial records in an S-57 chart.
 /// </summary>
-public abstract class S57SpatialRecord
+public abstract record S57SpatialRecord
 {
     /// <summary>Gets the record name that uniquely identifies this spatial object.</summary>
     public S57RecordName RecordName { get; }

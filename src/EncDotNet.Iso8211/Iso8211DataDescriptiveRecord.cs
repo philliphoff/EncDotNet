@@ -16,7 +16,7 @@ namespace EncDotNet.Iso8211;
 /// a raw <see cref="Iso8211Record"/>.
 /// </para>
 /// </remarks>
-public sealed class Iso8211DataDescriptiveRecord
+public sealed record Iso8211DataDescriptiveRecord
 {
     /// <summary>
     /// Gets the field definitions contained in this DDR.

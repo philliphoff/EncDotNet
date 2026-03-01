@@ -15,7 +15,7 @@ namespace EncDotNet.S57.Charts;
 /// (<see cref="Soundings"/>), but not both.
 /// </para>
 /// </remarks>
-public sealed class S57IsolatedNode : S57SpatialRecord
+public sealed record S57IsolatedNode : S57SpatialRecord
 {
     /// <summary>
     /// Gets the position of this node, if it represents a single point.

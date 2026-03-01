@@ -5,7 +5,7 @@ namespace EncDotNet.Iso8211;
 /// <summary>
 /// Represents a field within an ISO 8211 record.
 /// </summary>
-public sealed class Iso8211Field
+public sealed record Iso8211Field
 {
     /// <summary>
     /// Gets the field tag.

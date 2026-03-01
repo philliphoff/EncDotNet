@@ -3,7 +3,7 @@ namespace EncDotNet.Iso8211;
 /// <summary>
 /// Represents a directory entry within an ISO 8211 record.
 /// </summary>
-public sealed class Iso8211DirectoryEntry
+public sealed record Iso8211DirectoryEntry
 {
     /// <summary>
     /// Gets the field tag.

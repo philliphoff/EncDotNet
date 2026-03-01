@@ -14,7 +14,7 @@ namespace EncDotNet.S57.Charts;
 /// Line features reference one or more edges for their geometry.
 /// </para>
 /// </remarks>
-public sealed class S57LineFeature : S57TypedFeature
+public sealed record S57LineFeature : S57TypedFeature
 {
     /// <summary>
     /// Gets the edge references that make up this line feature.

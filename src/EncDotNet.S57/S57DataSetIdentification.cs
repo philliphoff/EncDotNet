@@ -3,7 +3,7 @@ namespace EncDotNet.S57;
 /// <summary>
 /// Represents the Data Set Identification field (DSID) from S-57.
 /// </summary>
-public sealed class S57DataSetIdentification
+public sealed record S57DataSetIdentification
 {
     /// <summary>Gets the record name.</summary>
     public S57RecordName RecordName { get; init; }

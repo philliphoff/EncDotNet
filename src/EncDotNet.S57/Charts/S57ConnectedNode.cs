@@ -13,7 +13,7 @@ namespace EncDotNet.S57.Charts;
 /// and are part of the topological network.
 /// </para>
 /// </remarks>
-public sealed class S57ConnectedNode : S57SpatialRecord
+public sealed record S57ConnectedNode : S57SpatialRecord
 {
     /// <summary>
     /// Gets the position of this connected node.

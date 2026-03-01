@@ -7,7 +7,7 @@ namespace EncDotNet.S57.ExchangeSets;
 /// Each entry corresponds to a CATD (Catalogue Directory) record in the catalog,
 /// describing a chart file and its geographic coverage.
 /// </remarks>
-public sealed class S57CatalogEntry
+public sealed record S57CatalogEntry
 {
     /// <summary>Gets the record name (RCNM), e.g. "CD" for Catalogue Directory.</summary>
     public string RecordName { get; init; } = "";

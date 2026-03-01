@@ -5,7 +5,7 @@ namespace EncDotNet.Iso8211;
 /// <summary>
 /// Represents a single ISO 8211 record with its leader, directory, and fields.
 /// </summary>
-public sealed class Iso8211Record
+public sealed record Iso8211Record
 {
     /// <summary>
     /// Gets the leader information for this record.

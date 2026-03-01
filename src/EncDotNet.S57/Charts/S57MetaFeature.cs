@@ -15,7 +15,7 @@ namespace EncDotNet.S57.Charts;
 /// M_CSCL (compilation scale of data).
 /// </para>
 /// </remarks>
-public sealed class S57MetaFeature : S57TypedFeature
+public sealed record S57MetaFeature : S57TypedFeature
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="S57MetaFeature"/> class.

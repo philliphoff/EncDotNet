@@ -16,7 +16,7 @@ namespace EncDotNet.S57.Charts;
 /// (holes or islands within the area).
 /// </para>
 /// </remarks>
-public sealed class S57Face : S57SpatialRecord
+public sealed record S57Face : S57SpatialRecord
 {
     /// <summary>
     /// Gets the exterior boundary edge references.

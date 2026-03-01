@@ -5,7 +5,7 @@ namespace EncDotNet.S57;
 /// <summary>
 /// Base class for S-57 feature records.
 /// </summary>
-public sealed class S57FeatureRecord
+public sealed record S57FeatureRecord
 {
     /// <summary>Gets the record name.</summary>
     public S57RecordName RecordName { get; init; }

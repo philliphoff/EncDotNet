@@ -5,7 +5,7 @@ namespace EncDotNet.S57;
 /// <summary>
 /// Represents an S-57 vector (spatial) record.
 /// </summary>
-public sealed class S57VectorRecord
+public sealed record S57VectorRecord
 {
     /// <summary>Gets the record name.</summary>
     public S57RecordName RecordName { get; init; }

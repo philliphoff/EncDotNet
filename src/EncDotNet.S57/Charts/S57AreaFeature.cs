@@ -17,7 +17,7 @@ namespace EncDotNet.S57.Charts;
 /// with usage indicators distinguishing exterior from interior boundaries.
 /// </para>
 /// </remarks>
-public sealed class S57AreaFeature : S57TypedFeature
+public sealed record S57AreaFeature : S57TypedFeature
 {
     /// <summary>
     /// Gets the face references for this area feature (full topology).

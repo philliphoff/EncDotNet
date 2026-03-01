@@ -14,7 +14,7 @@ namespace EncDotNet.S57.Charts;
 /// Point features reference isolated nodes or connected nodes for their geometry.
 /// </para>
 /// </remarks>
-public sealed class S57PointFeature : S57TypedFeature
+public sealed record S57PointFeature : S57TypedFeature
 {
     /// <summary>
     /// Gets the spatial references (typically isolated or connected nodes).

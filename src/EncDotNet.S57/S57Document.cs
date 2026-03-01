@@ -5,7 +5,7 @@ namespace EncDotNet.S57;
 /// <summary>
 /// Represents a complete S-57 Electronic Navigational Chart (ENC) document.
 /// </summary>
-public sealed class S57Document
+public sealed record S57Document
 {
     /// <summary>Gets the data set identification (DSID field).</summary>
     public S57DataSetIdentification? DataSetIdentification { get; init; }

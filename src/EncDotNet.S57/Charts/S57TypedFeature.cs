@@ -5,7 +5,7 @@ namespace EncDotNet.S57.Charts;
 /// <summary>
 /// Base class for all strongly-typed feature records in an S-57 chart.
 /// </summary>
-public abstract class S57TypedFeature
+public abstract record S57TypedFeature
 {
     /// <summary>Gets the record name that uniquely identifies this feature.</summary>
     public S57RecordName RecordName { get; }

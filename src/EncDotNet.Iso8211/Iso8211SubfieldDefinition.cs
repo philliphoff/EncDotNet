@@ -8,7 +8,7 @@ namespace EncDotNet.Iso8211;
 /// within an ISO 8211 field. The format determines how to read the subfield data
 /// from binary field data.
 /// </remarks>
-public sealed class Iso8211SubfieldDefinition
+public sealed record Iso8211SubfieldDefinition
 {
     /// <summary>
     /// Gets the subfield name/label (e.g., "RCNM", "RCID", "DSNM").
