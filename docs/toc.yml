@@ -3,5 +3,7 @@
   items:
     - name: Getting Started
       href: getting-started.md
+    - name: Architecture
+      href: architecture.md
     - name: S-57 Glossary
       href: glossary.md
