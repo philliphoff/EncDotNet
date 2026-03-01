@@ -18,5 +18,5 @@ namespace EncDotNet.S57.ExchangeSets;
 public sealed record S57Catalog
 {
     /// <summary>Gets all catalog entries.</summary>
-    public ImmutableArray<S57CatalogEntry> Entries { get; init; }
+    public IReadOnlyList<S57CatalogEntry> Entries { get; init; } = [];
 }

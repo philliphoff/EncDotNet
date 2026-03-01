@@ -33,12 +33,12 @@ public sealed record S57IsolatedNode : S57SpatialRecord
     /// Soundings are 3D coordinates (X, Y, depth) used for bathymetric data.
     /// When present, <see cref="Position"/> will be <c>null</c>.
     /// </remarks>
-    public ImmutableArray<S57Sounding> Soundings { get; }
+    public IReadOnlyList<S57Sounding> Soundings { get; }
 
     /// <summary>
     /// Gets a value indicating whether this node contains sounding data.
     /// </summary>
-    public bool HasSoundings => !Soundings.IsDefaultOrEmpty;
+    public bool HasSoundings => Soundings.Count > 0;
 
     /// <summary>
     /// Gets a value indicating whether this node contains a single position.
@@ -54,11 +54,11 @@ public sealed record S57IsolatedNode : S57SpatialRecord
         Soundings = source.Soundings;
 
         // Position is the first coordinate if soundings are not present
-        if (!source.Soundings.IsDefaultOrEmpty)
+        if (source.Soundings.Count > 0)
         {
             Position = null;
         }
-        else if (!source.Coordinates2D.IsDefaultOrEmpty)
+        else if (source.Coordinates2D.Count > 0)
         {
             Position = source.Coordinates2D[0];
         }

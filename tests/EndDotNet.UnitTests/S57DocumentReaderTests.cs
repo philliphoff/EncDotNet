@@ -822,7 +822,7 @@ public class S57DocumentReaderTests
         // Assert
         Assert.Single(document.FeatureRecords);
         var feature = document.FeatureRecords[0];
-        Assert.Equal(3, feature.Attributes.Length);
+        Assert.Equal(3, feature.Attributes.Count);
         Assert.Equal(1, feature.Attributes[0].AttributeCode);
         Assert.Equal("TestValue1", feature.Attributes[0].Value);
         Assert.Equal(2, feature.Attributes[1].AttributeCode);
@@ -879,7 +879,7 @@ public class S57DocumentReaderTests
         // Assert
         Assert.Single(document.VectorRecords);
         var vector = document.VectorRecords[0];
-        Assert.Equal(2, vector.Coordinates2D.Length);
+        Assert.Equal(2, vector.Coordinates2D.Count);
         Assert.Equal(-1225000000, vector.Coordinates2D[0].X);
         Assert.Equal(475000000, vector.Coordinates2D[0].Y);
         Assert.Equal(-1225100000, vector.Coordinates2D[1].X);
@@ -910,7 +910,7 @@ public class S57DocumentReaderTests
         // Assert
         Assert.Single(document.VectorRecords);
         var vector = document.VectorRecords[0];
-        Assert.Equal(2, vector.Soundings.Length);
+        Assert.Equal(2, vector.Soundings.Count);
         Assert.Equal(-1225000000, vector.Soundings[0].X);
         Assert.Equal(475000000, vector.Soundings[0].Y);
         Assert.Equal(150, vector.Soundings[0].Depth);
@@ -944,8 +944,8 @@ public class S57DocumentReaderTests
         Assert.Equal("TESTDATA", document.DataSetIdentification.DataSetName);
         Assert.NotNull(document.DataSetParameters);
         Assert.Equal(50000, document.DataSetParameters.CompilationScale);
-        Assert.Equal(2, document.FeatureRecords.Length);
-        Assert.Equal(2, document.VectorRecords.Length);
+        Assert.Equal(2, document.FeatureRecords.Count);
+        Assert.Equal(2, document.VectorRecords.Count);
     }
 
     #endregion
@@ -1445,7 +1445,7 @@ public class S57DocumentReaderTests
         Assert.Equal(S57UpdateInstruction.Insert, feature.SpatialPointerControl.Value.UpdateInstruction);
         Assert.Equal(3, feature.SpatialPointerControl.Value.Index);
         Assert.Equal(2, feature.SpatialPointerControl.Value.Count);
-        Assert.Equal(2, feature.SpatialPointers.Length);
+        Assert.Equal(2, feature.SpatialPointers.Count);
     }
 
     [Fact]
@@ -1585,7 +1585,7 @@ public class S57DocumentReaderTests
         Assert.Equal(S57UpdateInstruction.Insert, vector.VectorPointerControl.Value.UpdateInstruction);
         Assert.Equal(1, vector.VectorPointerControl.Value.Index);
         Assert.Equal(2, vector.VectorPointerControl.Value.Count);
-        Assert.Equal(2, vector.VectorPointers.Length);
+        Assert.Equal(2, vector.VectorPointers.Count);
     }
 
     [Fact]
@@ -1623,7 +1623,7 @@ public class S57DocumentReaderTests
         Assert.Equal(S57UpdateInstruction.Insert, vector.CoordinateControl.Value.UpdateInstruction);
         Assert.Equal(6, vector.CoordinateControl.Value.Index);
         Assert.Equal(3, vector.CoordinateControl.Value.Count);
-        Assert.Equal(3, vector.Coordinates2D.Length);
+        Assert.Equal(3, vector.Coordinates2D.Count);
     }
 
     [Fact]
@@ -1801,7 +1801,7 @@ public class S57DocumentReaderTests
         var document = S57DocumentReader.Read(data);
         
         // Assert
-        Assert.Equal(3, document.FeatureRecords.Length);
+        Assert.Equal(3, document.FeatureRecords.Count);
         Assert.Equal(1, document.FeatureRecords[0].RecordName.RecordId);
         Assert.Equal(2, document.FeatureRecords[1].RecordName.RecordId);
         Assert.Equal(3, document.FeatureRecords[2].RecordName.RecordId);
@@ -1821,7 +1821,7 @@ public class S57DocumentReaderTests
         var document = S57DocumentReader.Read(data);
         
         // Assert
-        Assert.Equal(4, document.VectorRecords.Length);
+        Assert.Equal(4, document.VectorRecords.Count);
         Assert.Equal(S57RecordNameCodes.IsolatedNode, document.VectorRecords[0].RecordName.RecordNameCode);
         Assert.Equal(S57RecordNameCodes.ConnectedNode, document.VectorRecords[1].RecordName.RecordNameCode);
         Assert.Equal(S57RecordNameCodes.Edge, document.VectorRecords[2].RecordName.RecordNameCode);

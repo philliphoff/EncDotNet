@@ -343,7 +343,7 @@ public class S57ChartTests
         Assert.NotNull(node.Position);
         Assert.Equal(-1225000000, node.Position!.Value.X);
         Assert.Equal(475000000, node.Position!.Value.Y);
-        Assert.True(node.Soundings.IsDefaultOrEmpty);
+        Assert.True(node.Soundings.Count == 0);
     }
 
     [Fact]
@@ -368,7 +368,7 @@ public class S57ChartTests
         Assert.False(node.HasPosition);
         Assert.True(node.HasSoundings);
         Assert.Null(node.Position);
-        Assert.Equal(3, node.Soundings.Length);
+        Assert.Equal(3, node.Soundings.Count);
         Assert.Equal(150, node.Soundings[0].Depth);
         Assert.Equal(200, node.Soundings[1].Depth);
         Assert.Equal(250, node.Soundings[2].Depth);
@@ -392,7 +392,7 @@ public class S57ChartTests
 
         // Assert
         var node = chart.IsolatedNodes.Values.First();
-        Assert.Equal(2, node.Attributes.Length);
+        Assert.Equal(2, node.Attributes.Count);
         Assert.Equal(1, node.Attributes[0].AttributeCode);
         Assert.Equal("Value1", node.Attributes[0].Value);
     }
@@ -515,7 +515,7 @@ public class S57ChartTests
         Assert.Single(chart.Edges);
         var edge = chart.Edges.Values.First();
         Assert.True(edge.HasIntermediatePoints);
-        Assert.Equal(3, edge.IntermediatePoints.Length);
+        Assert.Equal(3, edge.IntermediatePoints.Count);
         Assert.Equal(100, edge.IntermediatePoints[0].X);
         Assert.Equal(200, edge.IntermediatePoints[0].Y);
     }
@@ -572,7 +572,7 @@ public class S57ChartTests
         // Assert
         var edge = chart.Edges.Values.First();
         Assert.False(edge.HasIntermediatePoints);
-        Assert.True(edge.IntermediatePoints.IsDefaultOrEmpty);
+        Assert.True(edge.IntermediatePoints.Count == 0);
     }
 
     #endregion
@@ -599,7 +599,7 @@ public class S57ChartTests
         Assert.Single(chart.Faces);
         var face = chart.Faces.Values.First();
         Assert.True(face.HasExteriorBoundary);
-        Assert.Equal(3, face.ExteriorBoundary.Length);
+        Assert.Equal(3, face.ExteriorBoundary.Count);
         
         Assert.Equal(1, face.ExteriorBoundary[0].EdgeName.RecordId);
         Assert.Equal(S57Orientation.Forward, face.ExteriorBoundary[0].Orientation);
@@ -632,7 +632,7 @@ public class S57ChartTests
         Assert.True(face.HasExteriorBoundary);
         Assert.True(face.HasInteriorBoundaries);
         Assert.Single(face.ExteriorBoundary);
-        Assert.Equal(2, face.InteriorBoundaries.Length);
+        Assert.Equal(2, face.InteriorBoundaries.Count);
         Assert.Equal(10, face.InteriorBoundaries[0].EdgeName.RecordId);
         Assert.Equal(11, face.InteriorBoundaries[1].EdgeName.RecordId);
     }
@@ -654,7 +654,7 @@ public class S57ChartTests
 
         // Assert
         var face = chart.Faces.Values.First();
-        Assert.Equal(2, face.ExteriorBoundary.Length);
+        Assert.Equal(2, face.ExteriorBoundary.Count);
         Assert.Equal(S57UsageIndicator.ExteriorTruncated, face.ExteriorBoundary[1].Usage);
     }
 
@@ -734,7 +734,7 @@ public class S57ChartTests
         // Assert
         var pointFeature = chart.PointFeatures[0];
         Assert.True(pointFeature.HasAttributes);
-        Assert.Equal(3, pointFeature.Attributes.Length);
+        Assert.Equal(3, pointFeature.Attributes.Count);
         
         // Single value lookup
         Assert.Equal("RED", pointFeature.GetAttributeValue(116));
@@ -798,7 +798,7 @@ public class S57ChartTests
         var lineFeature = chart.LineFeatures[0];
         Assert.True(lineFeature.HasEdgeReferences);
         Assert.Equal(3, lineFeature.EdgeCount);
-        Assert.Equal(3, lineFeature.EdgeReferences.Length);
+        Assert.Equal(3, lineFeature.EdgeReferences.Count);
         Assert.Equal(S57Orientation.Reverse, lineFeature.EdgeReferences[1].Orientation);
     }
 
@@ -951,10 +951,10 @@ public class S57ChartTests
         var chart = S57Chart.FromDocument(document);
 
         // Assert
-        Assert.Equal(2, chart.PointFeatures.Length);
-        Assert.True(chart.LineFeatures.Length == 1);
-        Assert.Equal(3, chart.AreaFeatures.Length);
-        Assert.True(chart.MetaFeatures.Length == 1);
+        Assert.Equal(2, chart.PointFeatures.Count);
+        Assert.True(chart.LineFeatures.Count == 1);
+        Assert.Equal(3, chart.AreaFeatures.Count);
+        Assert.True(chart.MetaFeatures.Count == 1);
         Assert.Equal(7, chart.AllFeatures.Count);
     }
 
@@ -1499,7 +1499,7 @@ public class S57ChartTests
 
         var retrievedFace = chart.GetFace(S57RecordName.FromRcnmRcid(S57RecordNameCodes.Face, 1));
         Assert.NotNull(retrievedFace);
-        Assert.Equal(3, retrievedFace.ExteriorBoundary.Length);
+        Assert.Equal(3, retrievedFace.ExteriorBoundary.Count);
 
         // Verify feature-spatial references
         var retrievedArea = chart.AreaFeatures[0];

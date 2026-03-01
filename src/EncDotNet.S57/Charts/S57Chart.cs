@@ -26,44 +26,44 @@ public sealed record S57Chart
 
     // Spatial records by type
     /// <summary>Gets isolated nodes indexed by their record name.</summary>
-    public ImmutableDictionary<S57RecordName, S57IsolatedNode> IsolatedNodes { get; }
+    public IReadOnlyDictionary<S57RecordName, S57IsolatedNode> IsolatedNodes { get; }
 
     /// <summary>Gets connected nodes indexed by their record name.</summary>
-    public ImmutableDictionary<S57RecordName, S57ConnectedNode> ConnectedNodes { get; }
+    public IReadOnlyDictionary<S57RecordName, S57ConnectedNode> ConnectedNodes { get; }
 
     /// <summary>Gets edges indexed by their record name.</summary>
-    public ImmutableDictionary<S57RecordName, S57Edge> Edges { get; }
+    public IReadOnlyDictionary<S57RecordName, S57Edge> Edges { get; }
 
     /// <summary>Gets faces indexed by their record name.</summary>
-    public ImmutableDictionary<S57RecordName, S57Face> Faces { get; }
+    public IReadOnlyDictionary<S57RecordName, S57Face> Faces { get; }
 
     // Feature records by geometry type
     /// <summary>Gets all point features.</summary>
-    public ImmutableArray<S57PointFeature> PointFeatures { get; }
+    public IReadOnlyList<S57PointFeature> PointFeatures { get; }
 
     /// <summary>Gets all line features.</summary>
-    public ImmutableArray<S57LineFeature> LineFeatures { get; }
+    public IReadOnlyList<S57LineFeature> LineFeatures { get; }
 
     /// <summary>Gets all area features.</summary>
-    public ImmutableArray<S57AreaFeature> AreaFeatures { get; }
+    public IReadOnlyList<S57AreaFeature> AreaFeatures { get; }
 
     /// <summary>Gets all meta features (features without geometry).</summary>
-    public ImmutableArray<S57MetaFeature> MetaFeatures { get; }
+    public IReadOnlyList<S57MetaFeature> MetaFeatures { get; }
 
     /// <summary>Gets all features indexed by their record name.</summary>
-    public ImmutableDictionary<S57RecordName, S57TypedFeature> AllFeatures { get; }
+    public IReadOnlyDictionary<S57RecordName, S57TypedFeature> AllFeatures { get; }
 
     /// <summary>
     /// Gets the reverse feature-pointer index: maps a feature's record name to all features
     /// that reference it via FFPT (feature-to-feature pointers).
     /// </summary>
-    public ImmutableDictionary<S57RecordName, ImmutableArray<S57TypedFeature>> ReferencingFeatures { get; }
+    public IReadOnlyDictionary<S57RecordName, IReadOnlyList<S57TypedFeature>> ReferencingFeatures { get; }
 
     /// <summary>
     /// Gets the spatial co-location index: maps a spatial record name to all point features
     /// that reference it via FSPT (feature-to-spatial pointers).
     /// </summary>
-    public ImmutableDictionary<S57RecordName, ImmutableArray<S57PointFeature>> ColocatedPointFeatures { get; }
+    public IReadOnlyDictionary<S57RecordName, IReadOnlyList<S57PointFeature>> ColocatedPointFeatures { get; }
 
     /// <summary>
     /// Gets the coordinate multiplication factor for converting integer coordinates to decimal degrees.
@@ -91,14 +91,14 @@ public sealed record S57Chart
     /// needs to be constructed without parsing an S-57 document.
     /// </remarks>
     public S57Chart(
-        ImmutableDictionary<S57RecordName, S57IsolatedNode>? isolatedNodes = null,
-        ImmutableDictionary<S57RecordName, S57ConnectedNode>? connectedNodes = null,
-        ImmutableDictionary<S57RecordName, S57Edge>? edges = null,
-        ImmutableDictionary<S57RecordName, S57Face>? faces = null,
-        ImmutableArray<S57PointFeature>? pointFeatures = null,
-        ImmutableArray<S57LineFeature>? lineFeatures = null,
-        ImmutableArray<S57AreaFeature>? areaFeatures = null,
-        ImmutableArray<S57MetaFeature>? metaFeatures = null,
+        IReadOnlyDictionary<S57RecordName, S57IsolatedNode>? isolatedNodes = null,
+        IReadOnlyDictionary<S57RecordName, S57ConnectedNode>? connectedNodes = null,
+        IReadOnlyDictionary<S57RecordName, S57Edge>? edges = null,
+        IReadOnlyDictionary<S57RecordName, S57Face>? faces = null,
+        IReadOnlyList<S57PointFeature>? pointFeatures = null,
+        IReadOnlyList<S57LineFeature>? lineFeatures = null,
+        IReadOnlyList<S57AreaFeature>? areaFeatures = null,
+        IReadOnlyList<S57MetaFeature>? metaFeatures = null,
         S57DataSetIdentification? identification = null,
         S57DataSetParameters? parameters = null)
     {
@@ -108,20 +108,20 @@ public sealed record S57Chart
         ConnectedNodes = connectedNodes ?? ImmutableDictionary<S57RecordName, S57ConnectedNode>.Empty;
         Edges = edges ?? ImmutableDictionary<S57RecordName, S57Edge>.Empty;
         Faces = faces ?? ImmutableDictionary<S57RecordName, S57Face>.Empty;
-        PointFeatures = pointFeatures ?? ImmutableArray<S57PointFeature>.Empty;
-        LineFeatures = lineFeatures ?? ImmutableArray<S57LineFeature>.Empty;
-        AreaFeatures = areaFeatures ?? ImmutableArray<S57AreaFeature>.Empty;
-        MetaFeatures = metaFeatures ?? ImmutableArray<S57MetaFeature>.Empty;
+        PointFeatures = pointFeatures ?? [];
+        LineFeatures = lineFeatures ?? [];
+        AreaFeatures = areaFeatures ?? [];
+        MetaFeatures = metaFeatures ?? [];
         AllFeatures = BuildAllFeaturesIndex(PointFeatures, LineFeatures, AreaFeatures, MetaFeatures);
         ReferencingFeatures = BuildReferencingFeaturesIndex(AllFeatures);
         ColocatedPointFeatures = BuildColocatedPointFeaturesIndex(PointFeatures);
     }
 
     private static ImmutableDictionary<S57RecordName, S57TypedFeature> BuildAllFeaturesIndex(
-        ImmutableArray<S57PointFeature> pointFeatures,
-        ImmutableArray<S57LineFeature> lineFeatures,
-        ImmutableArray<S57AreaFeature> areaFeatures,
-        ImmutableArray<S57MetaFeature> metaFeatures)
+        IReadOnlyList<S57PointFeature> pointFeatures,
+        IReadOnlyList<S57LineFeature> lineFeatures,
+        IReadOnlyList<S57AreaFeature> areaFeatures,
+        IReadOnlyList<S57MetaFeature> metaFeatures)
     {
         var builder = ImmutableDictionary.CreateBuilder<S57RecordName, S57TypedFeature>();
         foreach (var f in pointFeatures) builder[f.RecordName] = f;
@@ -131,8 +131,8 @@ public sealed record S57Chart
         return builder.ToImmutable();
     }
 
-    private static ImmutableDictionary<S57RecordName, ImmutableArray<S57TypedFeature>> BuildReferencingFeaturesIndex(
-        ImmutableDictionary<S57RecordName, S57TypedFeature> allFeatures)
+    private static ImmutableDictionary<S57RecordName, IReadOnlyList<S57TypedFeature>> BuildReferencingFeaturesIndex(
+        IReadOnlyDictionary<S57RecordName, S57TypedFeature> allFeatures)
     {
         var builder = new Dictionary<S57RecordName, ImmutableArray<S57TypedFeature>.Builder>();
 
@@ -151,7 +151,7 @@ public sealed record S57Chart
             }
         }
 
-        var result = ImmutableDictionary.CreateBuilder<S57RecordName, ImmutableArray<S57TypedFeature>>();
+        var result = ImmutableDictionary.CreateBuilder<S57RecordName, IReadOnlyList<S57TypedFeature>>();
         foreach (var (name, list) in builder)
         {
             result[name] = list.ToImmutable();
@@ -159,8 +159,8 @@ public sealed record S57Chart
         return result.ToImmutable();
     }
 
-    private static ImmutableDictionary<S57RecordName, ImmutableArray<S57PointFeature>> BuildColocatedPointFeaturesIndex(
-        ImmutableArray<S57PointFeature> pointFeatures)
+    private static ImmutableDictionary<S57RecordName, IReadOnlyList<S57PointFeature>> BuildColocatedPointFeaturesIndex(
+        IReadOnlyList<S57PointFeature> pointFeatures)
     {
         var builder = new Dictionary<S57RecordName, ImmutableArray<S57PointFeature>.Builder>();
 
@@ -177,7 +177,7 @@ public sealed record S57Chart
             list.Add(feature);
         }
 
-        var result = ImmutableDictionary.CreateBuilder<S57RecordName, ImmutableArray<S57PointFeature>>();
+        var result = ImmutableDictionary.CreateBuilder<S57RecordName, IReadOnlyList<S57PointFeature>>();
         foreach (var (name, list) in builder)
         {
             result[name] = list.ToImmutable();
@@ -382,7 +382,7 @@ public sealed record S57Chart
     /// </summary>
     /// <param name="name">The record name of the target feature.</param>
     /// <returns>All features that reference the specified feature, or an empty array if none.</returns>
-    public ImmutableArray<S57TypedFeature> GetReferencingFeatures(S57RecordName name)
+    public IReadOnlyList<S57TypedFeature> GetReferencingFeatures(S57RecordName name)
     {
         return ReferencingFeatures.TryGetValue(name, out var features) ? features : [];
     }
@@ -392,7 +392,7 @@ public sealed record S57Chart
     /// </summary>
     /// <param name="spatialName">The record name of the spatial record.</param>
     /// <returns>All point features at the same spatial node, or an empty array if none.</returns>
-    public ImmutableArray<S57PointFeature> GetColocatedPointFeatures(S57RecordName spatialName)
+    public IReadOnlyList<S57PointFeature> GetColocatedPointFeatures(S57RecordName spatialName)
     {
         return ColocatedPointFeatures.TryGetValue(spatialName, out var features) ? features : [];
     }

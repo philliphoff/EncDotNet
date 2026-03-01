@@ -26,19 +26,19 @@ public sealed record S57FeatureRecord
     public S57UpdateInstruction UpdateInstruction { get; init; }
 
     /// <summary>Gets the object attributes from ATTF field.</summary>
-    public ImmutableArray<S57AttributeValue> Attributes { get; init; }
+    public IReadOnlyList<S57AttributeValue> Attributes { get; init; } = [];
 
     /// <summary>Gets the national attributes from NATF field.</summary>
-    public ImmutableArray<S57AttributeValue> NationalAttributes { get; init; }
+    public IReadOnlyList<S57AttributeValue> NationalAttributes { get; init; } = [];
 
     /// <summary>Gets the spatial pointers from FSPT field.</summary>
-    public ImmutableArray<S57SpatialPointer> SpatialPointers { get; init; }
+    public IReadOnlyList<S57SpatialPointer> SpatialPointers { get; init; } = [];
 
     /// <summary>Gets the spatial pointer update control from FSPC field, if present.</summary>
     public S57FieldUpdateControl? SpatialPointerControl { get; init; }
 
     /// <summary>Gets the feature pointers from FFPT field.</summary>
-    public ImmutableArray<S57FeaturePointer> FeaturePointers { get; init; }
+    public IReadOnlyList<S57FeaturePointer> FeaturePointers { get; init; } = [];
 
     /// <summary>Gets the feature pointer update control from FFPC field, if present.</summary>
     public S57FieldUpdateControl? FeaturePointerControl { get; init; }

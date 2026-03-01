@@ -22,33 +22,33 @@ public sealed record S57AreaFeature : S57TypedFeature
     /// <summary>
     /// Gets the face references for this area feature (full topology).
     /// </summary>
-    public ImmutableArray<S57SpatialPointer> FaceReferences { get; }
+    public IReadOnlyList<S57SpatialPointer> FaceReferences { get; }
 
     /// <summary>
     /// Gets the first face reference for this area feature, or <c>null</c> if none exist.
     /// </summary>
     public S57SpatialPointer? FaceReference =>
-        FaceReferences.IsDefaultOrEmpty ? null : FaceReferences[0];
+        FaceReferences.Count == 0 ? null : FaceReferences[0];
 
     /// <summary>
     /// Gets a value indicating whether this feature has face references.
     /// </summary>
-    public bool HasFaceReference => !FaceReferences.IsDefaultOrEmpty;
+    public bool HasFaceReference => FaceReferences.Count > 0;
 
     /// <summary>
     /// Gets the exterior boundary edge references (chain-node topology).
     /// </summary>
-    public ImmutableArray<S57EdgeReference> ExteriorEdgeReferences { get; }
+    public IReadOnlyList<S57EdgeReference> ExteriorEdgeReferences { get; }
 
     /// <summary>
     /// Gets the interior boundary edge references (chain-node topology).
     /// </summary>
-    public ImmutableArray<S57EdgeReference> InteriorEdgeReferences { get; }
+    public IReadOnlyList<S57EdgeReference> InteriorEdgeReferences { get; }
 
     /// <summary>
     /// Gets a value indicating whether this feature has exterior edge references.
     /// </summary>
-    public bool HasExteriorEdgeReferences => !ExteriorEdgeReferences.IsDefaultOrEmpty;
+    public bool HasExteriorEdgeReferences => ExteriorEdgeReferences.Count > 0;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="S57AreaFeature"/> class.
@@ -56,11 +56,11 @@ public sealed record S57AreaFeature : S57TypedFeature
     /// <param name="source">The source feature record.</param>
     internal S57AreaFeature(S57FeatureRecord source) : base(source)
     {
-        if (source.SpatialPointers.IsDefaultOrEmpty)
+        if (source.SpatialPointers.Count == 0)
         {
-            FaceReferences = ImmutableArray<S57SpatialPointer>.Empty;
-            ExteriorEdgeReferences = ImmutableArray<S57EdgeReference>.Empty;
-            InteriorEdgeReferences = ImmutableArray<S57EdgeReference>.Empty;
+            FaceReferences = [];
+            ExteriorEdgeReferences = [];
+            InteriorEdgeReferences = [];
             return;
         }
 

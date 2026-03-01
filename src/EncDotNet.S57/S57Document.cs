@@ -14,10 +14,10 @@ public sealed record S57Document
     public S57DataSetParameters? DataSetParameters { get; init; }
 
     /// <summary>Gets all feature records.</summary>
-    public ImmutableArray<S57FeatureRecord> FeatureRecords { get; init; }
+    public IReadOnlyList<S57FeatureRecord> FeatureRecords { get; init; } = [];
 
     /// <summary>Gets all vector (spatial) records.</summary>
-    public ImmutableArray<S57VectorRecord> VectorRecords { get; init; }
+    public IReadOnlyList<S57VectorRecord> VectorRecords { get; init; } = [];
 
     /// <summary>
     /// Gets a feature record by its record name.
@@ -108,16 +108,16 @@ public sealed record S57Document
     }
 
     private static ImmutableArray<T> ApplyRecordChanges<T>(
-        ImmutableArray<T> baseRecords,
-        ImmutableArray<T> updateRecords,
+        IReadOnlyList<T> baseRecords,
+        IReadOnlyList<T> updateRecords,
         Func<T, (int Rcnm, int Rcid)> getKey,
         Func<T, T, T> applyModify)
         where T : class
     {
         // Build a mutable dictionary keyed by (RCNM, RCID) for efficient lookup.
         // Use a list to preserve insertion order for records not touched by updates.
-        var dict = new Dictionary<(int, int), T>(baseRecords.Length);
-        var orderedKeys = new List<(int, int)>(baseRecords.Length);
+        var dict = new Dictionary<(int, int), T>(baseRecords.Count);
+        var orderedKeys = new List<(int, int)>(baseRecords.Count);
 
         foreach (var record in baseRecords)
         {
@@ -186,8 +186,8 @@ public sealed record S57Document
             UpdateInstruction = updateRecord.UpdateInstruction,
             Attributes = MergeAttributes(baseRecord.Attributes, updateRecord.Attributes),
             NationalAttributes = MergeAttributes(baseRecord.NationalAttributes, updateRecord.NationalAttributes),
-            SpatialPointers = ApplyArrayUpdate(baseRecord.SpatialPointers, updateRecord.SpatialPointers, updateRecord.SpatialPointerControl),
-            FeaturePointers = ApplyArrayUpdate(baseRecord.FeaturePointers, updateRecord.FeaturePointers, updateRecord.FeaturePointerControl),
+            SpatialPointers = ApplyArrayUpdate([..baseRecord.SpatialPointers], [..updateRecord.SpatialPointers], updateRecord.SpatialPointerControl),
+            FeaturePointers = ApplyArrayUpdate([..baseRecord.FeaturePointers], [..updateRecord.FeaturePointers], updateRecord.FeaturePointerControl),
         };
     }
 
@@ -199,23 +199,23 @@ public sealed record S57Document
             RecordVersion = updateRecord.RecordVersion,
             UpdateInstruction = updateRecord.UpdateInstruction,
             Attributes = MergeAttributes(baseRecord.Attributes, updateRecord.Attributes),
-            VectorPointers = ApplyArrayUpdate(baseRecord.VectorPointers, updateRecord.VectorPointers, updateRecord.VectorPointerControl),
-            Coordinates2D = ApplyArrayUpdate(baseRecord.Coordinates2D, updateRecord.Coordinates2D, updateRecord.CoordinateControl),
-            Soundings = ApplyArrayUpdate(baseRecord.Soundings, updateRecord.Soundings, updateRecord.CoordinateControl),
+            VectorPointers = ApplyArrayUpdate([..baseRecord.VectorPointers], [..updateRecord.VectorPointers], updateRecord.VectorPointerControl),
+            Coordinates2D = ApplyArrayUpdate([..baseRecord.Coordinates2D], [..updateRecord.Coordinates2D], updateRecord.CoordinateControl),
+            Soundings = ApplyArrayUpdate([..baseRecord.Soundings], [..updateRecord.Soundings], updateRecord.CoordinateControl),
         };
     }
 
-    private static ImmutableArray<S57AttributeValue> MergeAttributes(
-        ImmutableArray<S57AttributeValue> baseAttrs,
-        ImmutableArray<S57AttributeValue> updateAttrs)
+    private static IReadOnlyList<S57AttributeValue> MergeAttributes(
+        IReadOnlyList<S57AttributeValue> baseAttrs,
+        IReadOnlyList<S57AttributeValue> updateAttrs)
     {
-        if (updateAttrs.IsDefaultOrEmpty)
+        if (updateAttrs.Count == 0)
         {
             return baseAttrs;
         }
 
         // Build a dictionary from base attributes, keyed by ATTL.
-        var merged = new Dictionary<int, S57AttributeValue>(baseAttrs.Length);
+        var merged = new Dictionary<int, S57AttributeValue>(baseAttrs.Count);
         foreach (var attr in baseAttrs)
         {
             merged[attr.AttributeCode] = attr;

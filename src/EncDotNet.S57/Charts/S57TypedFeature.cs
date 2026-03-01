@@ -23,28 +23,28 @@ public abstract record S57TypedFeature
     public S57UpdateInstruction UpdateInstruction { get; }
 
     /// <summary>Gets the feature attributes from the ATTF field.</summary>
-    public ImmutableArray<S57AttributeValue> Attributes { get; }
+    public IReadOnlyList<S57AttributeValue> Attributes { get; }
 
     /// <summary>Gets the national language attributes from the NATF field.</summary>
-    public ImmutableArray<S57AttributeValue> NationalAttributes { get; }
+    public IReadOnlyList<S57AttributeValue> NationalAttributes { get; }
 
     /// <summary>Gets the feature-to-feature relationships from the FFPT field.</summary>
-    public ImmutableArray<S57FeaturePointer> RelatedFeatures { get; }
+    public IReadOnlyList<S57FeaturePointer> RelatedFeatures { get; }
 
     /// <summary>
     /// Gets a value indicating whether this feature has any attributes.
     /// </summary>
-    public bool HasAttributes => !Attributes.IsDefaultOrEmpty;
+    public bool HasAttributes => Attributes.Count > 0;
 
     /// <summary>
     /// Gets a value indicating whether this feature has national attributes.
     /// </summary>
-    public bool HasNationalAttributes => !NationalAttributes.IsDefaultOrEmpty;
+    public bool HasNationalAttributes => NationalAttributes.Count > 0;
 
     /// <summary>
     /// Gets a value indicating whether this feature has related features.
     /// </summary>
-    public bool HasRelatedFeatures => !RelatedFeatures.IsDefaultOrEmpty;
+    public bool HasRelatedFeatures => RelatedFeatures.Count > 0;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="S57TypedFeature"/> class from a generic feature record.

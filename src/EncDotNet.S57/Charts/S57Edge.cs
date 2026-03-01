@@ -35,12 +35,12 @@ public sealed record S57Edge : S57SpatialRecord
     /// These coordinates define the shape of the edge between the beginning and end nodes.
     /// The beginning and end node positions are not included in this array.
     /// </remarks>
-    public ImmutableArray<S57Coordinate2D> IntermediatePoints { get; }
+    public IReadOnlyList<S57Coordinate2D> IntermediatePoints { get; }
 
     /// <summary>
     /// Gets a value indicating whether this edge has intermediate points.
     /// </summary>
-    public bool HasIntermediatePoints => !IntermediatePoints.IsDefaultOrEmpty;
+    public bool HasIntermediatePoints => IntermediatePoints.Count > 0;
 
     /// <summary>
     /// Gets a value indicating whether this edge has a beginning node reference.

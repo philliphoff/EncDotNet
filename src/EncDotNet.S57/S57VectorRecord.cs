@@ -17,19 +17,19 @@ public sealed record S57VectorRecord
     public S57UpdateInstruction UpdateInstruction { get; init; }
 
     /// <summary>Gets the attributes from ATTV field.</summary>
-    public ImmutableArray<S57AttributeValue> Attributes { get; init; }
+    public IReadOnlyList<S57AttributeValue> Attributes { get; init; } = [];
 
     /// <summary>Gets the vector record pointers from VRPT field.</summary>
-    public ImmutableArray<S57VectorPointer> VectorPointers { get; init; }
+    public IReadOnlyList<S57VectorPointer> VectorPointers { get; init; } = [];
 
     /// <summary>Gets the vector pointer update control from VRPC field, if present.</summary>
     public S57FieldUpdateControl? VectorPointerControl { get; init; }
 
     /// <summary>Gets the 2D coordinates from SG2D field.</summary>
-    public ImmutableArray<S57Coordinate2D> Coordinates2D { get; init; }
+    public IReadOnlyList<S57Coordinate2D> Coordinates2D { get; init; } = [];
 
     /// <summary>Gets the 3D sounding coordinates from SG3D field.</summary>
-    public ImmutableArray<S57Sounding> Soundings { get; init; }
+    public IReadOnlyList<S57Sounding> Soundings { get; init; } = [];
 
     /// <summary>Gets the coordinate/sounding update control from SGCC field, if present.</summary>
     public S57FieldUpdateControl? CoordinateControl { get; init; }

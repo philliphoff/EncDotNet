@@ -50,7 +50,7 @@ public sealed record Iso8211FieldDefinition
     /// <summary>
     /// Gets the subfield definitions for this field.
     /// </summary>
-    public ImmutableArray<Iso8211SubfieldDefinition> SubfieldDefinitions { get; init; }
+    public IReadOnlyList<Iso8211SubfieldDefinition> SubfieldDefinitions { get; init; } = [];
 
     /// <summary>
     /// Gets the index within <see cref="SubfieldDefinitions"/> at which the repeating

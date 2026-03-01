@@ -17,7 +17,7 @@ public abstract record S57SpatialRecord
     public S57UpdateInstruction UpdateInstruction { get; }
 
     /// <summary>Gets the attributes associated with this spatial object.</summary>
-    public ImmutableArray<S57AttributeValue> Attributes { get; }
+    public IReadOnlyList<S57AttributeValue> Attributes { get; }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="S57SpatialRecord"/> class from a generic vector record.

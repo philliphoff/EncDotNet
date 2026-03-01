@@ -26,7 +26,7 @@ public sealed record Iso8211DataDescriptiveRecord
     /// The first entry (tag "0000") is the record directory field definition and is typically
     /// excluded from data record field lookups.
     /// </remarks>
-    public ImmutableArray<Iso8211FieldDefinition> FieldDefinitions { get; init; }
+    public IReadOnlyList<Iso8211FieldDefinition> FieldDefinitions { get; init; } = [];
 
     /// <summary>
     /// Gets a field definition by its tag.

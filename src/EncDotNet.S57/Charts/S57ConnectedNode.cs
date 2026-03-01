@@ -27,7 +27,7 @@ public sealed record S57ConnectedNode : S57SpatialRecord
     /// <exception cref="InvalidOperationException">Thrown when the vector record has no coordinates.</exception>
     internal S57ConnectedNode(S57VectorRecord source) : base(source)
     {
-        if (source.Coordinates2D.IsDefaultOrEmpty)
+        if (source.Coordinates2D.Count == 0)
         {
             throw new InvalidOperationException(
                 $"Connected node {source.RecordName} must have at least one coordinate.");

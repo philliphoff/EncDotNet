@@ -19,17 +19,17 @@ public sealed record S57LineFeature : S57TypedFeature
     /// <summary>
     /// Gets the edge references that make up this line feature.
     /// </summary>
-    public ImmutableArray<S57SpatialPointer> EdgeReferences { get; }
+    public IReadOnlyList<S57SpatialPointer> EdgeReferences { get; }
 
     /// <summary>
     /// Gets a value indicating whether this feature has edge references.
     /// </summary>
-    public bool HasEdgeReferences => !EdgeReferences.IsDefaultOrEmpty;
+    public bool HasEdgeReferences => EdgeReferences.Count > 0;
 
     /// <summary>
     /// Gets the number of edges that make up this feature.
     /// </summary>
-    public int EdgeCount => EdgeReferences.IsDefaultOrEmpty ? 0 : EdgeReferences.Length;
+    public int EdgeCount => EdgeReferences.Count;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="S57LineFeature"/> class.

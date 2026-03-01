@@ -247,7 +247,7 @@ public class Iso8211DocumentReaderTests
 
         // Assert
         Assert.NotNull(document);
-        Assert.Equal(2, document.Records.Length);
+        Assert.Equal(2, document.Records.Count);
     }
 
     [Fact]
@@ -292,7 +292,7 @@ public class Iso8211DocumentReaderTests
         var document = Iso8211DocumentReader.Read(data.AsSpan());
 
         // Assert
-        Assert.Equal(2, document.Records.Length);
+        Assert.Equal(2, document.Records.Count);
     }
 
     #endregion
@@ -447,7 +447,7 @@ public class Iso8211DocumentReaderTests
         var record = document.Records[0];
 
         // Assert
-        Assert.Equal(2, record.Directory.Length);
+        Assert.Equal(2, record.Directory.Count);
         Assert.Equal("0001", record.Directory[0].Tag);
         Assert.Equal("0002", record.Directory[1].Tag);
     }
@@ -463,7 +463,7 @@ public class Iso8211DocumentReaderTests
         var record = document.Records[0];
 
         // Assert
-        Assert.Equal(2, record.Fields.Length);
+        Assert.Equal(2, record.Fields.Count);
         Assert.Equal("0001", record.Fields[0].Tag);
         Assert.Equal("0002", record.Fields[1].Tag);
     }
@@ -703,7 +703,7 @@ public class Iso8211DocumentReaderTests
         var document = Iso8211DocumentReader.Read(data);
 
         // Assert
-        Assert.Equal(3, document.Records.Length);
+        Assert.Equal(3, document.Records.Count);
     }
 
     [Fact]
@@ -749,7 +749,7 @@ public class Iso8211DocumentReaderTests
         // Assert
         // First data record has two fields: "HELLO" and "WORLD"
         var record1 = dataRecords[0];
-        Assert.Equal(2, record1.Fields.Length);
+        Assert.Equal(2, record1.Fields.Count);
         Assert.Equal("HELLO", record1.Fields[0].GetDataString());
         Assert.Equal("WORLD", record1.Fields[1].GetDataString());
 

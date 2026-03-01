@@ -120,7 +120,7 @@ public class S57DocumentApplyChangesTests
 
         var result = baseDoc.ApplyChanges(update);
 
-        Assert.Equal(2, result.FeatureRecords.Length);
+        Assert.Equal(2, result.FeatureRecords.Count);
         Assert.Equal(1, result.FeatureRecords[0].RecordName.RecordId);
         Assert.Equal(3, result.FeatureRecords[1].RecordName.RecordId);
     }
@@ -173,7 +173,7 @@ public class S57DocumentApplyChangesTests
         var f = result.FeatureRecords[0];
         Assert.Equal(S57ObjectCode.DEPARE, f.ObjectCode);
         Assert.Equal(S57GeometricPrimitive.Area, f.Primitive);
-        Assert.Equal(2, f.Attributes.Length);
+        Assert.Equal(2, f.Attributes.Count);
         Assert.Equal("10.0", f.Attributes[0].Value);
         Assert.Equal("25.0", f.Attributes[1].Value);
     }
@@ -218,7 +218,7 @@ public class S57DocumentApplyChangesTests
 
         var result = baseDoc.ApplyChanges(update);
 
-        Assert.Equal(2, result.FeatureRecords.Length);
+        Assert.Equal(2, result.FeatureRecords.Count);
         Assert.Equal(1, result.FeatureRecords[0].RecordName.RecordId);
         Assert.Equal(3, result.FeatureRecords[1].RecordName.RecordId);
     }
@@ -321,7 +321,7 @@ public class S57DocumentApplyChangesTests
         var result = baseDoc.ApplyChanges(update);
 
         var attrs = result.FeatureRecords[0].Attributes;
-        Assert.Equal(4, attrs.Length);
+        Assert.Equal(4, attrs.Count);
         Assert.Equal("A", attrs[0].Value);   // ATTL=10 unchanged
         Assert.Equal("B2", attrs[1].Value);  // ATTL=20 updated
         Assert.Equal("C", attrs[2].Value);   // ATTL=30 unchanged
@@ -352,7 +352,7 @@ public class S57DocumentApplyChangesTests
         var result = baseDoc.ApplyChanges(update);
 
         var attrs = result.FeatureRecords[0].Attributes;
-        Assert.Equal(2, attrs.Length);
+        Assert.Equal(2, attrs.Count);
         Assert.Equal(10, attrs[0].AttributeCode);
         Assert.Equal(30, attrs[1].AttributeCode);
     }
@@ -379,7 +379,7 @@ public class S57DocumentApplyChangesTests
 
         var result = baseDoc.ApplyChanges(update);
 
-        Assert.Equal(2, result.FeatureRecords[0].Attributes.Length);
+        Assert.Equal(2, result.FeatureRecords[0].Attributes.Count);
         Assert.Equal("A", result.FeatureRecords[0].Attributes[0].Value);
         Assert.Equal("B", result.FeatureRecords[0].Attributes[1].Value);
     }
@@ -428,7 +428,7 @@ public class S57DocumentApplyChangesTests
         var result = baseDoc.ApplyChanges(update);
 
         var ptrs = result.FeatureRecords[0].SpatialPointers;
-        Assert.Equal(5, ptrs.Length);
+        Assert.Equal(5, ptrs.Count);
         Assert.Equal(1, ptrs[0].Name.RecordId);
         Assert.Equal(10, ptrs[1].Name.RecordId);
         Assert.Equal(11, ptrs[2].Name.RecordId);
@@ -472,7 +472,7 @@ public class S57DocumentApplyChangesTests
         var result = baseDoc.ApplyChanges(update);
 
         var ptrs = result.FeatureRecords[0].SpatialPointers;
-        Assert.Equal(2, ptrs.Length);
+        Assert.Equal(2, ptrs.Count);
         Assert.Equal(1, ptrs[0].Name.RecordId);
         Assert.Equal(4, ptrs[1].Name.RecordId);
     }
@@ -513,7 +513,7 @@ public class S57DocumentApplyChangesTests
         var result = baseDoc.ApplyChanges(update);
 
         var ptrs = result.FeatureRecords[0].SpatialPointers;
-        Assert.Equal(3, ptrs.Length);
+        Assert.Equal(3, ptrs.Count);
         Assert.Equal(1, ptrs[0].Name.RecordId);
         Assert.Equal(99, ptrs[1].Name.RecordId);
         Assert.Equal(3, ptrs[2].Name.RecordId);
@@ -554,7 +554,7 @@ public class S57DocumentApplyChangesTests
         var result = baseDoc.ApplyChanges(update);
 
         var coords = result.VectorRecords[0].Coordinates2D;
-        Assert.Equal(4, coords.Length);
+        Assert.Equal(4, coords.Count);
         Assert.Equal(100, coords[0].X);
         Assert.Equal(300, coords[1].X);
         Assert.Equal(999, coords[2].X);
@@ -591,7 +591,7 @@ public class S57DocumentApplyChangesTests
         var result = baseDoc.ApplyChanges(update);
 
         var coords = result.VectorRecords[0].Coordinates2D;
-        Assert.Equal(2, coords.Length);
+        Assert.Equal(2, coords.Count);
         Assert.Equal(50, coords[0].X);
         Assert.Equal(70, coords[1].X);
     }
@@ -627,7 +627,7 @@ public class S57DocumentApplyChangesTests
         var result = baseDoc.ApplyChanges(update);
 
         var coords = result.VectorRecords[0].Coordinates2D;
-        Assert.Equal(3, coords.Length);
+        Assert.Equal(3, coords.Count);
         Assert.Equal(10, coords[0].X);
         Assert.Equal(999, coords[1].X);
         Assert.Equal(50, coords[2].X);
@@ -671,7 +671,7 @@ public class S57DocumentApplyChangesTests
         var result = baseDoc.ApplyChanges(update);
 
         var ptrs = result.FeatureRecords[0].SpatialPointers;
-        Assert.Equal(3, ptrs.Length);
+        Assert.Equal(3, ptrs.Count);
         Assert.Equal(50, ptrs[0].Name.RecordId);
         Assert.Equal(60, ptrs[1].Name.RecordId);
         Assert.Equal(70, ptrs[2].Name.RecordId);
@@ -701,7 +701,7 @@ public class S57DocumentApplyChangesTests
         var result = baseDoc.ApplyChanges(update);
 
         var coords = result.VectorRecords[0].Coordinates2D;
-        Assert.Equal(2, coords.Length);
+        Assert.Equal(2, coords.Count);
         Assert.Equal(10, coords[0].X);
         Assert.Equal(30, coords[1].X);
     }
@@ -782,7 +782,7 @@ public class S57DocumentApplyChangesTests
 
         var result = baseDoc.ApplyChanges(update);
 
-        Assert.Equal(3, result.FeatureRecords.Length);
+        Assert.Equal(3, result.FeatureRecords.Count);
         Assert.Equal(3, result.FeatureRecords[0].RecordName.RecordId);
         Assert.Equal(1, result.FeatureRecords[1].RecordName.RecordId);
         Assert.Equal(2, result.FeatureRecords[2].RecordName.RecordId);
@@ -804,7 +804,7 @@ public class S57DocumentApplyChangesTests
 
         var result = baseDoc.ApplyChanges(update);
 
-        Assert.Equal(3, result.FeatureRecords.Length);
+        Assert.Equal(3, result.FeatureRecords.Count);
         Assert.Equal(3, result.FeatureRecords[2].RecordName.RecordId);
     }
 
@@ -851,7 +851,7 @@ public class S57DocumentApplyChangesTests
         var result = baseDoc.ApplyChanges(update);
 
         var ptrs = result.FeatureRecords[0].FeaturePointers;
-        Assert.Equal(2, ptrs.Length);
+        Assert.Equal(2, ptrs.Count);
         Assert.Equal(100, ptrs[0].Name.RecordId);
         Assert.Equal(200, ptrs[1].Name.RecordId);
     }
@@ -922,7 +922,7 @@ public class S57DocumentApplyChangesTests
 
         var result = baseDoc.ApplyChanges(update);
 
-        Assert.Equal(2, result.FeatureRecords.Length);
+        Assert.Equal(2, result.FeatureRecords.Count);
         Assert.Single(result.VectorRecords);
     }
 

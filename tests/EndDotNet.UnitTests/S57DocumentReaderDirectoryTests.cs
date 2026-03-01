@@ -287,7 +287,7 @@ public class S57ExchangeSetDocumentTests : IDisposable
         var doc = CreateExchangeSet().ReadDocument(_tempDir);
 
         // Assert
-        Assert.Equal(2, doc.FeatureRecords.Length);
+        Assert.Equal(2, doc.FeatureRecords.Count);
         Assert.Equal(1, doc.FeatureRecords[0].RecordName.RecordId);
         Assert.Equal(2, doc.FeatureRecords[1].RecordName.RecordId);
     }
@@ -309,7 +309,7 @@ public class S57ExchangeSetDocumentTests : IDisposable
         var doc = CreateExchangeSet().ReadDocument(_tempDir);
 
         // Assert
-        Assert.Equal(2, doc.FeatureRecords.Length);
+        Assert.Equal(2, doc.FeatureRecords.Count);
         Assert.Equal(S57ObjectCode.DEPARE, doc.FeatureRecords[0].ObjectCode);
         Assert.Equal(S57ObjectCode.LIGHTS, doc.FeatureRecords[1].ObjectCode);
     }
@@ -362,7 +362,7 @@ public class S57ExchangeSetDocumentTests : IDisposable
         // Assert
         Assert.Single(doc.FeatureRecords);
         var attrs = doc.FeatureRecords[0].Attributes;
-        Assert.Equal(2, attrs.Length);
+        Assert.Equal(2, attrs.Count);
         Assert.Equal("10.0", attrs[0].Value);
         Assert.Equal("25.0", attrs[1].Value);
     }
@@ -462,7 +462,7 @@ public class S57ExchangeSetDocumentTests : IDisposable
         var doc = await CreateExchangeSet().ReadDocumentAsync(_tempDir);
 
         // Assert
-        Assert.Equal(2, doc.FeatureRecords.Length);
+        Assert.Equal(2, doc.FeatureRecords.Count);
         Assert.Equal(S57ObjectCode.DEPARE, doc.FeatureRecords[0].ObjectCode);
         Assert.Equal(S57ObjectCode.SOUNDG, doc.FeatureRecords[1].ObjectCode);
     }

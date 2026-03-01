@@ -15,12 +15,12 @@ public sealed record Iso8211Record
     /// <summary>
     /// Gets the directory entries for this record.
     /// </summary>
-    public ImmutableArray<Iso8211DirectoryEntry> Directory { get; init; }
+    public IReadOnlyList<Iso8211DirectoryEntry> Directory { get; init; } = [];
 
     /// <summary>
     /// Gets the fields contained in this record.
     /// </summary>
-    public ImmutableArray<Iso8211Field> Fields { get; init; }
+    public IReadOnlyList<Iso8211Field> Fields { get; init; } = [];
 
     /// <summary>
     /// Gets whether this record is a Data Descriptive Record (DDR).

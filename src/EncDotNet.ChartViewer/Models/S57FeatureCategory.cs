@@ -12,7 +12,7 @@ public sealed class S57FeatureCategory
     public string Name { get; }
 
     /// <summary>Gets the S-57 object codes included in this category.</summary>
-    public ImmutableArray<S57ObjectCode> ObjectCodes { get; }
+    public IReadOnlyList<S57ObjectCode> ObjectCodes { get; }
 
     /// <summary>Gets whether this category is enabled by default.</summary>
     public bool DefaultEnabled { get; }

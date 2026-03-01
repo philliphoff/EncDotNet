@@ -279,7 +279,7 @@ public class S57CatalogReaderTests
         var catalog = S57CatalogReader.Read(data);
 
         // Assert
-        Assert.Equal(3, catalog.Entries.Length);
+        Assert.Equal(3, catalog.Entries.Count);
         Assert.Equal(1u, catalog.Entries[0].RecordId);
         Assert.Equal(2u, catalog.Entries[1].RecordId);
         Assert.Equal(3u, catalog.Entries[2].RecordId);
@@ -376,7 +376,7 @@ public class S57CatalogReaderTests
         var catalog = S57CatalogReader.Read(data);
 
         // Assert
-        Assert.Equal(3, catalog.Entries.Length);
+        Assert.Equal(3, catalog.Entries.Count);
         Assert.Equal("FIRST.000", catalog.Entries[0].FileName);
         Assert.Equal("SECOND.000", catalog.Entries[1].FileName);
         Assert.Equal("THIRD.000", catalog.Entries[2].FileName);

@@ -79,7 +79,7 @@ public static class S57AreaGeometryBuilder
             return null;
 
         var interiorRings = new List<LinearRing>();
-        if (!areaFeature.InteriorEdgeReferences.IsDefaultOrEmpty)
+        if (areaFeature.InteriorEdgeReferences.Count > 0)
         {
             foreach (var ring in BuildRingsFromEdges(chart, areaFeature.InteriorEdgeReferences))
             {

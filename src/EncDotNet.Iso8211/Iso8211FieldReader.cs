@@ -302,7 +302,7 @@ public sealed class Iso8211FieldReader
         }
 
         var repeatStartIndex = _fieldDefinition.RepeatingSubfieldStartIndex;
-        var repeatCount = _fieldDefinition.SubfieldDefinitions.Length - repeatStartIndex;
+        var repeatCount = _fieldDefinition.SubfieldDefinitions.Count - repeatStartIndex;
         var fixedCount = repeatStartIndex;
 
         // First group starts after fixed subfields
@@ -339,7 +339,7 @@ public sealed class Iso8211FieldReader
     private (ImmutableArray<ParsedSubfield> subfields, int groupCount) ParseSubfields()
     {
         var subfields = _fieldDefinition.SubfieldDefinitions;
-        if (subfields.IsDefaultOrEmpty)
+        if (subfields.Count == 0)
         {
             return (ImmutableArray<ParsedSubfield>.Empty, 0);
         }
@@ -408,7 +408,7 @@ public sealed class Iso8211FieldReader
             subfieldIndex++;
 
             // Handle repeating groups
-            if (subfieldIndex >= subfields.Length)
+            if (subfieldIndex >= subfields.Count)
             {
                 if (_fieldDefinition.HasRepeatingGroup)
                 {

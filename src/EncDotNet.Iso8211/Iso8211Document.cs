@@ -10,12 +10,12 @@ public sealed record Iso8211Document
     /// <summary>
     /// Gets the records contained in this document.
     /// </summary>
-    public ImmutableArray<Iso8211Record> Records { get; init; }
+    public IReadOnlyList<Iso8211Record> Records { get; init; } = [];
 
     /// <summary>
     /// Gets the Data Descriptive Record (DDR) if present.
     /// </summary>
-    public Iso8211Record? DataDescriptiveRecord => Records.Length > 0 && Records[0].IsDataDescriptiveRecord ? Records[0] : null;
+    public Iso8211Record? DataDescriptiveRecord => Records.Count > 0 && Records[0].IsDataDescriptiveRecord ? Records[0] : null;
 
     /// <summary>
     /// Gets all data records (non-DDR records).

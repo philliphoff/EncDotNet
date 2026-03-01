@@ -19,18 +19,18 @@ public sealed record S57PointFeature : S57TypedFeature
     /// <summary>
     /// Gets the spatial references (typically isolated or connected nodes).
     /// </summary>
-    public ImmutableArray<S57SpatialPointer> SpatialReferences { get; }
+    public IReadOnlyList<S57SpatialPointer> SpatialReferences { get; }
 
     /// <summary>
     /// Gets a value indicating whether this feature has spatial references.
     /// </summary>
-    public bool HasSpatialReferences => !SpatialReferences.IsDefaultOrEmpty;
+    public bool HasSpatialReferences => SpatialReferences.Count > 0;
 
     /// <summary>
     /// Gets the primary spatial reference (the first one, if any).
     /// </summary>
     public S57SpatialPointer? PrimarySpatialReference =>
-        SpatialReferences.IsDefaultOrEmpty ? null : SpatialReferences[0];
+        SpatialReferences.Count == 0 ? null : SpatialReferences[0];
 
     /// <summary>
     /// Initializes a new instance of the <see cref="S57PointFeature"/> class.

@@ -26,7 +26,7 @@ public sealed record S57Face : S57SpatialRecord
     /// Edges are listed in order and their orientation indicates the direction
     /// they should be traversed.
     /// </remarks>
-    public ImmutableArray<S57EdgeReference> ExteriorBoundary { get; }
+    public IReadOnlyList<S57EdgeReference> ExteriorBoundary { get; }
 
     /// <summary>
     /// Gets the interior boundary edge references (holes).
@@ -35,17 +35,17 @@ public sealed record S57Face : S57SpatialRecord
     /// Interior boundaries define holes or islands within the face.
     /// Each interior boundary is a ring of edges.
     /// </remarks>
-    public ImmutableArray<S57EdgeReference> InteriorBoundaries { get; }
+    public IReadOnlyList<S57EdgeReference> InteriorBoundaries { get; }
 
     /// <summary>
     /// Gets a value indicating whether this face has an exterior boundary.
     /// </summary>
-    public bool HasExteriorBoundary => !ExteriorBoundary.IsDefaultOrEmpty;
+    public bool HasExteriorBoundary => ExteriorBoundary.Count > 0;
 
     /// <summary>
     /// Gets a value indicating whether this face has any interior boundaries (holes).
     /// </summary>
-    public bool HasInteriorBoundaries => !InteriorBoundaries.IsDefaultOrEmpty;
+    public bool HasInteriorBoundaries => InteriorBoundaries.Count > 0;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="S57Face"/> class.

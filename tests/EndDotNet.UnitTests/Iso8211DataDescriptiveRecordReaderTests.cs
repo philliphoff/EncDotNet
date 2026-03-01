@@ -215,7 +215,7 @@ public class Iso8211DataDescriptiveRecordReaderTests
         var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
 
         // Assert
-        Assert.Equal(4, ddr.FieldDefinitions.Length);
+        Assert.Equal(4, ddr.FieldDefinitions.Count);
     }
 
     #endregion
@@ -333,7 +333,7 @@ public class Iso8211DataDescriptiveRecordReaderTests
         var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
 
         // Assert
-        Assert.Equal(16, ddr.FieldDefinitions[0].SubfieldDefinitions.Length);
+        Assert.Equal(16, ddr.FieldDefinitions[0].SubfieldDefinitions.Count);
     }
 
     [Fact]
@@ -448,7 +448,7 @@ public class Iso8211DataDescriptiveRecordReaderTests
         var subfields = fieldDef.SubfieldDefinitions;
 
         // Assert — the '*' should be stripped from the name
-        Assert.Equal(2, subfields.Length);
+        Assert.Equal(2, subfields.Count);
         Assert.Equal("YCOO", subfields[0].Name);
         Assert.Equal("XCOO", subfields[1].Name);
 
@@ -720,7 +720,7 @@ public class Iso8211DataDescriptiveRecordReaderTests
         Assert.Equal(Iso8211DataStructureCode.Vector, dsid.DataStructureCode);
         Assert.Equal(Iso8211DataTypeCode.MixedDataTypes, dsid.DataTypeCode);
         Assert.Equal("Data Set Identification", dsid.FieldName);
-        Assert.Equal(16, dsid.SubfieldDefinitions.Length);
+        Assert.Equal(16, dsid.SubfieldDefinitions.Count);
 
         // Assert — Vector field implicitly repeats all subfields (no explicit '*' needed)
         Assert.True(dsid.HasRepeatingGroup);
@@ -765,7 +765,7 @@ public class Iso8211DataDescriptiveRecordReaderTests
         Assert.Equal("SG2D", sg2d.Tag);
         Assert.Equal(Iso8211DataStructureCode.Vector, sg2d.DataStructureCode);
         Assert.Equal(Iso8211DataTypeCode.Binary, sg2d.DataTypeCode);
-        Assert.Equal(2, sg2d.SubfieldDefinitions.Length);
+        Assert.Equal(2, sg2d.SubfieldDefinitions.Count);
 
         Assert.Equal("YCOO", sg2d.SubfieldDefinitions[0].Name);
         Assert.Equal(Iso8211SubfieldFormatType.SignedInteger, sg2d.SubfieldDefinitions[0].Format.FormatType);
@@ -799,7 +799,7 @@ public class Iso8211DataDescriptiveRecordReaderTests
         var attf = ddr.FieldDefinitions[0];
 
         // Assert
-        Assert.Equal(2, attf.SubfieldDefinitions.Length);
+        Assert.Equal(2, attf.SubfieldDefinitions.Count);
 
         Assert.Equal("ATTL", attf.SubfieldDefinitions[0].Name);
         Assert.Equal(Iso8211SubfieldFormatType.UnsignedInteger, attf.SubfieldDefinitions[0].Format.FormatType);
@@ -1002,7 +1002,7 @@ public class Iso8211DataDescriptiveRecordReaderTests
         var fspt = ddr.FieldDefinitions[0];
 
         // Assert
-        Assert.Equal(4, fspt.SubfieldDefinitions.Length);
+        Assert.Equal(4, fspt.SubfieldDefinitions.Count);
         Assert.True(fspt.HasRepeatingGroup);
         Assert.Equal(0, fspt.RepeatingSubfieldStartIndex);
         Assert.All(fspt.SubfieldDefinitions, sf => Assert.True(sf.IsRepeating));
@@ -1033,7 +1033,7 @@ public class Iso8211DataDescriptiveRecordReaderTests
         var sg2d = ddr.GetFieldDefinition("SG2D")!;
         Assert.True(sg2d.HasRepeatingGroup);
         Assert.Equal(0, sg2d.RepeatingSubfieldStartIndex);
-        Assert.Equal(2, sg2d.SubfieldDefinitions.Length);
+        Assert.Equal(2, sg2d.SubfieldDefinitions.Count);
         Assert.True(sg2d.SubfieldDefinitions[0].IsRepeating);
         Assert.True(sg2d.SubfieldDefinitions[1].IsRepeating);
     }
@@ -1088,7 +1088,7 @@ public class Iso8211DataDescriptiveRecordReaderTests
         var subfields = ddr.FieldDefinitions[0].SubfieldDefinitions;
 
         // Assert — subfields get default format (A, width 0)
-        Assert.Equal(2, subfields.Length);
+        Assert.Equal(2, subfields.Count);
         Assert.Equal(Iso8211SubfieldFormatType.CharacterData, subfields[0].Format.FormatType);
         Assert.Equal(0, subfields[0].Format.Width);
     }
@@ -1106,7 +1106,7 @@ public class Iso8211DataDescriptiveRecordReaderTests
         var subfields = ddr.FieldDefinitions[0].SubfieldDefinitions;
 
         // Assert
-        Assert.Equal(3, subfields.Length);
+        Assert.Equal(3, subfields.Count);
         Assert.Equal(Iso8211SubfieldFormatType.UnsignedInteger, subfields[0].Format.FormatType);
         Assert.Equal(Iso8211SubfieldFormatType.UnsignedInteger, subfields[1].Format.FormatType);
         Assert.Equal(Iso8211SubfieldFormatType.CharacterData, subfields[2].Format.FormatType);
@@ -1197,7 +1197,7 @@ public class Iso8211DataDescriptiveRecordReaderTests
 
         // Assert
         Assert.Equal("Data Set Identification", fieldDef.FieldName);
-        Assert.Equal(3, fieldDef.SubfieldDefinitions.Length);
+        Assert.Equal(3, fieldDef.SubfieldDefinitions.Count);
         Assert.Equal("RCNM", fieldDef.SubfieldDefinitions[0].Name);
         Assert.Equal("RCID", fieldDef.SubfieldDefinitions[1].Name);
         Assert.Equal("EXPP", fieldDef.SubfieldDefinitions[2].Name);
@@ -1247,7 +1247,7 @@ public class Iso8211DataDescriptiveRecordReaderTests
         Assert.Equal(Iso8211DataStructureCode.Vector, dsid.DataStructureCode);
         Assert.Equal(Iso8211DataTypeCode.MixedDataTypes, dsid.DataTypeCode);
         Assert.Equal("Data Set Identification", dsid.FieldName);
-        Assert.Equal(16, dsid.SubfieldDefinitions.Length);
+        Assert.Equal(16, dsid.SubfieldDefinitions.Count);
 
         // Vector field implicitly repeats all subfields
         Assert.True(dsid.HasRepeatingGroup);
@@ -1283,7 +1283,7 @@ public class Iso8211DataDescriptiveRecordReaderTests
         var sg2d = ddr.FieldDefinitions[0];
 
         // Assert
-        Assert.Equal(2, sg2d.SubfieldDefinitions.Length);
+        Assert.Equal(2, sg2d.SubfieldDefinitions.Count);
         Assert.Equal("YCOO", sg2d.SubfieldDefinitions[0].Name);
         Assert.Equal("XCOO", sg2d.SubfieldDefinitions[1].Name);
 
@@ -1311,7 +1311,7 @@ public class Iso8211DataDescriptiveRecordReaderTests
 
         // Assert — subfield labels should NOT be stored as array descriptor
         Assert.Null(fieldDef.ArrayDescriptor);
-        Assert.Equal(2, fieldDef.SubfieldDefinitions.Length);
+        Assert.Equal(2, fieldDef.SubfieldDefinitions.Count);
     }
 
     #endregion
@@ -1338,7 +1338,7 @@ public class Iso8211DataDescriptiveRecordReaderTests
 
         // Assert — middle section parsed as subfield labels, not array descriptor
         Assert.Null(sg2d.ArrayDescriptor);
-        Assert.Equal(2, sg2d.SubfieldDefinitions.Length);
+        Assert.Equal(2, sg2d.SubfieldDefinitions.Count);
         Assert.Equal("YCOO", sg2d.SubfieldDefinitions[0].Name);
         Assert.Equal("XCOO", sg2d.SubfieldDefinitions[1].Name);
 
@@ -1371,7 +1371,7 @@ public class Iso8211DataDescriptiveRecordReaderTests
 
         // Assert — parsed as subfield labels, not array descriptor
         Assert.Null(vrid.ArrayDescriptor);
-        Assert.Equal(4, vrid.SubfieldDefinitions.Length);
+        Assert.Equal(4, vrid.SubfieldDefinitions.Count);
         Assert.Equal("RCNM", vrid.SubfieldDefinitions[0].Name);
         Assert.Equal("RCID", vrid.SubfieldDefinitions[1].Name);
         Assert.Equal("RVER", vrid.SubfieldDefinitions[2].Name);
@@ -1417,7 +1417,7 @@ public class Iso8211DataDescriptiveRecordReaderTests
 
         // Assert
         Assert.Null(sg3d.ArrayDescriptor);
-        Assert.Equal(3, sg3d.SubfieldDefinitions.Length);
+        Assert.Equal(3, sg3d.SubfieldDefinitions.Count);
         Assert.Equal("YCOO", sg3d.SubfieldDefinitions[0].Name);
         Assert.Equal("XCOO", sg3d.SubfieldDefinitions[1].Name);
         Assert.Equal("VE3D", sg3d.SubfieldDefinitions[2].Name);

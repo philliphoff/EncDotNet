@@ -23,10 +23,10 @@ public sealed class ChartFeatureViewModel : ViewModelBase
     public string Name => Category.Name;
 
     /// <summary>Gets the individual feature items in this category.</summary>
-    public ImmutableArray<ChartFeatureItemViewModel> Features { get; }
+    public IReadOnlyList<ChartFeatureItemViewModel> Features { get; }
 
     /// <summary>Gets whether this category contains only a single feature.</summary>
-    public bool IsSingleFeature => Features.Length == 1;
+    public bool IsSingleFeature => Features.Count == 1;
 
     /// <summary>Gets or sets whether the category's feature list is expanded.</summary>
     public bool IsExpanded
@@ -99,7 +99,7 @@ public sealed class ChartFeatureViewModel : ViewModelBase
     private static string GetDisplayName(S57ObjectCode code, S57FeatureCategory category)
     {
         // For single-code categories, use the category name
-        if (category.ObjectCodes.Length == 1)
+        if (category.ObjectCodes.Count == 1)
             return category.Name;
 
         return code switch
