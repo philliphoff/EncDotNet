@@ -6,6 +6,7 @@
         "dotnet tool": true,
         "true": true,
         "dotnet add": true,
-        "dotnet nuget": true
+        "dotnet nuget": true,
+        "docfx": true
     }
 }

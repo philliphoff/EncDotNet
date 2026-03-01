@@ -485,3 +485,7 @@ $RECYCLE.BIN/
 .catalog/
 .expanded/
 
+# DocFX output
+_site/
+api/
+
