@@ -14,6 +14,16 @@ namespace EncDotNet.ChartViewer;
 /// </summary>
 public static class S57LayerFactory
 {
+    /// <summary>Approximate pixel size in meters at standard screen DPI (~96).</summary>
+    private const double PixelSizeMeters = 0.000264583;
+
+    /// <summary>
+    /// Allow displaying chart features at up to 2x beyond the chart's compilation scale
+    /// before hiding. This avoids abruptly hiding a chart right at its nominal scale and
+    /// matches common ECDIS over-scale tolerance practice.
+    /// </summary>
+    private const double OverScaleFactor = 2.0;
+
     /// <summary>
     /// Creates a MemoryLayer containing only features matching the specified object codes.
     /// Returns <c>null</c> when the chart contains no renderable features for the given codes,
@@ -66,12 +76,19 @@ public static class S57LayerFactory
         if (features.Count == 0)
             return null;
 
+        // Limit layer visibility based on the chart's compilation scale (CSCL).
+        // A 1:22,000 chart should not render when the viewport is zoomed out to 1:500,000.
+        double cscl = chart.CompilationScale;
+        double csclMaxVisible = cscl > 0
+            ? cscl * PixelSizeMeters * OverScaleFactor
+            : double.MaxValue;
+
         return new MemoryLayer
         {
             Name = layerName,
             Features = features,
             Style = null,
-            MaxVisible = maxVisible,
+            MaxVisible = Math.Min(maxVisible, csclMaxVisible),
         };
     }
 }
