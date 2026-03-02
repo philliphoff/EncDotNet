@@ -457,13 +457,12 @@ public class S57ExchangeSetChartTests : IDisposable
         var chart = CreateExchangeSet().ReadChart(_tempDir);
 
         // Assert — query methods work on updated chart
-        var lights = chart.GetPointFeaturesByObjectCode(S57ObjectCode.LIGHTS).ToList();
+        var lights = chart.PointFeatures.Where(f => f.ObjectCode == S57ObjectCode.LIGHTS).ToList();
         Assert.Collection(lights,
             l => Assert.Equal(S57ObjectCode.LIGHTS, l.ObjectCode),
             l => Assert.Equal(S57ObjectCode.LIGHTS, l.ObjectCode));
 
-        var byName = chart.GetFeature(S57RecordName.FromRcnmRcid(S57RecordNameCodes.Feature, 2));
-        Assert.NotNull(byName);
+        Assert.True(chart.AllFeatures.TryGetValue(S57RecordName.FromRcnmRcid(S57RecordNameCodes.Feature, 2), out var byName));
         Assert.Equal(S57ObjectCode.LIGHTS, byName.ObjectCode);
     }
 

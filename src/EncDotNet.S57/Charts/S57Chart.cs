@@ -358,36 +358,6 @@ public sealed record S57Chart
     }
 
     /// <summary>
-    /// Gets a typed feature by its record name.
-    /// </summary>
-    /// <param name="name">The record name.</param>
-    /// <returns>The typed feature, or <c>null</c> if not found.</returns>
-    public S57TypedFeature? GetFeature(S57RecordName name)
-    {
-        return AllFeatures.TryGetValue(name, out var feature) ? feature : null;
-    }
-
-    /// <summary>
-    /// Gets all features with the specified object code.
-    /// </summary>
-    /// <param name="objectCode">The object code to filter by.</param>
-    /// <returns>All features matching the object code.</returns>
-    public IEnumerable<S57TypedFeature> GetFeaturesByObjectCode(S57ObjectCode objectCode)
-    {
-        return AllFeatures.Values.Where(f => f.ObjectCode == objectCode);
-    }
-
-    /// <summary>
-    /// Gets all features that reference the specified feature via FFPT (feature-to-feature pointers).
-    /// </summary>
-    /// <param name="name">The record name of the target feature.</param>
-    /// <returns>All features that reference the specified feature, or an empty array if none.</returns>
-    public IReadOnlyList<S57TypedFeature> GetReferencingFeatures(S57RecordName name)
-    {
-        return ReferencingFeatures.TryGetValue(name, out var features) ? features : [];
-    }
-
-    /// <summary>
     /// Gets all point features that reference the specified spatial record (co-located features).
     /// </summary>
     /// <param name="spatialName">The record name of the spatial record.</param>
@@ -398,36 +368,6 @@ public sealed record S57Chart
     }
 
     /// <summary>
-    /// Gets all point features with the specified object code.
-    /// </summary>
-    /// <param name="objectCode">The object code to filter by.</param>
-    /// <returns>All point features matching the object code.</returns>
-    public IEnumerable<S57PointFeature> GetPointFeaturesByObjectCode(S57ObjectCode objectCode)
-    {
-        return PointFeatures.Where(f => f.ObjectCode == objectCode);
-    }
-
-    /// <summary>
-    /// Gets all line features with the specified object code.
-    /// </summary>
-    /// <param name="objectCode">The object code to filter by.</param>
-    /// <returns>All line features matching the object code.</returns>
-    public IEnumerable<S57LineFeature> GetLineFeaturesByObjectCode(S57ObjectCode objectCode)
-    {
-        return LineFeatures.Where(f => f.ObjectCode == objectCode);
-    }
-
-    /// <summary>
-    /// Gets all area features with the specified object code.
-    /// </summary>
-    /// <param name="objectCode">The object code to filter by.</param>
-    /// <returns>All area features matching the object code.</returns>
-    public IEnumerable<S57AreaFeature> GetAreaFeaturesByObjectCode(S57ObjectCode objectCode)
-    {
-        return AreaFeatures.Where(f => f.ObjectCode == objectCode);
-    }
-
-    /// <summary>
     /// Converts an integer coordinate to decimal degrees.
     /// </summary>
     /// <param name="coordinate">The integer coordinate.</param>
@@ -435,16 +375,6 @@ public sealed record S57Chart
     public double ToDecimalDegrees(int coordinate)
     {
         return (double)coordinate / CoordinateMultiplicationFactor;
-    }
-
-    /// <summary>
-    /// Converts an integer depth value to the real depth.
-    /// </summary>
-    /// <param name="depth">The integer depth value.</param>
-    /// <returns>The depth in real units.</returns>
-    public double ToDepth(int depth)
-    {
-        return (double)depth / SoundingMultiplicationFactor;
     }
 
     /// <summary>

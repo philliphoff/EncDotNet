@@ -993,104 +993,6 @@ public class S57ChartTests
     #region Query Methods Tests
 
     [Fact]
-    public void GetFeaturesByObjectCode_ReturnsMatchingFeatures()
-    {
-        // Arrange
-        var feature1 = CreateFeatureRecord(1, S57GeometricPrimitive.Point, S57ObjectCode.LIGHTS);
-        var feature2 = CreateFeatureRecord(2, S57GeometricPrimitive.Point, (S57ObjectCode)76);
-        var feature3 = CreateFeatureRecord(3, S57GeometricPrimitive.Point, S57ObjectCode.LIGHTS);
-        var document = CreateDocument(features: new[] { feature1, feature2, feature3 });
-
-        // Act
-        var chart = S57Chart.FromDocument(document);
-        var matching = chart.GetFeaturesByObjectCode(S57ObjectCode.LIGHTS).ToList();
-
-        // Assert
-        Assert.Equal(2, matching.Count);
-        Assert.All(matching, f => Assert.Equal(S57ObjectCode.LIGHTS, f.ObjectCode));
-    }
-
-    [Fact]
-    public void GetPointFeaturesByObjectCode_ReturnsOnlyPointFeatures()
-    {
-        // Arrange
-        var pointFeature = CreateFeatureRecord(1, S57GeometricPrimitive.Point, S57ObjectCode.LIGHTS);
-        var areaFeature = CreateFeatureRecord(2, S57GeometricPrimitive.Area, S57ObjectCode.LIGHTS);
-        var document = CreateDocument(features: new[] { pointFeature, areaFeature });
-
-        // Act
-        var chart = S57Chart.FromDocument(document);
-        var matching = chart.GetPointFeaturesByObjectCode(S57ObjectCode.LIGHTS).ToList();
-
-        // Assert
-        Assert.Single(matching);
-        Assert.Equal(1, matching[0].RecordName.RecordId);
-    }
-
-    [Fact]
-    public void GetLineFeaturesByObjectCode_ReturnsOnlyLineFeatures()
-    {
-        // Arrange
-        var lineFeature = CreateFeatureRecord(1, S57GeometricPrimitive.Line, S57ObjectCode.COALNE);
-        var areaFeature = CreateFeatureRecord(2, S57GeometricPrimitive.Area, S57ObjectCode.COALNE);
-        var document = CreateDocument(features: new[] { lineFeature, areaFeature });
-
-        // Act
-        var chart = S57Chart.FromDocument(document);
-        var matching = chart.GetLineFeaturesByObjectCode(S57ObjectCode.COALNE).ToList();
-
-        // Assert
-        Assert.Single(matching);
-    }
-
-    [Fact]
-    public void GetAreaFeaturesByObjectCode_ReturnsOnlyAreaFeatures()
-    {
-        // Arrange
-        var lineFeature = CreateFeatureRecord(1, S57GeometricPrimitive.Line, S57ObjectCode.DEPARE);
-        var areaFeature = CreateFeatureRecord(2, S57GeometricPrimitive.Area, S57ObjectCode.DEPARE);
-        var document = CreateDocument(features: new[] { lineFeature, areaFeature });
-
-        // Act
-        var chart = S57Chart.FromDocument(document);
-        var matching = chart.GetAreaFeaturesByObjectCode(S57ObjectCode.DEPARE).ToList();
-
-        // Assert
-        Assert.Single(matching);
-    }
-
-    [Fact]
-    public void GetFeature_ExistingRecord_ReturnsFeature()
-    {
-        // Arrange
-        var feature = CreateFeatureRecord(42, S57GeometricPrimitive.Point, S57ObjectCode.LIGHTS);
-        var document = CreateDocument(features: new[] { feature });
-
-        // Act
-        var chart = S57Chart.FromDocument(document);
-        var retrieved = chart.GetFeature(S57RecordName.FromRcnmRcid(S57RecordNameCodes.Feature, 42));
-
-        // Assert
-        Assert.NotNull(retrieved);
-        Assert.Equal(42, retrieved.RecordName.RecordId);
-    }
-
-    [Fact]
-    public void GetFeature_NonExistingRecord_ReturnsNull()
-    {
-        // Arrange
-        var feature = CreateFeatureRecord(1, S57GeometricPrimitive.Point, S57ObjectCode.LIGHTS);
-        var document = CreateDocument(features: new[] { feature });
-
-        // Act
-        var chart = S57Chart.FromDocument(document);
-        var retrieved = chart.GetFeature(S57RecordName.FromRcnmRcid(S57RecordNameCodes.Feature, 999));
-
-        // Assert
-        Assert.Null(retrieved);
-    }
-
-    [Fact]
     public void GetIsolatedNode_ExistingRecord_ReturnsNode()
     {
         // Arrange
@@ -1183,21 +1085,6 @@ public class S57ChartTests
         // Assert
         Assert.Equal(-122.5, longitude, 6);
         Assert.Equal(47.5, latitude, 6);
-    }
-
-    [Fact]
-    public void ToDepth_ConvertsCorrectly()
-    {
-        // Arrange
-        var dspm = new S57DataSetParameters { SoundingMultiplicationFactor = 10 };
-        var document = CreateDocument(dspm: dspm);
-        var chart = S57Chart.FromDocument(document);
-
-        // Act
-        var result = chart.ToDepth(155);
-
-        // Assert
-        Assert.Equal(15.5, result, 6);
     }
 
     [Fact]
