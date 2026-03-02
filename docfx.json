@@ -41,6 +41,10 @@
     "template": [
       "default",
       "modern"
-    ]
+    ],
+    "globalMetadata": {
+      "_appLogoPath": "docs/images/logo.svg",
+      "_appFaviconPath": "docs/images/logo.svg"
+    }
   }
 }

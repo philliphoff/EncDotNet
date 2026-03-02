@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Chart background -->
+  <rect width="200" height="200" rx="16" fill="#F5F0E8" stroke="#8B7D6B" stroke-width="2"/>
+
+  <!-- Water area -->
+  <path d="M0,80 Q40,70 80,85 Q120,100 160,75 Q180,65 200,70 L200,200 Q200,216 184,200 L16,200 Q0,200 0,184 Z" fill="#D6E8F5"/>
+
+  <!-- Coastline -->
+  <path d="M0,80 Q40,70 80,85 Q120,100 160,75 Q180,65 200,70" fill="none" stroke="#2C1810" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- Land features - contour lines -->
+  <path d="M10,55 Q50,45 90,60" fill="none" stroke="#8B7D6B" stroke-width="0.8" opacity="0.6"/>
+  <path d="M5,35 Q45,25 85,40" fill="none" stroke="#8B7D6B" stroke-width="0.8" opacity="0.4"/>
+
+  <!-- Depth contours (dashed) -->
+  <path d="M10,110 Q60,120 110,105 Q150,95 190,100" fill="none" stroke="#4682B4" stroke-width="0.8" stroke-dasharray="6,3" opacity="0.7"/>
+  <path d="M5,140 Q55,150 105,135 Q155,125 195,130" fill="none" stroke="#4682B4" stroke-width="0.8" stroke-dasharray="6,3" opacity="0.5"/>
+  <path d="M10,170 Q60,178 110,165 Q155,155 195,160" fill="none" stroke="#4682B4" stroke-width="0.8" stroke-dasharray="6,3" opacity="0.3"/>
+
+  <!-- Soundings (depth numbers) -->
+  <text x="35" y="105" font-family="serif" font-size="10" fill="#1a3a5c" text-anchor="middle">3</text>
+  <text x="80" y="125" font-family="serif" font-size="10" fill="#1a3a5c" text-anchor="middle">7</text>
+  <text x="130" y="115" font-family="serif" font-size="10" fill="#1a3a5c" text-anchor="middle">5</text>
+  <text x="55" y="150" font-family="serif" font-size="10" fill="#1a3a5c" text-anchor="middle">12</text>
+  <text x="160" y="145" font-family="serif" font-size="10" fill="#1a3a5c" text-anchor="middle">9</text>
+  <text x="105" y="170" font-family="serif" font-size="10" fill="#1a3a5c" text-anchor="middle">15</text>
+  <text x="40" y="180" font-family="serif" font-size="10" fill="#1a3a5c" text-anchor="middle">18</text>
+  <text x="155" y="180" font-family="serif" font-size="10" fill="#1a3a5c" text-anchor="middle">14</text>
+
+  <!-- Compass rose -->
+  <g transform="translate(155,40)">
+    <circle r="18" fill="none" stroke="#2C1810" stroke-width="0.8" opacity="0.5"/>
+    <!-- Cardinal ticks -->
+    <line x1="0" y1="-18" x2="0" y2="-14" stroke="#2C1810" stroke-width="1.2"/>
+    <line x1="18" y1="0" x2="14" y2="0" stroke="#2C1810" stroke-width="0.8"/>
+    <line x1="0" y1="18" x2="0" y2="14" stroke="#2C1810" stroke-width="0.8"/>
+    <line x1="-18" y1="0" x2="-14" y2="0" stroke="#2C1810" stroke-width="0.8"/>
+    <!-- North pointer -->
+    <polygon points="0,-12 -3,0 0,-2 3,0" fill="#C0392B"/>
+    <!-- South pointer -->
+    <polygon points="0,12 -3,0 0,2 3,0" fill="#2C1810" opacity="0.4"/>
+    <text x="0" y="-20" font-family="sans-serif" font-size="7" font-weight="bold" fill="#2C1810" text-anchor="middle">N</text>
+  </g>
+
+  <!-- Buoy symbol -->
+  <g transform="translate(60,95)">
+    <line x1="0" y1="0" x2="0" y2="8" stroke="#2C1810" stroke-width="1.2"/>
+    <circle cx="0" cy="-2" r="3.5" fill="#E74C3C" stroke="#2C1810" stroke-width="0.8"/>
+  </g>
+
+  <!-- Chart border neatline -->
+  <rect x="6" y="6" width="188" height="188" rx="12" fill="none" stroke="#8B7D6B" stroke-width="0.5" stroke-dasharray="2,2" opacity="0.4"/>
+</svg>
