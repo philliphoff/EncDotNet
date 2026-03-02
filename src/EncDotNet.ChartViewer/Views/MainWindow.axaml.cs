@@ -19,7 +19,6 @@ using Mapsui.Layers;
 using System.Collections.Immutable;
 using Mapsui.Manipulations;
 using Mapsui.Nts;
-using Mapsui.Projections;
 using Mapsui.Styles;
 using Mapsui.Styles.Thematics;
 using Mapsui.Tiling;
@@ -459,7 +458,6 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// <summary>
     /// Maximum number of charts to keep loaded at once. Prevents loading hundreds of
     /// small-scale charts when very zoomed out. Mapsui layer MaxVisible already hides
     /// layers that are beyond their compilation scale, so keeping a bounded set loaded
@@ -467,6 +465,7 @@ public partial class MainWindow : Window
     /// </summary>
     private const int MaxLoadedCharts = 30;
 
+    /// <summary>
     /// Determines which charts should be visible based on viewport overlap and zoom level,
     /// then loads/unloads charts accordingly.
     /// </summary>
@@ -488,7 +487,7 @@ public partial class MainWindow : Window
         var candidates = new List<ChartViewModel>();
         foreach (var chartVm in vm.AvailableCharts)
         {
-            if (ChartOverlapsViewport(chartVm.Entry, extent))
+            if (ChartOverlapsViewport(chartVm, extent))
             {
                 candidates.Add(chartVm);
             }
@@ -559,26 +558,18 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Returns true if the chart's geographic bounds overlap the given viewport extent (in world/mercator coordinates).
+    /// Returns true if the chart's pre-computed projected bounds overlap the given viewport extent.
     /// </summary>
-    private static bool ChartOverlapsViewport(ChartIndexEntry entry, MRect viewportExtent)
+    private static bool ChartOverlapsViewport(ChartViewModel chartVm, MRect viewportExtent)
     {
-        if (entry.SouthLatitude is not { } south
-            || entry.NorthLatitude is not { } north
-            || entry.WestLongitude is not { } west
-            || entry.EastLongitude is not { } east)
-        {
+        if (chartVm.ProjectedBounds is not { } bounds)
             return false;
-        }
-
-        var (minX, minY) = SphericalMercator.FromLonLat(west, south);
-        var (maxX, maxY) = SphericalMercator.FromLonLat(east, north);
 
         // Axis-aligned bounding box intersection test
-        return minX <= viewportExtent.MaxX
-            && maxX >= viewportExtent.MinX
-            && minY <= viewportExtent.MaxY
-            && maxY >= viewportExtent.MinY;
+        return bounds.MinX <= viewportExtent.MaxX
+            && bounds.MaxX >= viewportExtent.MinX
+            && bounds.MinY <= viewportExtent.MaxY
+            && bounds.MaxY >= viewportExtent.MinY;
     }
 
     private async Task LoadChartAsync(ChartViewModel chartVm, MainWindowViewModel vm)
@@ -768,26 +759,16 @@ public partial class MainWindow : Window
 
         foreach (var chartVm in charts)
         {
-            var entry = chartVm.Entry;
-
-            if (entry.SouthLatitude is not { } south
-                || entry.NorthLatitude is not { } north
-                || entry.WestLongitude is not { } west
-                || entry.EastLongitude is not { } east)
-            {
+            if (chartVm.ProjectedBounds is not { } bounds)
                 continue;
-            }
-
-            var (minX, minY) = SphericalMercator.FromLonLat(west, south);
-            var (maxX, maxY) = SphericalMercator.FromLonLat(east, north);
 
             var ring = new LinearRing(
             [
-                new Coordinate(minX, minY),
-                new Coordinate(maxX, minY),
-                new Coordinate(maxX, maxY),
-                new Coordinate(minX, maxY),
-                new Coordinate(minX, minY),
+                new Coordinate(bounds.MinX, bounds.MinY),
+                new Coordinate(bounds.MaxX, bounds.MinY),
+                new Coordinate(bounds.MaxX, bounds.MaxY),
+                new Coordinate(bounds.MinX, bounds.MaxY),
+                new Coordinate(bounds.MinX, bounds.MinY),
             ]);
 
             var feature = new GeometryFeature(new Polygon(ring));

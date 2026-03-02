@@ -6,7 +6,9 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using EncDotNet.ChartViewer.Catalogs;
 using EncDotNet.ChartViewer.Models;
+using Mapsui;
 using Mapsui.Layers;
+using Mapsui.Projections;
 using ReactiveUI;
 
 namespace EncDotNet.ChartViewer.ViewModels;
@@ -34,9 +36,26 @@ public sealed class ChartViewModel : ViewModelBase
     /// <summary>Gets or sets the layers created for this chart.</summary>
     public List<MemoryLayer> Layers { get; } = new();
 
+    /// <summary>
+    /// Pre-computed Mercator-projected bounds for the chart, or null if the chart has no geographic bounds.
+    /// Computed once in the constructor to avoid repeated trigonometry during viewport evaluation.
+    /// </summary>
+    public MRect? ProjectedBounds { get; }
+
     public ChartViewModel(ChartIndexEntry entry)
     {
         Entry = entry;
+
+        if (entry.SouthLatitude is { } south
+            && entry.NorthLatitude is { } north
+            && entry.WestLongitude is { } west
+            && entry.EastLongitude is { } east)
+        {
+            var (minX, minY) = SphericalMercator.FromLonLat(west, south);
+            var (maxX, maxY) = SphericalMercator.FromLonLat(east, north);
+            ProjectedBounds = new MRect(minX, minY, maxX, maxY);
+        }
+
         CopyPathCommand = ReactiveCommand.CreateFromTask(async () =>
         {
             if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: { } window })
