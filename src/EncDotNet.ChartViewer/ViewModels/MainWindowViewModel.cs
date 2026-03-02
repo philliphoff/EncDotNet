@@ -14,7 +14,6 @@ namespace EncDotNet.ChartViewer.ViewModels;
 
 public class MainWindowViewModel : ViewModelBase
 {
-    private bool _hasSelectedCharts;
     private bool _isChartsPanelExpanded = true;
     private bool _isFeaturesPanelExpanded = true;
     private string _chartSearchText = "";
@@ -30,20 +29,6 @@ public class MainWindowViewModel : ViewModelBase
     /// Gets the filtered collection of available charts based on search text.
     /// </summary>
     public ObservableCollection<ChartViewModel> FilteredAvailableCharts { get; } = new();
-
-    /// <summary>
-    /// Gets the collection of currently selected (loaded) charts.
-    /// </summary>
-    public ObservableCollection<ChartViewModel> SelectedCharts { get; } = new();
-
-    /// <summary>
-    /// Gets whether any charts are currently selected.
-    /// </summary>
-    public bool HasSelectedCharts
-    {
-        get => _hasSelectedCharts;
-        private set => this.RaiseAndSetIfChanged(ref _hasSelectedCharts, value);
-    }
 
     /// <summary>
     /// Gets or sets whether the charts panel is expanded.
@@ -151,8 +136,6 @@ public class MainWindowViewModel : ViewModelBase
             FeatureCategories.Add(new ChartFeatureViewModel(category));
         }
 
-        SelectedCharts.CollectionChanged += (_, _) => HasSelectedCharts = SelectedCharts.Count > 0;
-
         ToggleChartsPanelCommand = ReactiveCommand.Create(() => IsChartsPanelExpanded = !IsChartsPanelExpanded);
         ToggleFeaturesPanelCommand = ReactiveCommand.Create(() => IsFeaturesPanelExpanded = !IsFeaturesPanelExpanded);
         ManageChartsCommand = ReactiveCommand.Create(() => { });
@@ -164,7 +147,6 @@ public class MainWindowViewModel : ViewModelBase
     /// </summary>
     internal void ClearCatalog()
     {
-        SelectedCharts.Clear();
         FilteredAvailableCharts.Clear();
         AvailableCharts.Clear();
         _chartSearchText = "";

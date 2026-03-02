@@ -2,10 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 using EncDotNet.ChartViewer.Catalogs;
 using EncDotNet.ChartViewer.Models;
 using EncDotNet.ChartViewer.ViewModels;
@@ -34,6 +36,18 @@ public partial class MainWindow : Window
     private readonly Dictionary<GeometryFeature, ChartViewModel> _boundaryFeatureToChart = new();
     private readonly List<GeometryFeature> _boundaryFeatures = [];
     private GeometryFeature? _highlightedBoundaryFeature;
+
+    /// <summary>Tracks which charts are currently loaded on the map.</summary>
+    private readonly HashSet<ChartViewModel> _loadedCharts = new();
+
+    /// <summary>Charts currently being loaded (prevents duplicate loads).</summary>
+    private readonly HashSet<ChartViewModel> _loadingCharts = new();
+
+    /// <summary>Debounce timer for viewport change evaluation.</summary>
+    private CancellationTokenSource? _viewportDebounce;
+
+    /// <summary>Whether the catalog has been loaded and viewport-driven loading is active.</summary>
+    private bool _viewportLoadingActive;
 
     public MainWindow()
     {
@@ -244,9 +258,6 @@ public partial class MainWindow : Window
 
         if (ViewModel is { } vm)
         {
-            AppDataPaths.SaveSelectedCharts(
-                vm.SelectedCharts.Select(c => c.Entry.Id));
-
             AppDataPaths.SaveFeatureVisibility(
                 vm.FeatureCategories
                     .SelectMany(c => c.Features)
@@ -267,12 +278,6 @@ public partial class MainWindow : Window
         var boundaryLayer = CreateChartBoundariesLayer(vm.AvailableCharts);
         MyMapControl.Map?.Layers.Add(boundaryLayer);
 
-        // Subscribe to chart selection changes
-        foreach (var chartVm in vm.AvailableCharts)
-        {
-            chartVm.IsSelectedChanged += OnChartSelectionChanged;
-        }
-
         // Subscribe to feature visibility changes
         foreach (var featureVm in vm.FeatureCategories)
         {
@@ -285,7 +290,7 @@ public partial class MainWindow : Window
         // Restore saved depth unit
         vm.DepthUnit = AppDataPaths.LoadDepthUnit();
 
-        // Restore saved feature visibility (before selecting charts so layers get correct initial state)
+        // Restore saved feature visibility
         var savedVisibility = AppDataPaths.LoadFeatureVisibility();
         foreach (var featureVm in vm.FeatureCategories)
         {
@@ -303,15 +308,15 @@ public partial class MainWindow : Window
             }
         }
 
-        // Restore saved chart selections
-        var savedCharts = new HashSet<string>(AppDataPaths.LoadSelectedCharts());
-        foreach (var chartVm in vm.AvailableCharts)
+        // Enable viewport-driven chart loading
+        _viewportLoadingActive = true;
+        if (MyMapControl.Map?.Navigator is { } nav)
         {
-            if (!string.IsNullOrEmpty(chartVm.Entry.Id) && savedCharts.Contains(chartVm.Entry.Id))
-            {
-                chartVm.IsSelected = true;
-            }
+            nav.ViewportChanged += OnNavigatorViewportChanged;
         }
+
+        // Perform initial evaluation after viewport is restored
+        ScheduleViewportEvaluation();
     }
 
     private async Task OpenManageChartsAsync()
@@ -332,11 +337,19 @@ public partial class MainWindow : Window
         if (ViewModel is not { } vm)
             return;
 
-        // Unload all selected charts from the map
-        foreach (var chartVm in vm.SelectedCharts.ToArray())
+        // Stop viewport-driven loading
+        _viewportLoadingActive = false;
+        _viewportDebounce?.Cancel();
+        if (MyMapControl.Map?.Navigator is { } resetNav)
+            resetNav.ViewportChanged -= OnNavigatorViewportChanged;
+
+        // Unload all loaded charts from the map
+        foreach (var chartVm in _loadedCharts.ToArray())
         {
             UnloadChart(chartVm);
         }
+        _loadedCharts.Clear();
+        _loadingCharts.Clear();
 
         // Remove the old boundary layer
         if (MyMapControl.Map is { } map)
@@ -350,9 +363,7 @@ public partial class MainWindow : Window
         _boundaryFeatureToChart.Clear();
         _highlightedBoundaryFeature = null;
 
-        // Unsubscribe from old chart/feature events
-        foreach (var chartVm in vm.AvailableCharts)
-            chartVm.IsSelectedChanged -= OnChartSelectionChanged;
+        // Unsubscribe from old feature events
         foreach (var featureVm in vm.FeatureCategories)
             featureVm.FeatureVisibilityChanged -= OnFeatureItemVisibilityChanged;
         vm.DepthUnitChanged -= OnDepthUnitChanged;
@@ -377,11 +388,19 @@ public partial class MainWindow : Window
         if (ViewModel is not { } vm)
             return;
 
-        // Unload all selected charts from the map
-        foreach (var chartVm in vm.SelectedCharts.ToArray())
+        // Stop viewport-driven loading
+        _viewportLoadingActive = false;
+        _viewportDebounce?.Cancel();
+        if (MyMapControl.Map?.Navigator is { } reloadNav)
+            reloadNav.ViewportChanged -= OnNavigatorViewportChanged;
+
+        // Unload all loaded charts from the map
+        foreach (var chartVm in _loadedCharts.ToArray())
         {
             UnloadChart(chartVm);
         }
+        _loadedCharts.Clear();
+        _loadingCharts.Clear();
 
         // Remove the old boundary layer
         if (MyMapControl.Map is { } map)
@@ -395,9 +414,7 @@ public partial class MainWindow : Window
         _boundaryFeatureToChart.Clear();
         _highlightedBoundaryFeature = null;
 
-        // Unsubscribe from old chart/feature events
-        foreach (var chartVm in vm.AvailableCharts)
-            chartVm.IsSelectedChanged -= OnChartSelectionChanged;
+        // Unsubscribe from old feature events
         foreach (var featureVm in vm.FeatureCategories)
             featureVm.FeatureVisibilityChanged -= OnFeatureItemVisibilityChanged;
         vm.DepthUnitChanged -= OnDepthUnitChanged;
@@ -407,21 +424,161 @@ public partial class MainWindow : Window
         await LoadCatalogIntoMapAsync();
     }
 
-    private void OnChartSelectionChanged(object? sender, bool isSelected)
+    /// <summary>
+    /// Called when the Mapsui navigator signals a viewport change (pan, zoom, resize).
+    /// Debounces and then evaluates which charts should be loaded/unloaded.
+    /// </summary>
+    private void OnNavigatorViewportChanged(object? sender, ViewportChangedEventArgs e)
     {
-        if (sender is not ChartViewModel chartVm || ViewModel is not { } vm)
+        if (!_viewportLoadingActive)
             return;
 
-        if (isSelected)
+        ScheduleViewportEvaluation();
+    }
+
+    /// <summary>
+    /// Schedules a debounced viewport evaluation on the UI thread.
+    /// </summary>
+    private void ScheduleViewportEvaluation()
+    {
+        _viewportDebounce?.Cancel();
+        var cts = _viewportDebounce = new CancellationTokenSource();
+
+        Dispatcher.UIThread.InvokeAsync(async () =>
         {
-            vm.SelectedCharts.Add(chartVm);
-            _ = LoadChartAsync(chartVm, vm);
-        }
-        else
+            try
+            {
+                await Task.Delay(200, cts.Token);
+                await EvaluateViewportChartsAsync();
+            }
+            catch (TaskCanceledException)
+            {
+                // Superseded by a newer viewport change
+            }
+        });
+    }
+
+    /// <summary>
+    /// <summary>
+    /// Maximum number of charts to keep loaded at once. Prevents loading hundreds of
+    /// small-scale charts when very zoomed out. Mapsui layer MaxVisible already hides
+    /// layers that are beyond their compilation scale, so keeping a bounded set loaded
+    /// is safe — excess charts simply won't render.
+    /// </summary>
+    private const int MaxLoadedCharts = 30;
+
+    /// Determines which charts should be visible based on viewport overlap and zoom level,
+    /// then loads/unloads charts accordingly.
+    /// </summary>
+    private async Task EvaluateViewportChartsAsync()
+    {
+        if (ViewModel is not { } vm || MyMapControl.Map?.Navigator is not { } nav)
+            return;
+
+        var viewport = nav.Viewport;
+        var extent = viewport.ToExtent();
+        if (extent is null)
+            return;
+
+        var resolution = viewport.Resolution;
+
+        // Determine which charts overlap the viewport.
+        // Prefer more-detailed charts (lower CompilationScale) by sorting candidates
+        // so they are loaded first and fill the budget.
+        var candidates = new List<ChartViewModel>();
+        foreach (var chartVm in vm.AvailableCharts)
         {
-            vm.SelectedCharts.Remove(chartVm);
-            UnloadChart(chartVm);
+            if (ChartOverlapsViewport(chartVm.Entry, extent))
+            {
+                candidates.Add(chartVm);
+            }
         }
+
+        // Sort: already-loaded charts first (to avoid churn), then by detail level
+        // (lower CompilationScale = more detail = higher priority).
+        // Charts with unknown scale (0) sort last so known charts fill the budget.
+        candidates.Sort((a, b) =>
+        {
+            bool aLoaded = _loadedCharts.Contains(a);
+            bool bLoaded = _loadedCharts.Contains(b);
+            if (aLoaded != bLoaded)
+                return aLoaded ? -1 : 1;
+
+            int aScale = a.CompilationScale > 0 ? a.CompilationScale : int.MaxValue;
+            int bScale = b.CompilationScale > 0 ? b.CompilationScale : int.MaxValue;
+            return aScale.CompareTo(bScale);
+        });
+
+        var shouldBeVisible = new HashSet<ChartViewModel>();
+        foreach (var chartVm in candidates)
+        {
+            if (shouldBeVisible.Count >= MaxLoadedCharts)
+                break;
+            shouldBeVisible.Add(chartVm);
+        }
+
+        // --- Load new charts BEFORE unloading old ones to avoid flashing ---
+
+        // Capture the debounce token so we can bail out if the viewport changes mid-load.
+        var token = _viewportDebounce;
+        foreach (var chartVm in candidates)
+        {
+            if (!shouldBeVisible.Contains(chartVm))
+                continue;
+
+            // If the viewport changed while we were loading, stop and let the
+            // new evaluation handle the updated state.
+            if (token != _viewportDebounce)
+                return;
+
+            if (!_loadedCharts.Contains(chartVm) && !_loadingCharts.Contains(chartVm))
+            {
+                _loadingCharts.Add(chartVm);
+                try
+                {
+                    await LoadChartAsync(chartVm, vm);
+                    _loadedCharts.Add(chartVm);
+                }
+                finally
+                {
+                    _loadingCharts.Remove(chartVm);
+                }
+            }
+        }
+
+        // Now unload charts that should no longer be visible.
+        // Because we loaded first, the map never has a "blank" frame.
+        foreach (var chartVm in _loadedCharts.ToArray())
+        {
+            if (!shouldBeVisible.Contains(chartVm))
+            {
+                UnloadChart(chartVm);
+                _loadedCharts.Remove(chartVm);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Returns true if the chart's geographic bounds overlap the given viewport extent (in world/mercator coordinates).
+    /// </summary>
+    private static bool ChartOverlapsViewport(ChartIndexEntry entry, MRect viewportExtent)
+    {
+        if (entry.SouthLatitude is not { } south
+            || entry.NorthLatitude is not { } north
+            || entry.WestLongitude is not { } west
+            || entry.EastLongitude is not { } east)
+        {
+            return false;
+        }
+
+        var (minX, minY) = SphericalMercator.FromLonLat(west, south);
+        var (maxX, maxY) = SphericalMercator.FromLonLat(east, north);
+
+        // Axis-aligned bounding box intersection test
+        return minX <= viewportExtent.MaxX
+            && maxX >= viewportExtent.MinX
+            && minY <= viewportExtent.MaxY
+            && maxY >= viewportExtent.MinY;
     }
 
     private async Task LoadChartAsync(ChartViewModel chartVm, MainWindowViewModel vm)
@@ -484,11 +641,8 @@ public partial class MainWindow : Window
             return;
 
         var objectCodeName = featureItem.ObjectCode.ToString();
-        foreach (var chartVm in vm.AvailableCharts)
+        foreach (var chartVm in _loadedCharts)
         {
-            if (!chartVm.IsSelected)
-                continue;
-
             foreach (var layer in chartVm.Layers)
             {
                 if (layer.Name != objectCodeName)
@@ -521,11 +675,9 @@ public partial class MainWindow : Window
         if (ViewModel is not { } vm)
             return;
 
-        // Reload sounding layers for all selected charts
-        foreach (var chartVm in vm.AvailableCharts)
+        // Reload sounding layers for all loaded charts
+        foreach (var chartVm in _loadedCharts)
         {
-            if (!chartVm.IsSelected)
-                continue;
 
             for (int i = chartVm.Layers.Count - 1; i >= 0; i--)
             {
@@ -576,13 +728,13 @@ public partial class MainWindow : Window
     /// Finds the insertion index in the map's layer collection for a chart with the given
     /// compilation scale. Higher CSCL charts are placed before lower CSCL charts.
     /// </summary>
-    private static int FindChartLayerInsertionIndex(Map map, int compilationScale, MainWindowViewModel vm)
+    private int FindChartLayerInsertionIndex(Map map, int compilationScale, MainWindowViewModel vm)
     {
         int index = 0;
         foreach (var existingLayer in map.Layers)
         {
             var ownerChart = vm.AvailableCharts.FirstOrDefault(
-                c => c.IsSelected && c.Layers.Contains(existingLayer));
+                c => _loadedCharts.Contains(c) && c.Layers.Contains(existingLayer));
 
             if (ownerChart != null && ownerChart.CompilationScale < compilationScale)
             {
