@@ -64,7 +64,11 @@ public sealed record S57Chart
     /// that reference it via FSPT (feature-to-spatial pointers).
     /// </summary>
     public IReadOnlyDictionary<S57RecordName, IReadOnlyList<S57PointFeature>> ColocatedPointFeatures { get; }
-
+    /// <summary>
+    /// Gets all features grouped by object code. Each entry contains the point, line, area,
+    /// and meta features that share that object code.
+    /// </summary>
+    public IReadOnlyDictionary<S57ObjectCode, S57ObjectCodeFeatures> FeaturesByObjectCode { get; }
     /// <summary>
     /// Gets the coordinate multiplication factor for converting integer coordinates to decimal degrees.
     /// </summary>
@@ -115,6 +119,7 @@ public sealed record S57Chart
         AllFeatures = BuildAllFeaturesIndex(PointFeatures, LineFeatures, AreaFeatures, MetaFeatures);
         ReferencingFeatures = BuildReferencingFeaturesIndex(AllFeatures);
         ColocatedPointFeatures = BuildColocatedPointFeaturesIndex(PointFeatures);
+        FeaturesByObjectCode = BuildFeaturesByObjectCodeIndex(PointFeatures, LineFeatures, AreaFeatures, MetaFeatures);
     }
 
     private static ImmutableDictionary<S57RecordName, S57TypedFeature> BuildAllFeaturesIndex(
@@ -182,6 +187,77 @@ public sealed record S57Chart
         {
             result[name] = list.ToImmutable();
         }
+        return result.ToImmutable();
+    }
+
+    private static ImmutableDictionary<S57ObjectCode, S57ObjectCodeFeatures> BuildFeaturesByObjectCodeIndex(
+        IReadOnlyList<S57PointFeature> pointFeatures,
+        IReadOnlyList<S57LineFeature> lineFeatures,
+        IReadOnlyList<S57AreaFeature> areaFeatures,
+        IReadOnlyList<S57MetaFeature> metaFeatures)
+    {
+        var points = new Dictionary<S57ObjectCode, ImmutableArray<S57PointFeature>.Builder>();
+        var lines = new Dictionary<S57ObjectCode, ImmutableArray<S57LineFeature>.Builder>();
+        var areas = new Dictionary<S57ObjectCode, ImmutableArray<S57AreaFeature>.Builder>();
+        var meta = new Dictionary<S57ObjectCode, ImmutableArray<S57MetaFeature>.Builder>();
+
+        foreach (var f in pointFeatures)
+        {
+            if (!points.TryGetValue(f.ObjectCode, out var list))
+            {
+                list = ImmutableArray.CreateBuilder<S57PointFeature>();
+                points[f.ObjectCode] = list;
+            }
+            list.Add(f);
+        }
+
+        foreach (var f in lineFeatures)
+        {
+            if (!lines.TryGetValue(f.ObjectCode, out var list))
+            {
+                list = ImmutableArray.CreateBuilder<S57LineFeature>();
+                lines[f.ObjectCode] = list;
+            }
+            list.Add(f);
+        }
+
+        foreach (var f in areaFeatures)
+        {
+            if (!areas.TryGetValue(f.ObjectCode, out var list))
+            {
+                list = ImmutableArray.CreateBuilder<S57AreaFeature>();
+                areas[f.ObjectCode] = list;
+            }
+            list.Add(f);
+        }
+
+        foreach (var f in metaFeatures)
+        {
+            if (!meta.TryGetValue(f.ObjectCode, out var list))
+            {
+                list = ImmutableArray.CreateBuilder<S57MetaFeature>();
+                meta[f.ObjectCode] = list;
+            }
+            list.Add(f);
+        }
+
+        // Collect all object codes across all geometry types
+        var allCodes = new HashSet<S57ObjectCode>();
+        allCodes.UnionWith(points.Keys);
+        allCodes.UnionWith(lines.Keys);
+        allCodes.UnionWith(areas.Keys);
+        allCodes.UnionWith(meta.Keys);
+
+        var result = ImmutableDictionary.CreateBuilder<S57ObjectCode, S57ObjectCodeFeatures>();
+        foreach (var code in allCodes)
+        {
+            points.TryGetValue(code, out var p);
+            lines.TryGetValue(code, out var l);
+            areas.TryGetValue(code, out var a);
+            meta.TryGetValue(code, out var m);
+            result[code] = new S57ObjectCodeFeatures(code, p, l, a, m);
+        }
+
         return result.ToImmutable();
     }
 
@@ -258,6 +334,7 @@ public sealed record S57Chart
         AllFeatures = allFeatures.ToImmutable();
         ReferencingFeatures = BuildReferencingFeaturesIndex(AllFeatures);
         ColocatedPointFeatures = BuildColocatedPointFeaturesIndex(PointFeatures);
+        FeaturesByObjectCode = BuildFeaturesByObjectCodeIndex(PointFeatures, LineFeatures, AreaFeatures, MetaFeatures);
     }
 
     /// <summary>

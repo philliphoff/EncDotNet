@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Linq;
 using EncDotNet.S57;
 using EncDotNet.S57.Charts;
 using EncDotNet.ChartViewer.Models;
@@ -29,47 +28,37 @@ public static class S57LayerFactory
         string layerName,
         DepthUnit depthUnit = DepthUnit.Feet)
     {
-        var codeSet = objectCodes.ToHashSet();
         var features = new List<IFeature>();
-
-        foreach (var areaFeature in chart.AreaFeatures)
-        {
-            if (!codeSet.Contains(areaFeature.ObjectCode))
-                continue;
-
-            var template = S57LayerTemplates.GetTemplate(areaFeature.ObjectCode);
-            var handler = template.Area ?? S57LayerTemplates.Default.Area;
-            if (handler != null)
-                features.AddRange(handler(chart, areaFeature));
-        }
-
-        foreach (var lineFeature in chart.LineFeatures)
-        {
-            if (!codeSet.Contains(lineFeature.ObjectCode))
-                continue;
-
-            var template = S57LayerTemplates.GetTemplate(lineFeature.ObjectCode);
-            var handler = template.Line ?? S57LayerTemplates.Default.Line;
-            if (handler != null)
-                features.AddRange(handler(chart, lineFeature));
-        }
-
-        foreach (var pointFeature in chart.PointFeatures)
-        {
-            if (!codeSet.Contains(pointFeature.ObjectCode))
-                continue;
-
-            var template = S57LayerTemplates.GetTemplate(pointFeature.ObjectCode);
-            var handler = template.Point ?? S57LayerTemplates.Default.Point;
-            if (handler != null)
-                features.AddRange(handler(chart, pointFeature, depthUnit));
-        }
-
         double maxVisible = double.MaxValue;
+
         foreach (var code in objectCodes)
         {
             var template = S57LayerTemplates.GetTemplate(code);
             maxVisible = Math.Min(maxVisible, template.MaxVisible);
+
+            if (!chart.FeaturesByObjectCode.TryGetValue(code, out var codeFeatures))
+                continue;
+
+            var areaHandler = template.Area ?? S57LayerTemplates.Default.Area;
+            if (areaHandler != null)
+            {
+                foreach (var areaFeature in codeFeatures.Areas)
+                    features.AddRange(areaHandler(chart, areaFeature));
+            }
+
+            var lineHandler = template.Line ?? S57LayerTemplates.Default.Line;
+            if (lineHandler != null)
+            {
+                foreach (var lineFeature in codeFeatures.Lines)
+                    features.AddRange(lineHandler(chart, lineFeature));
+            }
+
+            var pointHandler = template.Point ?? S57LayerTemplates.Default.Point;
+            if (pointHandler != null)
+            {
+                foreach (var pointFeature in codeFeatures.Points)
+                    features.AddRange(pointHandler(chart, pointFeature, depthUnit));
+            }
         }
 
         return new MemoryLayer
