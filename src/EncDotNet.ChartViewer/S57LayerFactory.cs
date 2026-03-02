@@ -16,13 +16,15 @@ public static class S57LayerFactory
 {
     /// <summary>
     /// Creates a MemoryLayer containing only features matching the specified object codes.
+    /// Returns <c>null</c> when the chart contains no renderable features for the given codes,
+    /// allowing callers to skip adding empty layers and reduce Mapsui overhead.
     /// </summary>
     /// <param name="chart">The S-57 chart to render.</param>
     /// <param name="objectCodes">The S-57 object codes to include.</param>
     /// <param name="layerName">Name for the layer.</param>
     /// <param name="depthUnit">The unit for displaying depth values.</param>
-    /// <returns>A MemoryLayer containing the matching features.</returns>
-    public static MemoryLayer CreateLayerForObjectCodes(
+    /// <returns>A MemoryLayer containing the matching features, or <c>null</c> if no features were produced.</returns>
+    public static MemoryLayer? CreateLayerForObjectCodes(
         S57Chart chart,
         ImmutableArray<S57ObjectCode> objectCodes,
         string layerName,
@@ -60,6 +62,9 @@ public static class S57LayerFactory
                     features.AddRange(pointHandler(chart, pointFeature, depthUnit));
             }
         }
+
+        if (features.Count == 0)
+            return null;
 
         return new MemoryLayer
         {

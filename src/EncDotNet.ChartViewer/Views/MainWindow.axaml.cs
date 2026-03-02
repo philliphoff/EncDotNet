@@ -441,16 +441,22 @@ public partial class MainWindow : Window
                         featureItem.ObjectCode.ToString(),
                         vm.DepthUnit);
 
+                    // Skip object codes that have no renderable features in this chart.
+                    if (layer is null)
+                        continue;
+
                     layer.Enabled = featureItem.IsVisible;
                     chartVm.Layers.Add(layer);
                 }
             }
 
-            // Insert layers ordered by compilation scale (higher CSCL before lower CSCL)
+            // Only add enabled layers to the map; disabled layers stay in chartVm.Layers
+            // so they can be added later when toggled on, but don't burden Mapsui rendering.
             if (MyMapControl.Map is { } map)
             {
+                var enabledLayers = chartVm.Layers.Where(l => l.Enabled).ToList();
                 int insertIndex = FindChartLayerInsertionIndex(map, chartVm.CompilationScale, vm);
-                map.Layers.Insert(insertIndex, chartVm.Layers);
+                map.Layers.Insert(insertIndex, enabledLayers);
             }
 
             System.Diagnostics.Debug.WriteLine($"Loaded chart: {chartVm.Name}");
@@ -474,7 +480,7 @@ public partial class MainWindow : Window
 
     private void OnFeatureItemVisibilityChanged(object? sender, ChartFeatureItemViewModel featureItem)
     {
-        if (ViewModel is not { } vm)
+        if (ViewModel is not { } vm || MyMapControl.Map is not { } map)
             return;
 
         var objectCodeName = featureItem.ObjectCode.ToString();
@@ -485,14 +491,29 @@ public partial class MainWindow : Window
 
             foreach (var layer in chartVm.Layers)
             {
-                if (layer.Name == objectCodeName)
+                if (layer.Name != objectCodeName)
+                    continue;
+
+                layer.Enabled = featureItem.IsVisible;
+
+                if (featureItem.IsVisible)
                 {
-                    layer.Enabled = featureItem.IsVisible;
+                    // Add the layer to the map if it isn't already present.
+                    if (!map.Layers.Contains(layer))
+                    {
+                        int insertIndex = FindChartLayerInsertionIndex(map, chartVm.CompilationScale, vm);
+                        map.Layers.Insert(insertIndex, layer);
+                    }
+                }
+                else
+                {
+                    // Remove disabled layers from the map to reduce rendering overhead.
+                    map.Layers.Remove(layer);
                 }
             }
         }
 
-        MyMapControl.Map?.Refresh();
+        map.Refresh();
     }
 
     private void OnDepthUnitChanged(object? sender, Models.DepthUnit depthUnit)
@@ -512,11 +533,11 @@ public partial class MainWindow : Window
                 if (layer.Name != S57ObjectCode.SOUNDG.ToString())
                     continue;
 
-                // Find position before removing so we can re-insert at the same spot
+                // The layer may or may not be in the map (only enabled layers are).
                 int mapIndex = FindMapLayerIndex(layer);
+                if (mapIndex >= 0)
+                    MyMapControl.Map?.Layers.Remove(layer);
 
-                // Remove old sounding layer
-                MyMapControl.Map?.Layers.Remove(layer);
                 chartVm.Layers.RemoveAt(i);
 
                 // Create new sounding layer with updated depth unit
@@ -527,6 +548,9 @@ public partial class MainWindow : Window
                     S57ObjectCode.SOUNDG.ToString(),
                     depthUnit);
 
+                if (newLayer is null)
+                    continue;
+
                 var soundingFeatureItem = vm.FeatureCategories
                     .SelectMany(c => c.Features)
                     .FirstOrDefault(f => f.ObjectCode == S57ObjectCode.SOUNDG);
@@ -534,11 +558,14 @@ public partial class MainWindow : Window
 
                 chartVm.Layers.Insert(i, newLayer);
 
-                // Re-insert at the same position to preserve CSCL ordering
-                if (mapIndex >= 0)
-                    MyMapControl.Map?.Layers.Insert(mapIndex, newLayer);
-                else
-                    MyMapControl.Map?.Layers.Add(newLayer);
+                // Only re-add to the map if soundings are enabled.
+                if (newLayer.Enabled)
+                {
+                    if (mapIndex >= 0)
+                        MyMapControl.Map?.Layers.Insert(mapIndex, newLayer);
+                    else
+                        MyMapControl.Map?.Layers.Add(newLayer);
+                }
             }
         }
 
