@@ -133,6 +133,8 @@
                                         <DataTemplate DataType="{x:Type vm:ChartViewModel}">
                                             <TextBlock Text="{Binding Name}"
                                                        Margin="8,2,0,2"
+                                                       Cursor="Hand"
+                                                       Tapped="OnChartItemTapped"
                                                        ToolTip.Tip="{Binding Entry.Path}" />
                                         </DataTemplate>
                                     </ItemsControl.DataTemplates>

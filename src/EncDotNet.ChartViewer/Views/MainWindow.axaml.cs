@@ -79,6 +79,26 @@ public partial class MainWindow : Window
         ZoomOutButton.Click += OnZoomOutClick;
     }
 
+    private void OnChartItemTapped(object? sender, TappedEventArgs e)
+    {
+        if (sender is not Control { DataContext: ChartViewModel chart })
+            return;
+
+        if (chart.ProjectedBounds is not { } bounds || MyMapControl.Map?.Navigator is not { } navigator)
+            return;
+
+        // Inflate bounds by 10% on each side to provide margin
+        var marginX = bounds.Width * 0.10;
+        var marginY = bounds.Height * 0.10;
+        var paddedBounds = new MRect(
+            bounds.MinX - marginX,
+            bounds.MinY - marginY,
+            bounds.MaxX + marginX,
+            bounds.MaxY + marginY);
+
+        navigator.ZoomToBox(paddedBounds, MBoxFit.Fit, 500);
+    }
+
     private void OnZoomInClick(object? sender, RoutedEventArgs e)
     {
         if (MyMapControl.Map?.Navigator is not { } navigator)
