@@ -1,8 +1,10 @@
 #!/usr/bin/env dotnet run
 
 #:project ../src/EncDotNet.S57/EncDotNet.S57.csproj
+#:project ../src/EncDotNet.Noaa/EncDotNet.Noaa.csproj
 
 using System.Text.Json;
+using EncDotNet.Noaa;
 using EncDotNet.S57.ExchangeSets;
 
 // ============================================================================
@@ -39,6 +41,28 @@ string outputFile = args.Length >= 2
 Console.WriteLine($"Scanning: {expandedDir}");
 Console.WriteLine();
 
+// Fetch NOAA catalog for more descriptive chart names
+Console.WriteLine("Fetching NOAA ENC product catalog...");
+var noaaLongNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+try
+{
+    using var catalogClient = new EncProductCatalogClient();
+    var noaaCatalog = await catalogClient.GetNoaaCatalogAsync();
+    foreach (var cell in noaaCatalog.Cells)
+    {
+        if (!string.IsNullOrEmpty(cell.LongName))
+        {
+            noaaLongNames.TryAdd(cell.Name, cell.LongName);
+        }
+    }
+    Console.WriteLine($"  Loaded {noaaLongNames.Count} NOAA long names.");
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"  Warning: Could not fetch NOAA catalog ({ex.Message}). Falling back to LFIL names.");
+}
+Console.WriteLine();
+
 var entries = new List<ChartEntry>();
 int scanned = 0;
 int skipped = 0;
@@ -73,13 +97,20 @@ foreach (string subDir in Directory.EnumerateDirectories(expandedDir).OrderBy(d 
             string relativePath = Path.Combine(folderName, "ENC_ROOT", catEntry.FileName);
 
             // Use the chart name from the file name (without extension)
-            string chartName = !string.IsNullOrEmpty(catEntry.LongFileName)
-                ? catEntry.LongFileName
-                : Path.GetFileNameWithoutExtension(catEntry.FileName);
+            string chartId = Path.GetFileNameWithoutExtension(catEntry.FileName);
+
+            // Prefer NOAA catalog long name, then LFIL, then filename
+            string chartName;
+            if (noaaLongNames.TryGetValue(chartId, out var noaaName))
+                chartName = noaaName;
+            else if (!string.IsNullOrEmpty(catEntry.LongFileName))
+                chartName = catEntry.LongFileName;
+            else
+                chartName = chartId;
 
             entries.Add(new ChartEntry
             {
-                Id = Path.GetFileNameWithoutExtension(catEntry.FileName),
+                Id = chartId,
                 Name = chartName,
                 Path = relativePath.Replace('\\', '/'),
                 SouthLatitude = catEntry.SouthernmostLatitude,

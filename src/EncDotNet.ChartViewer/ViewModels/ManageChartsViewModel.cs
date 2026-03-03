@@ -143,6 +143,7 @@ public class ManageChartsViewModel : ViewModelBase
     public ObservableCollection<SelectableStateViewModel> States { get; } = new();
 
     public ICommand ApplyCommand { get; }
+    public ICommand ReloadCommand { get; }
     public ICommand BackCommand { get; }
     public ICommand CancelCommand { get; }
     public ICommand FinishCommand { get; }
@@ -153,6 +154,7 @@ public class ManageChartsViewModel : ViewModelBase
     {
         _packageManager = packageManager;
         ApplyCommand = ReactiveCommand.Create(OnApply);
+        ReloadCommand = ReactiveCommand.Create(OnReload);
         BackCommand = ReactiveCommand.Create(OnBack);
         CancelCommand = ReactiveCommand.Create(OnCancel);
         FinishCommand = ReactiveCommand.Create(OnFinish);
@@ -172,6 +174,12 @@ public class ManageChartsViewModel : ViewModelBase
     {
         CurrentStep = ManageChartsStep.Applying;
         await ApplyChangesAsync();
+    }
+
+    private async void OnReload()
+    {
+        CurrentStep = ManageChartsStep.Applying;
+        await ReloadIndexAsync();
     }
 
     private void OnBack()
@@ -275,6 +283,34 @@ public class ManageChartsViewModel : ViewModelBase
         ChangeSummary = parts.Count > 0
             ? string.Join(", ", parts)
             : "No changes";
+    }
+
+    private async Task ReloadIndexAsync()
+    {
+        try
+        {
+            var progress = new Progress<InstallationUpdate>(update =>
+            {
+                StatusText = update.Message;
+                Progress = update.ProgressPercentage;
+            });
+
+            await _packageManager.ReloadIndexAsync(progress, _cts.Token);
+
+            ChartsChanged = true;
+            PreparedChartCount = SelectedChartCount;
+            CurrentStep = ManageChartsStep.Complete;
+        }
+        catch (OperationCanceledException)
+        {
+            // User cancelled
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"An error occurred while reloading charts: {ex.Message}";
+            _errorSource = ManageChartsStep.Applying;
+            CurrentStep = ManageChartsStep.Error;
+        }
     }
 
     private async Task ApplyChangesAsync()

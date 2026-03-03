@@ -32,6 +32,11 @@
                         Command="{Binding BackCommand}"
                         IsVisible="{Binding ShowBackButton}"
                         MinWidth="80" />
+                <Button Content="Reload Charts"
+                        Command="{Binding ReloadCommand}"
+                        IsVisible="{Binding ShowApplyButton}"
+                        ToolTip.Tip="Reload chart index without changing selections"
+                        MinWidth="100" />
                 <Button Content="Apply Changes"
                         Command="{Binding ApplyCommand}"
                         IsVisible="{Binding ShowApplyButton}"

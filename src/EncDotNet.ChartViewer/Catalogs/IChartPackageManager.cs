@@ -28,4 +28,6 @@ public interface IChartPackageManager
     IAsyncEnumerable<ChartPackage> GetPackagesAsync(CancellationToken cancellationToken = default);
 
     Task InstallPackagesAsync(IReadOnlySet<string> packageIds, IProgress<InstallationUpdate> progress, CancellationToken cancellationToken = default);
+
+    Task ReloadIndexAsync(IProgress<InstallationUpdate> progress, CancellationToken cancellationToken = default);
 }

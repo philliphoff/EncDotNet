@@ -167,9 +167,38 @@ internal sealed class NoaaChartPackageManager : IChartPackageManager
             ProgressPercentage = 90,
         });
 
-        var chartCount = await Task.Run(BuildChartIndex, cancellationToken);
+        var noaaCatalog = catalog;
+        var chartCount = await Task.Run(() => BuildChartIndex(noaaCatalog), cancellationToken);
 
         AppDataPaths.SaveDownloadedStates(packageIds);
+
+        progress.Report(new InstallationUpdate
+        {
+            Message = $"Complete. {chartCount} charts prepared.",
+            ProgressPercentage = 100,
+        });
+    }
+
+    public async Task ReloadIndexAsync(
+        IProgress<InstallationUpdate> progress,
+        CancellationToken cancellationToken = default)
+    {
+        progress.Report(new InstallationUpdate
+        {
+            Message = "Fetching NOAA catalog...",
+            ProgressPercentage = 10,
+        });
+
+        using var catalogClient = new EncProductCatalogClient();
+        var catalog = await catalogClient.GetNoaaCatalogAsync(cancellationToken);
+
+        progress.Report(new InstallationUpdate
+        {
+            Message = "Reloading chart index...",
+            ProgressPercentage = 50,
+        });
+
+        var chartCount = await Task.Run(() => BuildChartIndex(catalog), cancellationToken);
 
         progress.Report(new InstallationUpdate
         {
@@ -204,10 +233,20 @@ internal sealed class NoaaChartPackageManager : IChartPackageManager
         return cells;
     }
 
-    private static int BuildChartIndex()
+    private static int BuildChartIndex(EncProductCatalog noaaCatalog)
     {
         var expandedDir = AppDataPaths.ExpandedDirectory;
         var entries = new List<ChartIndexEntry>();
+
+        // Build a lookup from cell name to NOAA long name for more descriptive chart titles
+        var noaaLongNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var cell in noaaCatalog.Cells)
+        {
+            if (!string.IsNullOrEmpty(cell.LongName))
+            {
+                noaaLongNames.TryAdd(cell.Name, cell.LongName);
+            }
+        }
 
         foreach (var subDir in Directory.EnumerateDirectories(expandedDir)
             .OrderBy(d => d, StringComparer.OrdinalIgnoreCase))
@@ -230,13 +269,20 @@ internal sealed class NoaaChartPackageManager : IChartPackageManager
                     var relativePath = Path.Combine(folderName, "ENC_ROOT", catEntry.FileName)
                         .Replace('\\', '/');
 
-                    var chartName = !string.IsNullOrEmpty(catEntry.LongFileName)
-                        ? catEntry.LongFileName
-                        : Path.GetFileNameWithoutExtension(catEntry.FileName);
+                    var chartId = Path.GetFileNameWithoutExtension(catEntry.FileName);
+
+                    // Prefer NOAA catalog long name, then LFIL, then filename
+                    string chartName;
+                    if (noaaLongNames.TryGetValue(chartId, out var noaaName))
+                        chartName = noaaName;
+                    else if (!string.IsNullOrEmpty(catEntry.LongFileName))
+                        chartName = catEntry.LongFileName;
+                    else
+                        chartName = chartId;
 
                     entries.Add(new ChartIndexEntry
                     {
-                        Id = Path.GetFileNameWithoutExtension(catEntry.FileName),
+                        Id = chartId,
                         Name = chartName,
                         Path = relativePath,
                         SouthLatitude = catEntry.SouthernmostLatitude,
