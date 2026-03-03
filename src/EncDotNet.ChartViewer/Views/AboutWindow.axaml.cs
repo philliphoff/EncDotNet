@@ -9,7 +9,12 @@ public partial class AboutWindow : Window
     {
         InitializeComponent();
 
-        var version = Assembly.GetExecutingAssembly().GetName().Version;
-        VersionText.Text = version is not null ? $"Version {version}" : "Version unknown";
+        var informationalVersion = Assembly.GetExecutingAssembly()
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+            ?.InformationalVersion;
+
+        VersionText.Text = informationalVersion is not null
+            ? $"Version {informationalVersion}"
+            : "Version unknown";
     }
 }
