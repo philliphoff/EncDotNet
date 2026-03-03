@@ -44,6 +44,7 @@ Console.WriteLine();
 // Fetch NOAA catalog for more descriptive chart names
 Console.WriteLine("Fetching NOAA ENC product catalog...");
 var noaaLongNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+var noaaStates = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 try
 {
     using var catalogClient = new EncProductCatalogClient();
@@ -53,6 +54,12 @@ try
         if (!string.IsNullOrEmpty(cell.LongName))
         {
             noaaLongNames.TryAdd(cell.Name, cell.LongName);
+        }
+
+        var firstState = cell.States?.StateList?.FirstOrDefault();
+        if (!string.IsNullOrEmpty(firstState))
+        {
+            noaaStates.TryAdd(cell.Name, firstState);
         }
     }
     Console.WriteLine($"  Loaded {noaaLongNames.Count} NOAA long names.");
@@ -97,7 +104,7 @@ foreach (string subDir in Directory.EnumerateDirectories(expandedDir).OrderBy(d 
             string relativePath = Path.Combine(folderName, "ENC_ROOT", catEntry.FileName);
 
             // Use the chart name from the file name (without extension)
-            string chartId = Path.GetFileNameWithoutExtension(catEntry.FileName);
+            string chartId = Path.GetFileNameWithoutExtension(catEntry.FileName.Replace('\\', '/'));
 
             // Prefer NOAA catalog long name, then LFIL, then filename
             string chartName;
@@ -117,6 +124,7 @@ foreach (string subDir in Directory.EnumerateDirectories(expandedDir).OrderBy(d 
                 WestLongitude = catEntry.WesternmostLongitude,
                 NorthLatitude = catEntry.NorthernmostLatitude,
                 EastLongitude = catEntry.EasternmostLongitude,
+                State = noaaStates.GetValueOrDefault(chartId),
             });
         }
     }
@@ -157,4 +165,5 @@ class ChartEntry
     public double? WestLongitude { get; init; }
     public double? NorthLatitude { get; init; }
     public double? EastLongitude { get; init; }
+    public string? State { get; init; }
 }

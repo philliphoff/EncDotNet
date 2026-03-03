@@ -122,13 +122,20 @@
 
                             <ScrollViewer>
                                 <ItemsControl ItemsSource="{Binding FilteredAvailableCharts}">
-                                    <ItemsControl.ItemTemplate>
+                                    <ItemsControl.DataTemplates>
+                                        <DataTemplate DataType="{x:Type vm:ChartGroupHeaderViewModel}">
+                                            <TextBlock Text="{Binding StateName}"
+                                                       FontWeight="Bold"
+                                                       FontSize="12"
+                                                       Foreground="Gray"
+                                                       Margin="0,8,0,2" />
+                                        </DataTemplate>
                                         <DataTemplate DataType="{x:Type vm:ChartViewModel}">
                                             <TextBlock Text="{Binding Name}"
-                                                       Margin="0,2"
+                                                       Margin="8,2,0,2"
                                                        ToolTip.Tip="{Binding Entry.Path}" />
                                         </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
+                                    </ItemsControl.DataTemplates>
                                 </ItemsControl>
                             </ScrollViewer>
                         </DockPanel>

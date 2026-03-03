@@ -25,4 +25,7 @@ public sealed record ChartIndexEntry
 
     /// <summary>Gets or sets the easternmost longitude of the chart's coverage area.</summary>
     public double? EastLongitude { get; init; }
+
+    /// <summary>Gets or sets the U.S. state associated with this chart for grouping purposes.</summary>
+    public string? State { get; init; }
 }

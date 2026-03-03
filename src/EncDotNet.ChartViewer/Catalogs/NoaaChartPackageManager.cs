@@ -238,13 +238,20 @@ internal sealed class NoaaChartPackageManager : IChartPackageManager
         var expandedDir = AppDataPaths.ExpandedDirectory;
         var entries = new List<ChartIndexEntry>();
 
-        // Build a lookup from cell name to NOAA long name for more descriptive chart titles
+        // Build lookups from cell name to NOAA long name and state for more descriptive chart titles
         var noaaLongNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var noaaStates = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var cell in noaaCatalog.Cells)
         {
             if (!string.IsNullOrEmpty(cell.LongName))
             {
                 noaaLongNames.TryAdd(cell.Name, cell.LongName);
+            }
+
+            var firstState = cell.States?.StateList?.FirstOrDefault();
+            if (!string.IsNullOrEmpty(firstState))
+            {
+                noaaStates.TryAdd(cell.Name, firstState);
             }
         }
 
@@ -269,7 +276,7 @@ internal sealed class NoaaChartPackageManager : IChartPackageManager
                     var relativePath = Path.Combine(folderName, "ENC_ROOT", catEntry.FileName)
                         .Replace('\\', '/');
 
-                    var chartId = Path.GetFileNameWithoutExtension(catEntry.FileName);
+                    var chartId = Path.GetFileNameWithoutExtension(catEntry.FileName.Replace('\\', '/'));
 
                     // Prefer NOAA catalog long name, then LFIL, then filename
                     string chartName;
@@ -289,6 +296,7 @@ internal sealed class NoaaChartPackageManager : IChartPackageManager
                         WestLongitude = catEntry.WesternmostLongitude,
                         NorthLatitude = catEntry.NorthernmostLatitude,
                         EastLongitude = catEntry.EasternmostLongitude,
+                        State = noaaStates.GetValueOrDefault(chartId),
                     });
                 }
             }

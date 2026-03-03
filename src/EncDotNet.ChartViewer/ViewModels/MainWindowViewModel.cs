@@ -26,9 +26,10 @@ public class MainWindowViewModel : ViewModelBase
     public ObservableCollection<ChartViewModel> AvailableCharts { get; } = new();
 
     /// <summary>
-    /// Gets the filtered collection of available charts based on search text.
+    /// Gets the filtered collection of available charts based on search text, grouped by state.
+    /// Contains interleaved <see cref="ChartGroupHeaderViewModel"/> and <see cref="ChartViewModel"/> items.
     /// </summary>
-    public ObservableCollection<ChartViewModel> FilteredAvailableCharts { get; } = new();
+    public ObservableCollection<object> FilteredAvailableCharts { get; } = new();
 
     /// <summary>
     /// Gets or sets whether the charts panel is expanded.
@@ -198,11 +199,23 @@ public class MainWindowViewModel : ViewModelBase
 
         var search = _chartSearchText;
 
-        foreach (var chart in AvailableCharts)
-        {
-            if (search.Length == 0
+        var filtered = AvailableCharts
+            .Where(chart =>
+                search.Length == 0
                 || chart.Name.Contains(search, StringComparison.OrdinalIgnoreCase)
-                || chart.Entry.Path.Contains(search, StringComparison.OrdinalIgnoreCase))
+                || chart.Entry.Id.Contains(search, StringComparison.OrdinalIgnoreCase)
+                || chart.Entry.Path.Contains(search, StringComparison.OrdinalIgnoreCase)
+                || (chart.Entry.State is { } state && state.Contains(search, StringComparison.OrdinalIgnoreCase)));
+
+        var groups = filtered
+            .GroupBy(chart => chart.Entry.State ?? "Other")
+            .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var group in groups)
+        {
+            FilteredAvailableCharts.Add(new ChartGroupHeaderViewModel(group.Key, group.Count()));
+
+            foreach (var chart in group)
             {
                 FilteredAvailableCharts.Add(chart);
             }
