@@ -18,6 +18,15 @@ public partial class App : Application
         AvaloniaXamlLoader.Load(this);
     }
 
+    private void OnAboutClicked(object? sender, EventArgs e)
+    {
+        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop && desktop.MainWindow is not null)
+        {
+            var aboutWindow = new AboutWindow();
+            aboutWindow.ShowDialog(desktop.MainWindow);
+        }
+    }
+
     public override void OnFrameworkInitializationCompleted()
     {
         var services = new ServiceCollection();

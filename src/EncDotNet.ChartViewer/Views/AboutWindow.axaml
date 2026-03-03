@@ -1,0 +1,19 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:svg="clr-namespace:Avalonia.Svg.Skia;assembly=Avalonia.Svg.Skia"
+        mc:Ignorable="d"
+        x:Class="EncDotNet.ChartViewer.Views.AboutWindow"
+        Title="About Sound Charts"
+        Width="300" Height="250"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        SizeToContent="Height">
+
+    <StackPanel Margin="24" HorizontalAlignment="Center" Spacing="12">
+        <svg:Svg Path="/Assets/logo.svg" Width="80" Height="80" HorizontalAlignment="Center" />
+        <TextBlock Text="Sound Charts" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center" />
+        <TextBlock x:Name="VersionText" FontSize="14" HorizontalAlignment="Center" Foreground="Gray" />
+    </StackPanel>
+</Window>
