@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [ main ]
+    tags: [ 'v*' ]
   pull_request:
     branches: [ main ]
 
@@ -126,3 +127,32 @@ jobs:
         with:
           name: ${{ matrix.artifact }}
           path: src/EncDotNet.ChartViewer/bin/Release/net10.0/${{ matrix.rid }}/publish/
+
+  create-release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Archive platform binaries
+        run: |
+          cd artifacts
+          for dir in ChartViewer-*/; do
+            name="${dir%/}"
+            tar -czf "${name}.tar.gz" -C "$dir" .
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            artifacts/nupkgs/*.nupkg
+            artifacts/ChartViewer-*.tar.gz
