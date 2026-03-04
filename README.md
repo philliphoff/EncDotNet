@@ -48,6 +48,25 @@ dotnet test
 dotnet run --project src/EncDotNet.ChartViewer
 ```
 
+## Sound Charts
+
+Sound Charts is the desktop chart viewer application built with [Avalonia](https://avaloniaui.net/) and [Mapsui](https://mapsui.com/). It renders S-57 ENC data on an interactive map with configurable chart layers.
+
+![Sound Charts](docs/images/sound-charts.png)
+
+Features:
+
+- Browse and search available NOAA ENC charts
+- Toggle chart layers: coastline, depth areas, depth contours, soundings, sea area, land area, buoys, lights, and more
+- Configurable depth units (fathoms, meters, feet)
+- Multi-scale chart display ordered by compilation scale
+
+### Launch
+
+```shell
+dotnet run --project src/EncDotNet.ChartViewer
+```
+
 ## Library Usage
 
 ### Parsing ISO 8211 Files
