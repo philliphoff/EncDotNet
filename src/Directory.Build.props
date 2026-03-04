@@ -1,0 +1,15 @@
+<Project>
+
+    <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+    <PropertyGroup>
+        <Version>0.1.0</Version>
+        <Authors>Phillip Hoff</Authors>
+        <Description>Libraries for reading, parsing, and rendering IHO S-57 Electronic Navigational Charts.</Description>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageProjectUrl>https://github.com/philliphoff/EncDotNet</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/philliphoff/EncDotNet</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+    </PropertyGroup>
+
+</Project>
