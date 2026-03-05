@@ -636,6 +636,7 @@ public partial class MainWindow : Window
                 var enabledLayers = chartVm.Layers.Where(l => l.Enabled).ToList();
                 int insertIndex = FindChartLayerInsertionIndex(map, chartVm.CompilationScale, vm);
                 map.Layers.Insert(insertIndex, enabledLayers);
+                EnsureBoundaryLayerOnTop(map);
             }
 
             System.Diagnostics.Debug.WriteLine($"Loaded chart: {chartVm.Name}");
@@ -679,6 +680,7 @@ public partial class MainWindow : Window
                     {
                         int insertIndex = FindLayerInsertionIndex(map, chartVm, layer, vm);
                         map.Layers.Insert(insertIndex, layer);
+                        EnsureBoundaryLayerOnTop(map);
                     }
                 }
                 else
@@ -803,6 +805,20 @@ public partial class MainWindow : Window
 
         // No preceding sibling found — fall back to the chart-level insertion index.
         return FindChartLayerInsertionIndex(map, chartVm.CompilationScale, vm);
+    }
+
+    /// <summary>
+    /// Moves the "Chart Boundaries" layer to the end of the map's layer collection
+    /// so that outlines and highlights are always rendered on top of chart data.
+    /// </summary>
+    private static void EnsureBoundaryLayerOnTop(Map map)
+    {
+        var boundaryLayer = map.Layers.FirstOrDefault(l => l.Name == "Chart Boundaries");
+        if (boundaryLayer is not null)
+        {
+            map.Layers.Remove(boundaryLayer);
+            map.Layers.Add(boundaryLayer);
+        }
     }
 
     private MemoryLayer CreateChartBoundariesLayer(
