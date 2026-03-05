@@ -76,6 +76,15 @@ public static class S57LayerFactory
         if (features.Count == 0)
             return null;
 
+        // Sort features by FeatureOrder if present, so that e.g. deeper DEPARE areas
+        // are drawn first and shallower areas render on top.
+        features.Sort((a, b) =>
+        {
+            var orderA = a["FeatureOrder"] is double da ? da : 0.0;
+            var orderB = b["FeatureOrder"] is double db ? db : 0.0;
+            return orderA.CompareTo(orderB);
+        });
+
         // Limit layer visibility based on the chart's compilation scale (CSCL).
         // A 1:22,000 chart should not render when the viewport is zoomed out to 1:500,000.
         double cscl = chart.CompilationScale;

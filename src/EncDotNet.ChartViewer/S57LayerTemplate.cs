@@ -43,6 +43,12 @@ public sealed class S57LayerTemplate
     /// </summary>
     public double MaxVisible { get; init; } = double.MaxValue;
 
+    /// <summary>
+    /// Controls the z-order of layers when rendering a chart. Lower values are drawn first
+    /// (below), higher values are drawn last (on top). Default is 500 (mid-range).
+    /// </summary>
+    public int RenderOrder { get; init; } = 500;
+
     // --- Area handler helpers ---
 
     /// <summary>Creates an area handler that applies a fixed style.</summary>

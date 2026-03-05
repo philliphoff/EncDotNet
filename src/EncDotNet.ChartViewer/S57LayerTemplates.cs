@@ -33,16 +33,25 @@ internal static class S57LayerTemplates
     /// <summary>
     /// The default template applied when no object-code-specific template is registered.
     /// </summary>
+    // Render order constants — lower values are drawn first (behind).
+    private const int OrderLand = 100;
+    private const int OrderWater = 200;
+    private const int OrderDepthArea = 300;
+    private const int OrderAreaOverlay = 400;
+    private const int OrderLine = 500;
+    private const int OrderLabel = 600;
+    private const int OrderPoint = 700;
+
     public static S57LayerTemplate Default { get; } = new()
     {
         Area = S57LayerTemplate.AreaStyle(
-            new Color(200, 200, 200, 100),
-            new Color(100, 100, 100, 150)),
+            new Color(200, 200, 200, 255),
+            new Color(100, 100, 100, 255)),
         Line = S57LayerTemplate.LineStyle(
-            new Color(0, 0, 255, 150), 1),
+            new Color(0, 0, 255, 255), 1),
         Point = S57LayerTemplate.PointStyle(new VectorStyle
         {
-            Fill = new Brush(new Color(255, 0, 0, 200)),
+            Fill = new Brush(new Color(255, 0, 0, 255)),
             Outline = new Pen(Color.Black, 1),
         }),
     };
@@ -55,33 +64,43 @@ internal static class S57LayerTemplates
     public static S57LayerTemplate GetTemplate(S57ObjectCode objectCode)
         => Templates.GetValueOrDefault(objectCode, Default);
 
+    /// <summary>
+    /// Returns the render order for the given object code. Lower values are drawn first (behind).
+    /// </summary>
+    public static int GetRenderOrder(S57ObjectCode objectCode)
+        => GetTemplate(objectCode).RenderOrder;
+
     private static FrozenDictionary<S57ObjectCode, S57LayerTemplate> BuildTemplates()
     {
         // Shared templates for groups of related object codes
         var buoyTemplate = new S57LayerTemplate
         {
             Point = CreateBuoyFeatures,
+            RenderOrder = OrderPoint,
         };
 
         var beaconTemplate = new S57LayerTemplate
         {
             Point = CreateBeaconFeatures,
+            RenderOrder = OrderPoint,
         };
 
         var tssLineDashed = new S57LayerTemplate
         {
             Line = S57LayerTemplate.LineStyle(new VectorStyle
             {
-                Line = new Pen(new Color(180, 100, 200, 200), 3) { PenStyle = PenStyle.Dash },
+                Line = new Pen(new Color(180, 100, 200, 255), 3) { PenStyle = PenStyle.Dash },
                 Outline = null,
             }),
+            RenderOrder = OrderLine,
         };
 
         var tssRoundaboutCrossing = new S57LayerTemplate
         {
             Area = S57LayerTemplate.AreaStyle(
-                new Color(220, 200, 255, 60),
-                new Color(150, 100, 200, 120)),
+                new Color(220, 200, 255, 255),
+                new Color(150, 100, 200, 255)),
+            RenderOrder = OrderAreaOverlay,
         };
 
         var dict = new Dictionary<S57ObjectCode, S57LayerTemplate>
@@ -91,60 +110,71 @@ internal static class S57LayerTemplates
             [S57ObjectCode.COALNE] = new()
             {
                 Line = S57LayerTemplate.LineStyle(new Color(0, 0, 0, 255), 1),
+                RenderOrder = OrderLine,
             },
             [S57ObjectCode.DEPCNT] = new()
             {
-                Line = S57LayerTemplate.LineStyle(new Color(0, 100, 200, 200), 1),
+                Line = S57LayerTemplate.LineStyle(new Color(0, 100, 200, 255), 1),
+                RenderOrder = OrderLine,
             },
             [S57ObjectCode.DEPARE] = new()
             {
-                Area = S57LayerTemplate.AreaStyle(CreateDepareStyle),
+                Area = CreateDepareFeatures,
+                RenderOrder = OrderDepthArea,
             },
             [S57ObjectCode.SOUNDG] = new()
             {
                 Point = CreateSoundingFeatures,
                 MaxVisible = SoundingMaxResolution,
+                RenderOrder = OrderLabel,
             },
             [S57ObjectCode.SEAARE] = new()
             {
                 Area = S57LayerTemplate.AreaStyle(
-                    new Color(200, 230, 255, 80),
-                    new Color(0, 100, 200, 100)),
+                    new Color(200, 230, 255, 255),
+                    new Color(0, 100, 200, 255)),
+                RenderOrder = OrderWater,
             },
             [S57ObjectCode.DRGARE] = new()
             {
                 Area = S57LayerTemplate.AreaStyle(
-                    new Color(180, 220, 255, 80),
-                    new Color(0, 100, 200, 120)),
+                    new Color(180, 220, 255, 255),
+                    new Color(0, 100, 200, 255)),
+                RenderOrder = OrderWater,
             },
             [S57ObjectCode.LAKARE] = new()
             {
                 Area = S57LayerTemplate.AreaStyle(
-                    new Color(170, 210, 255, 120),
-                    new Color(0, 80, 180, 150)),
+                    new Color(170, 210, 255, 255),
+                    new Color(0, 80, 180, 255)),
+                RenderOrder = OrderWater,
             },
             [S57ObjectCode.RIVERS] = new()
             {
-                Line = S57LayerTemplate.LineStyle(new Color(0, 100, 200, 180), 1),
+                Line = S57LayerTemplate.LineStyle(new Color(0, 100, 200, 255), 1),
+                RenderOrder = OrderLine,
             },
             [S57ObjectCode.CANALS] = new()
             {
-                Line = S57LayerTemplate.LineStyle(new Color(0, 100, 200, 180), 1),
+                Line = S57LayerTemplate.LineStyle(new Color(0, 100, 200, 255), 1),
+                RenderOrder = OrderLine,
             },
             [S57ObjectCode.UNSARE] = new()
             {
                 Area = S57LayerTemplate.AreaStyle(
-                    new Color(240, 240, 200, 80),
-                    new Color(180, 180, 100, 150)),
+                    new Color(240, 240, 200, 255),
+                    new Color(180, 180, 100, 255)),
+                RenderOrder = OrderWater,
             },
 
             // --- Land ---
 
             [S57ObjectCode.LNDARE] = new()
             {
+                RenderOrder = OrderLand,
                 Area = S57LayerTemplate.AreaStyle(
-                    new Color(200, 180, 140, 150),
-                    new Color(100, 80, 40, 200)),
+                    new Color(200, 180, 140, 255),
+                    new Color(100, 80, 40, 255)),
                 Point = S57LayerTemplate.PointStyle(new LabelStyle
                 {
                     BackColor = null,
@@ -158,8 +188,9 @@ internal static class S57LayerTemplates
             [S57ObjectCode.BUAARE] = new()
             {
                 Area = S57LayerTemplate.AreaStyle(
-                    new Color(220, 180, 180, 150),
-                    new Color(150, 100, 100, 200)),
+                    new Color(220, 180, 180, 255),
+                    new Color(150, 100, 100, 255)),
+                RenderOrder = OrderLand,
             },
 
             // --- Structures ---
@@ -167,16 +198,19 @@ internal static class S57LayerTemplates
             [S57ObjectCode.SLCONS] = new()
             {
                 Line = S57LayerTemplate.LineStyle(new Color(100, 100, 100, 255), 1),
+                RenderOrder = OrderLine,
             },
             [S57ObjectCode.BRIDGE] = new()
             {
                 Line = S57LayerTemplate.LineStyle(new Color(80, 80, 80, 255), 2),
+                RenderOrder = OrderLine,
             },
             [S57ObjectCode.DOCARE] = new()
             {
                 Area = S57LayerTemplate.AreaStyle(
-                    new Color(180, 180, 200, 120),
-                    new Color(100, 100, 120, 180)),
+                    new Color(180, 180, 200, 255),
+                    new Color(100, 100, 120, 255)),
+                RenderOrder = OrderAreaOverlay,
             },
 
             // --- Navigation aids ---
@@ -199,48 +233,57 @@ internal static class S57LayerTemplates
             [S57ObjectCode.UWTROC] = new()
             {
                 Point = S57LayerTemplate.ImagePointStyle(UnderwaterRockIconSource, 0.64),
+                RenderOrder = OrderPoint,
             },
 
             // --- Cables & pipelines ---
 
             [S57ObjectCode.CBLOHD] = new()
             {
-                Line = S57LayerTemplate.LineStyle(new Color(160, 0, 160, 200), 1),
+                Line = S57LayerTemplate.LineStyle(new Color(160, 0, 160, 255), 1),
+                RenderOrder = OrderLine,
             },
             [S57ObjectCode.CBLSUB] = new()
             {
-                Line = S57LayerTemplate.LineStyle(new Color(160, 0, 160, 150), 1),
+                Line = S57LayerTemplate.LineStyle(new Color(160, 0, 160, 255), 1),
+                RenderOrder = OrderLine,
             },
             [S57ObjectCode.CBLARE] = new()
             {
                 Area = S57LayerTemplate.AreaStyle(
-                    new Color(220, 180, 255, 60),
-                    new Color(160, 100, 200, 120)),
+                    new Color(220, 180, 255, 255),
+                    new Color(160, 100, 200, 255)),
+                RenderOrder = OrderAreaOverlay,
             },
             [S57ObjectCode.PIPSOL] = new()
             {
-                Line = S57LayerTemplate.LineStyle(new Color(0, 160, 0, 180), 1),
+                Line = S57LayerTemplate.LineStyle(new Color(0, 160, 0, 255), 1),
+                RenderOrder = OrderLine,
             },
             [S57ObjectCode.PIPARE] = new()
             {
                 Area = S57LayerTemplate.AreaStyle(
-                    new Color(180, 255, 180, 60),
-                    new Color(80, 160, 80, 120)),
+                    new Color(180, 255, 180, 255),
+                    new Color(80, 160, 80, 255)),
+                RenderOrder = OrderAreaOverlay,
             },
 
             // --- Navigation routing ---
 
             [S57ObjectCode.FERYRT] = new()
             {
-                Line = S57LayerTemplate.LineStyle(new Color(160, 0, 160, 180), 1),
+                Line = S57LayerTemplate.LineStyle(new Color(160, 0, 160, 255), 1),
+                RenderOrder = OrderLine,
             },
             [S57ObjectCode.NAVLNE] = new()
             {
-                Line = S57LayerTemplate.LineStyle(new Color(200, 0, 200, 180), 1),
+                Line = S57LayerTemplate.LineStyle(new Color(200, 0, 200, 255), 1),
+                RenderOrder = OrderLine,
             },
             [S57ObjectCode.RECTRC] = new()
             {
-                Line = S57LayerTemplate.LineStyle(new Color(200, 0, 200, 200), 1),
+                Line = S57LayerTemplate.LineStyle(new Color(200, 0, 200, 255), 1),
+                RenderOrder = OrderLine,
             },
             [S57ObjectCode.TSSBND] = tssLineDashed,
             [S57ObjectCode.TSELNE] = tssLineDashed,
@@ -248,9 +291,10 @@ internal static class S57LayerTemplates
             {
                 Area = S57LayerTemplate.AreaStyle(new VectorStyle
                 {
-                    Fill = new Brush(new Color(220, 200, 255, 60)),
+                    Fill = new Brush(new Color(220, 200, 255, 255)),
                     Outline = null,
                 }),
+                RenderOrder = OrderAreaOverlay,
             },
             [S57ObjectCode.TSSLPT] = new()
             {
@@ -259,6 +303,7 @@ internal static class S57LayerTemplates
                     Fill = null,
                     Outline = null,
                 }),
+                RenderOrder = OrderAreaOverlay,
             },
             [S57ObjectCode.TSSRON] = tssRoundaboutCrossing,
             [S57ObjectCode.TSSCRS] = tssRoundaboutCrossing,
@@ -266,15 +311,17 @@ internal static class S57LayerTemplates
             {
                 Area = S57LayerTemplate.AreaStyle(new VectorStyle
                 {
-                    Fill = new Brush(new Color(180, 100, 200, 40)),
-                    Outline = new Pen(new Color(180, 100, 200, 200), 2) { PenStyle = PenStyle.Dash },
+                    Fill = new Brush(new Color(180, 100, 200, 255)),
+                    Outline = new Pen(new Color(180, 100, 200, 255), 2) { PenStyle = PenStyle.Dash },
                 }),
+                RenderOrder = OrderAreaOverlay,
             },
             [S57ObjectCode.FAIRWY] = new()
             {
                 Area = S57LayerTemplate.AreaStyle(
-                    new Color(200, 220, 255, 60),
-                    new Color(100, 140, 200, 120)),
+                    new Color(200, 220, 255, 255),
+                    new Color(100, 140, 200, 255)),
+                RenderOrder = OrderAreaOverlay,
             },
 
             // --- Regulated/restricted areas ---
@@ -282,32 +329,37 @@ internal static class S57LayerTemplates
             [S57ObjectCode.ACHARE] = new()
             {
                 Area = S57LayerTemplate.AreaStyle(
-                    new Color(200, 200, 255, 80),
-                    new Color(100, 100, 200, 150)),
+                    new Color(200, 200, 255, 255),
+                    new Color(100, 100, 200, 255)),
+                RenderOrder = OrderAreaOverlay,
             },
             [S57ObjectCode.RESARE] = new()
             {
                 Area = S57LayerTemplate.AreaStyle(
-                    new Color(255, 200, 200, 80),
-                    new Color(200, 100, 100, 150)),
+                    new Color(255, 200, 200, 255),
+                    new Color(200, 100, 100, 255)),
+                RenderOrder = OrderAreaOverlay,
             },
             [S57ObjectCode.DMPGRD] = new()
             {
                 Area = S57LayerTemplate.AreaStyle(
-                    new Color(200, 200, 150, 80),
-                    new Color(150, 150, 80, 150)),
+                    new Color(200, 200, 150, 255),
+                    new Color(150, 150, 80, 255)),
+                RenderOrder = OrderAreaOverlay,
             },
             [S57ObjectCode.MIPARE] = new()
             {
                 Area = S57LayerTemplate.AreaStyle(
-                    new Color(255, 200, 200, 60),
-                    new Color(200, 80, 80, 120)),
+                    new Color(255, 200, 200, 255),
+                    new Color(200, 80, 80, 255)),
+                RenderOrder = OrderAreaOverlay,
             },
             [S57ObjectCode.CTNARE] = new()
             {
                 Area = S57LayerTemplate.AreaStyle(
-                    new Color(255, 230, 180, 80),
-                    new Color(200, 150, 50, 150)),
+                    new Color(255, 230, 180, 255),
+                    new Color(200, 150, 50, 255)),
+                RenderOrder = OrderAreaOverlay,
             },
         };
 
@@ -315,6 +367,31 @@ internal static class S57LayerTemplates
     }
 
     // --- Custom handlers ---
+
+    private static IEnumerable<IFeature> CreateDepareFeatures(S57Chart chart, S57AreaFeature feature)
+    {
+        var style = CreateDepareStyle(feature);
+        if (style is null)
+            yield break;
+
+        var polygon = S57AreaGeometryBuilder.CreatePolygonFromAreaFeature(chart, feature);
+        if (polygon is null)
+            yield break;
+
+        var mapsuiFeature = new GeometryFeature(polygon);
+        mapsuiFeature["ObjectCode"] = feature.ObjectCode;
+        mapsuiFeature.Styles.Add(S57LayerTemplate.MaybeWrapWithScamin(style, feature));
+
+        // Store depth for feature ordering: deeper areas (higher DRVAL1) should be drawn
+        // first so that shallower areas render on top.
+        var drval1Str = feature.GetAttributeValue(DRVAL1);
+        if (drval1Str != null && double.TryParse(drval1Str, NumberStyles.Float, CultureInfo.InvariantCulture, out var depth))
+            mapsuiFeature["FeatureOrder"] = -depth; // negate so ascending sort = deepest first
+        else
+            mapsuiFeature["FeatureOrder"] = 0.0;
+
+        yield return mapsuiFeature;
+    }
 
     private static IStyle? CreateDepareStyle(S57AreaFeature feature)
     {
@@ -324,8 +401,8 @@ internal static class S57LayerTemplates
             // Fallback: default DEPARE color
             return new VectorStyle
             {
-                Fill = new Brush(new Color(180, 220, 255, 100)),
-                Outline = new Pen(new Color(0, 100, 200, 150), 1),
+                Fill = new Brush(new Color(180, 220, 255, 255)),
+                Outline = new Pen(new Color(0, 100, 200, 255), 1),
             };
         }
 
@@ -333,8 +410,8 @@ internal static class S57LayerTemplates
         {
             return new VectorStyle
             {
-                Fill = new Brush(new Color(180, 210, 170, 130)),
-                Outline = new Pen(new Color(130, 170, 120, 150), 1),
+                Fill = new Brush(new Color(180, 210, 170, 255)),
+                Outline = new Pen(new Color(130, 170, 120, 255), 1),
             };
         }
 
@@ -342,8 +419,8 @@ internal static class S57LayerTemplates
         {
             return new VectorStyle
             {
-                Fill = new Brush(new Color(170, 210, 240, 120)),
-                Outline = new Pen(new Color(100, 170, 220, 150), 1),
+                Fill = new Brush(new Color(170, 210, 240, 255)),
+                Outline = new Pen(new Color(100, 170, 220, 255), 1),
             };
         }
 
@@ -351,8 +428,8 @@ internal static class S57LayerTemplates
         {
             return new VectorStyle
             {
-                Fill = new Brush(new Color(160, 180, 200, 100)),
-                Outline = new Pen(new Color(120, 140, 170, 130), 1),
+                Fill = new Brush(new Color(160, 180, 200, 255)),
+                Outline = new Pen(new Color(120, 140, 170, 255), 1),
             };
         }
 
@@ -424,7 +501,7 @@ internal static class S57LayerTemplates
             // No matching icon — fall back to a conspicuous red circle.
             return S57LayerTemplate.CreatePointFeature(chart, feature, new VectorStyle
             {
-                Fill = new Brush(new Color(255, 0, 0, 200)),
+                Fill = new Brush(new Color(255, 0, 0, 255)),
                 Outline = new Pen(Color.Black, 1),
             });
         }
@@ -539,7 +616,7 @@ internal static class S57LayerTemplates
         {
             return S57LayerTemplate.CreatePointFeature(chart, feature, new VectorStyle
             {
-                Fill = new Brush(new Color(255, 0, 0, 200)),
+                Fill = new Brush(new Color(255, 0, 0, 255)),
                 Outline = new Pen(Color.Black, 1),
             });
         }

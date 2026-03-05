@@ -618,6 +618,17 @@ public partial class MainWindow : Window
                 }
             }
 
+            // Sort layers by render order so that background areas (land, water, depth)
+            // are drawn first and point features (buoys, beacons) are drawn on top.
+            chartVm.Layers.Sort((a, b) =>
+            {
+                var orderA = Enum.TryParse<S57ObjectCode>(a.Name, out var codeA)
+                    ? S57LayerTemplates.GetRenderOrder(codeA) : int.MaxValue;
+                var orderB = Enum.TryParse<S57ObjectCode>(b.Name, out var codeB)
+                    ? S57LayerTemplates.GetRenderOrder(codeB) : int.MaxValue;
+                return orderA.CompareTo(orderB);
+            });
+
             // Only add enabled layers to the map; disabled layers stay in chartVm.Layers
             // so they can be added later when toggled on, but don't burden Mapsui rendering.
             if (MyMapControl.Map is { } map)
@@ -666,7 +677,7 @@ public partial class MainWindow : Window
                     // Add the layer to the map if it isn't already present.
                     if (!map.Layers.Contains(layer))
                     {
-                        int insertIndex = FindChartLayerInsertionIndex(map, chartVm.CompilationScale, vm);
+                        int insertIndex = FindLayerInsertionIndex(map, chartVm, layer, vm);
                         map.Layers.Insert(insertIndex, layer);
                     }
                 }
@@ -770,6 +781,28 @@ public partial class MainWindow : Window
             index++;
         }
         return -1;
+    }
+
+    /// <summary>
+    /// Finds the map insertion index for a single layer being toggled on, respecting both
+    /// the chart's compilation-scale ordering and the render order within the chart.
+    /// </summary>
+    private int FindLayerInsertionIndex(Map map, ChartViewModel chartVm, MemoryLayer layer, MainWindowViewModel vm)
+    {
+        // Find the position of this layer within the chart's sorted layer list.
+        int layerIndex = chartVm.Layers.IndexOf(layer);
+
+        // Find the last sibling layer from the same chart that precedes this layer
+        // and is currently in the map — insert right after it.
+        for (int i = layerIndex - 1; i >= 0; i--)
+        {
+            int mapIdx = FindMapLayerIndex(chartVm.Layers[i]);
+            if (mapIdx >= 0)
+                return mapIdx + 1;
+        }
+
+        // No preceding sibling found — fall back to the chart-level insertion index.
+        return FindChartLayerInsertionIndex(map, chartVm.CompilationScale, vm);
     }
 
     private MemoryLayer CreateChartBoundariesLayer(
