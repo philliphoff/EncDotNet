@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using EncDotNet.S57;
 using EncDotNet.S57.Charts;
 using NetTopologySuite.Geometries;
@@ -28,6 +29,134 @@ public static class S57AreaGeometryBuilder
             return CreatePolygonFromEdges(chart, areaFeature);
 
         return null;
+    }
+
+    /// <summary>
+    /// Creates line geometry from only the visible (non-masked, non-truncated) edges
+    /// of an area feature. Used to render the area outline selectively, suppressing
+    /// masked edges and cell boundary edges per S-57 display rules.
+    /// </summary>
+    /// <param name="chart">The S-57 chart providing spatial lookups.</param>
+    /// <param name="areaFeature">The area feature whose visible edges to extract.</param>
+    /// <returns>
+    /// A <see cref="LineString"/> or <see cref="MultiLineString"/> for the visible edges,
+    /// or <c>null</c> if there are no visible edges.
+    /// </returns>
+    public static Geometry? CreateVisibleEdgeLinesFromAreaFeature(S57Chart chart, S57AreaFeature areaFeature)
+    {
+        // Collect all edge references from this area feature
+        IEnumerable<S57EdgeReference> allEdgeRefs;
+
+        if (areaFeature.HasFaceReference)
+        {
+            // For face topology, the FSPT MASK on the face reference indicates
+            // whether all edges of that face should be masked for this feature.
+            // Only include edges from faces whose FSPT MASK is not Mask.
+            allEdgeRefs = areaFeature.FaceReferences
+                .Where(faceRef => faceRef.Mask != S57MaskingIndicator.Mask)
+                .Select(faceRef => chart.GetFace(faceRef.Name))
+                .Where(face => face != null)
+                .SelectMany(face => face!.ExteriorBoundary.Concat(face.InteriorBoundaries));
+        }
+        else if (areaFeature.HasExteriorEdgeReferences)
+        {
+            allEdgeRefs = areaFeature.ExteriorEdgeReferences
+                .Concat(areaFeature.InteriorEdgeReferences);
+        }
+        else
+        {
+            return null;
+        }
+
+        return BuildLinesFromVisibleEdges(chart, allEdgeRefs);
+    }
+
+    /// <summary>
+    /// Builds line geometry from visible edges, skipping masked and cell-boundary-truncated edges.
+    /// Contiguous visible edges are merged into single line strings.
+    /// </summary>
+    internal static Geometry? BuildLinesFromVisibleEdges(S57Chart chart, IEnumerable<S57EdgeReference> edgeRefs)
+    {
+        var allSegments = new List<List<Coordinate>>();
+        var currentSegment = new List<Coordinate>();
+        S57RecordName? previousEndNode = null;
+
+        foreach (var edgeRef in edgeRefs)
+        {
+            // Skip masked edges and cell boundary (ExteriorTruncated) edges
+            if (edgeRef.Mask == S57MaskingIndicator.Mask
+                || edgeRef.Usage == S57UsageIndicator.ExteriorTruncated)
+            {
+                // Break contiguity
+                if (currentSegment.Count >= 2)
+                {
+                    allSegments.Add(currentSegment);
+                    currentSegment = new List<Coordinate>();
+                }
+                else
+                {
+                    currentSegment.Clear();
+                }
+                previousEndNode = null;
+                continue;
+            }
+
+            var edge = chart.GetEdge(edgeRef.EdgeName);
+            if (edge == null)
+                continue;
+
+            bool reverse = edgeRef.Orientation == S57Orientation.Reverse;
+
+            var orientedStartNode = reverse ? edge.EndNode : edge.BeginningNode;
+            var orientedEndNode = reverse ? edge.BeginningNode : edge.EndNode;
+
+            var edgeCoords = S57LineGeometryBuilder.GetEdgeCoordinates(chart, edge, reverse);
+            if (edgeCoords.Count == 0)
+                continue;
+
+            if (currentSegment.Count > 0)
+            {
+                bool contiguous = previousEndNode.HasValue
+                    && orientedStartNode.HasValue
+                    && previousEndNode.Value == orientedStartNode.Value;
+
+                if (contiguous)
+                {
+                    for (var i = 1; i < edgeCoords.Count; i++)
+                    {
+                        currentSegment.Add(edgeCoords[i]);
+                    }
+                }
+                else
+                {
+                    if (currentSegment.Count >= 2)
+                    {
+                        allSegments.Add(currentSegment);
+                    }
+                    currentSegment = new List<Coordinate>(edgeCoords);
+                }
+            }
+            else
+            {
+                currentSegment.AddRange(edgeCoords);
+            }
+
+            previousEndNode = orientedEndNode;
+        }
+
+        if (currentSegment.Count >= 2)
+        {
+            allSegments.Add(currentSegment);
+        }
+
+        if (allSegments.Count == 0)
+            return null;
+
+        if (allSegments.Count == 1)
+            return new LineString(allSegments[0].ToArray());
+
+        return new MultiLineString(
+            allSegments.Select(s => new LineString(s.ToArray())).ToArray());
     }
 
     internal static Geometry? CreatePolygonFromFaces(S57Chart chart, S57AreaFeature areaFeature)

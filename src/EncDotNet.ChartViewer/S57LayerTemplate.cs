@@ -55,6 +55,10 @@ public sealed class S57LayerTemplate
     public static Func<S57Chart, S57AreaFeature, IEnumerable<IFeature>> AreaStyle(IStyle style)
         => (chart, feature) => CreateAreaFeature(chart, feature, style);
 
+    /// <summary>Creates an area handler with a fill color and no outline.</summary>
+    public static Func<S57Chart, S57AreaFeature, IEnumerable<IFeature>> AreaStyle(Color fill)
+        => AreaStyle(new VectorStyle { Fill = new Brush(fill), Outline = null });
+
     /// <summary>Creates an area handler with simple fill and outline colors.</summary>
     public static Func<S57Chart, S57AreaFeature, IEnumerable<IFeature>> AreaStyle(Color fill, Color outline)
         => AreaStyle(new VectorStyle { Fill = new Brush(fill), Outline = new Pen(outline, 1) });
@@ -107,12 +111,48 @@ public sealed class S57LayerTemplate
     internal static IEnumerable<IFeature> CreateAreaFeature(S57Chart chart, S57AreaFeature areaFeature, IStyle style)
     {
         var polygon = S57AreaGeometryBuilder.CreatePolygonFromAreaFeature(chart, areaFeature);
-        if (polygon != null)
+        if (polygon == null)
+            yield break;
+
+        // Separate the fill and outline: render the polygon fill without an outline,
+        // and render visible (non-masked, non-truncated) edges as a separate line feature.
+        // This prevents outlines from appearing on cell-boundary and masked edges.
+        var fillStyle = style;
+        Pen? outlinePen = null;
+
+        if (style is VectorStyle vectorStyle && vectorStyle.Outline is { } pen)
         {
-            var feature = new GeometryFeature(polygon);
-            feature["ObjectCode"] = areaFeature.ObjectCode;
-            feature.Styles.Add(MaybeWrapWithScamin(style, areaFeature));
-            yield return feature;
+            fillStyle = new VectorStyle
+            {
+                Fill = vectorStyle.Fill,
+                Outline = null,
+                Line = vectorStyle.Line,
+            };
+            outlinePen = pen;
+        }
+
+        var fillFeature = new GeometryFeature(polygon);
+        fillFeature["ObjectCode"] = areaFeature.ObjectCode;
+        fillFeature.Styles.Add(MaybeWrapWithScamin(fillStyle, areaFeature));
+        yield return fillFeature;
+
+        // Add a separate line feature for the visible edges only
+        if (outlinePen != null)
+        {
+            var visibleEdgeLines = S57AreaGeometryBuilder.CreateVisibleEdgeLinesFromAreaFeature(chart, areaFeature);
+            if (visibleEdgeLines != null)
+            {
+                var outlineStyle = new VectorStyle
+                {
+                    Line = outlinePen,
+                    Fill = null,
+                    Outline = null,
+                };
+                var outlineFeature = new GeometryFeature(visibleEdgeLines);
+                outlineFeature["ObjectCode"] = areaFeature.ObjectCode;
+                outlineFeature.Styles.Add(MaybeWrapWithScamin(outlineStyle, areaFeature));
+                yield return outlineFeature;
+            }
         }
     }
 

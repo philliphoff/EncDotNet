@@ -131,8 +131,7 @@ internal static class S57LayerTemplates
             [S57ObjectCode.SEAARE] = new()
             {
                 Area = S57LayerTemplate.AreaStyle(
-                    new Color(200, 230, 255, 255),
-                    new Color(0, 100, 200, 255)),
+                    new Color(200, 230, 255, 255)),
                 RenderOrder = OrderWater,
             },
             [S57ObjectCode.DRGARE] = new()
@@ -378,9 +377,25 @@ internal static class S57LayerTemplates
         if (polygon is null)
             yield break;
 
+        // Separate fill and outline: render polygon fill without outline,
+        // then render visible edges as a separate line feature.
+        var fillStyle = style;
+        Pen? outlinePen = null;
+
+        if (style is VectorStyle vectorStyle && vectorStyle.Outline is { } pen)
+        {
+            fillStyle = new VectorStyle
+            {
+                Fill = vectorStyle.Fill,
+                Outline = null,
+                Line = vectorStyle.Line,
+            };
+            outlinePen = pen;
+        }
+
         var mapsuiFeature = new GeometryFeature(polygon);
         mapsuiFeature["ObjectCode"] = feature.ObjectCode;
-        mapsuiFeature.Styles.Add(S57LayerTemplate.MaybeWrapWithScamin(style, feature));
+        mapsuiFeature.Styles.Add(S57LayerTemplate.MaybeWrapWithScamin(fillStyle, feature));
 
         // Store depth for feature ordering: deeper areas (higher DRVAL1) should be drawn
         // first so that shallower areas render on top.
@@ -391,6 +406,25 @@ internal static class S57LayerTemplates
             mapsuiFeature["FeatureOrder"] = 0.0;
 
         yield return mapsuiFeature;
+
+        // Add a separate line feature for the visible edges only
+        if (outlinePen != null)
+        {
+            var visibleEdgeLines = S57AreaGeometryBuilder.CreateVisibleEdgeLinesFromAreaFeature(chart, feature);
+            if (visibleEdgeLines != null)
+            {
+                var outlineStyle = new VectorStyle
+                {
+                    Line = outlinePen,
+                    Fill = null,
+                    Outline = null,
+                };
+                var outlineFeature = new GeometryFeature(visibleEdgeLines);
+                outlineFeature["ObjectCode"] = feature.ObjectCode;
+                outlineFeature.Styles.Add(S57LayerTemplate.MaybeWrapWithScamin(outlineStyle, feature));
+                yield return outlineFeature;
+            }
+        }
     }
 
     private static IStyle? CreateDepareStyle(S57AreaFeature feature)
