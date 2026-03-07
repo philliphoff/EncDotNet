@@ -26,6 +26,7 @@ internal static class S57LayerTemplates
     private const int COLOUR = 75;  // Colour
     private const int TOPSHP = 171; // Topmark shape
     private const int DRVAL1 = 87;  // Depth Range Value 1 (minimum depth, meters)
+    private const int VALDCO = 174; // Value of depth contour (meters)
 
     private const double MetersToFeet = 3.2808399;
     private const double SoundingMaxResolution = 10;
@@ -114,7 +115,7 @@ internal static class S57LayerTemplates
             },
             [S57ObjectCode.DEPCNT] = new()
             {
-                Line = S57LayerTemplate.LineStyle(new Color(0, 100, 200, 255), 1),
+                Line = CreateDepcntFeatures,
                 RenderOrder = OrderLine,
             },
             [S57ObjectCode.DEPARE] = new()
@@ -137,15 +138,13 @@ internal static class S57LayerTemplates
             [S57ObjectCode.DRGARE] = new()
             {
                 Area = S57LayerTemplate.AreaStyle(
-                    new Color(180, 220, 255, 255),
-                    new Color(0, 100, 200, 255)),
+                    new Color(180, 220, 255, 255)),
                 RenderOrder = OrderWater,
             },
             [S57ObjectCode.LAKARE] = new()
             {
                 Area = S57LayerTemplate.AreaStyle(
-                    new Color(170, 210, 255, 255),
-                    new Color(0, 80, 180, 255)),
+                    new Color(170, 210, 255, 255)),
                 RenderOrder = OrderWater,
             },
             [S57ObjectCode.RIVERS] = new()
@@ -161,8 +160,7 @@ internal static class S57LayerTemplates
             [S57ObjectCode.UNSARE] = new()
             {
                 Area = S57LayerTemplate.AreaStyle(
-                    new Color(240, 240, 200, 255),
-                    new Color(180, 180, 100, 255)),
+                    new Color(240, 240, 200, 255)),
                 RenderOrder = OrderWater,
             },
 
@@ -172,8 +170,7 @@ internal static class S57LayerTemplates
             {
                 RenderOrder = OrderLand,
                 Area = S57LayerTemplate.AreaStyle(
-                    new Color(200, 180, 140, 255),
-                    new Color(100, 80, 40, 255)),
+                    new Color(200, 180, 140, 255)),
                 Point = S57LayerTemplate.PointStyle(new LabelStyle
                 {
                     BackColor = null,
@@ -367,6 +364,32 @@ internal static class S57LayerTemplates
 
     // --- Custom handlers ---
 
+    private static IEnumerable<IFeature> CreateDepcntFeatures(S57Chart chart, S57LineFeature feature)
+    {
+        var color = GetDepthContourColor(feature);
+        if (color is null)
+            return []; // deep contour: omit to match DEPARE >10m suppression
+
+        var style = new VectorStyle { Line = new Pen(color.Value, 0.5) };
+        return S57LayerTemplate.CreateLineFeature(chart, feature, style);
+    }
+
+    private static Color? GetDepthContourColor(S57LineFeature feature)
+    {
+        var valdcoStr = feature.GetAttributeValue(VALDCO);
+        if (valdcoStr == null || !double.TryParse(valdcoStr, NumberStyles.Float, CultureInfo.InvariantCulture, out var depth))
+            return new Color(0, 100, 200, 255); // fallback: default blue
+
+        if (depth < 2)
+            return new Color(130, 170, 120, 255); // matches DEPARE <2m green
+        if (depth < 5)
+            return new Color(100, 170, 220, 255); // matches DEPARE 2–5m blue
+        if (depth < 10)
+            return new Color(120, 140, 170, 255); // matches DEPARE 5–10m grey-blue
+
+        return null; // deep (≥10m): omit contour
+    }
+
     private static IEnumerable<IFeature> CreateDepareFeatures(S57Chart chart, S57AreaFeature feature)
     {
         var style = CreateDepareStyle(feature);
@@ -377,25 +400,9 @@ internal static class S57LayerTemplates
         if (polygon is null)
             yield break;
 
-        // Separate fill and outline: render polygon fill without outline,
-        // then render visible edges as a separate line feature.
-        var fillStyle = style;
-        Pen? outlinePen = null;
-
-        if (style is VectorStyle vectorStyle && vectorStyle.Outline is { } pen)
-        {
-            fillStyle = new VectorStyle
-            {
-                Fill = vectorStyle.Fill,
-                Outline = null,
-                Line = vectorStyle.Line,
-            };
-            outlinePen = pen;
-        }
-
         var mapsuiFeature = new GeometryFeature(polygon);
         mapsuiFeature["ObjectCode"] = feature.ObjectCode;
-        mapsuiFeature.Styles.Add(S57LayerTemplate.MaybeWrapWithScamin(fillStyle, feature));
+        mapsuiFeature.Styles.Add(S57LayerTemplate.MaybeWrapWithScamin(style, feature));
 
         // Store depth for feature ordering: deeper areas (higher DRVAL1) should be drawn
         // first so that shallower areas render on top.
@@ -406,25 +413,6 @@ internal static class S57LayerTemplates
             mapsuiFeature["FeatureOrder"] = 0.0;
 
         yield return mapsuiFeature;
-
-        // Add a separate line feature for the visible edges only
-        if (outlinePen != null)
-        {
-            var visibleEdgeLines = S57AreaGeometryBuilder.CreateVisibleEdgeLinesFromAreaFeature(chart, feature);
-            if (visibleEdgeLines != null)
-            {
-                var outlineStyle = new VectorStyle
-                {
-                    Line = outlinePen,
-                    Fill = null,
-                    Outline = null,
-                };
-                var outlineFeature = new GeometryFeature(visibleEdgeLines);
-                outlineFeature["ObjectCode"] = feature.ObjectCode;
-                outlineFeature.Styles.Add(S57LayerTemplate.MaybeWrapWithScamin(outlineStyle, feature));
-                yield return outlineFeature;
-            }
-        }
     }
 
     private static IStyle? CreateDepareStyle(S57AreaFeature feature)
@@ -436,7 +424,7 @@ internal static class S57LayerTemplates
             return new VectorStyle
             {
                 Fill = new Brush(new Color(180, 220, 255, 255)),
-                Outline = new Pen(new Color(0, 100, 200, 255), 1),
+                Outline = null,
             };
         }
 
@@ -445,7 +433,7 @@ internal static class S57LayerTemplates
             return new VectorStyle
             {
                 Fill = new Brush(new Color(180, 210, 170, 255)),
-                Outline = new Pen(new Color(130, 170, 120, 255), 1),
+                Outline = null,
             };
         }
 
@@ -454,7 +442,7 @@ internal static class S57LayerTemplates
             return new VectorStyle
             {
                 Fill = new Brush(new Color(170, 210, 240, 255)),
-                Outline = new Pen(new Color(100, 170, 220, 255), 1),
+                Outline = null,
             };
         }
 
@@ -463,7 +451,7 @@ internal static class S57LayerTemplates
             return new VectorStyle
             {
                 Fill = new Brush(new Color(160, 180, 200, 255)),
-                Outline = new Pen(new Color(120, 140, 170, 255), 1),
+                Outline = null,
             };
         }
 
