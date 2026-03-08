@@ -16,6 +16,18 @@ This project is a .NET 10 library suite and Avalonia desktop application for rea
 - **ISO/IEC 8211** — Specification for a data descriptive file (the binary container format)
 - **IHO S-52** — Chart Content and Display Aspects of ECDIS (display/symbology rules; not yet fully implemented)
 
+### Standards Reference Documents
+
+The `standards/md/` directory contains Markdown versions of the key IHO S-57 standards. When working on S-57 parsing, field definitions, object codes, attribute handling, or topology, read the relevant document(s) for authoritative reference:
+
+| File | Contents |
+|---|---|
+| `standards/md/S57v31.md` | S-57 Edition 3.1 main document — Parts 1–3 (general introduction, theoretical data model, data structure including ISO 8211 field/subfield tables and updating rules) |
+| `standards/md/S57v31AppendixACh1.md` | Appendix A Chapter 1 — Object Classes (defines every S-57 object class: acronym, code, definition, geometric primitives, and allowed attributes) |
+| `standards/md/S57v31AppendixACh2.md` | Appendix A Chapter 2 — Attributes (defines every S-57 attribute: acronym, code, definition, and value domain) |
+| `standards/md/S57v31AppendixB1AnnexA.md` | Appendix B.1 Annex A — ENC Product Specification (encoding rules, cell structure, mandatory/optional objects and attributes for ENC) |
+| `standards/md/S57v31AppendixB1AnnexD.md` | Appendix B.1 Annex D — ENC Encoding Guide (additional encoding guidance and examples) |
+
 ## Project Architecture
 
 | Project | Purpose |
