@@ -366,35 +366,87 @@ internal static class S57LayerTemplates
 
     private static IEnumerable<IFeature> CreateDepcntFeatures(S57Chart chart, S57LineFeature feature)
     {
-        var color = GetDepthContourColor(feature);
-        if (color is null)
-            return []; // deep contour: omit to match DEPARE >10m suppression
+        var (color, width) = GetDepthContourStyle(feature);
 
-        var style = new VectorStyle { Line = new Pen(color.Value, 0.5) };
+        var style = new VectorStyle { Line = new Pen(color, width) };
         return S57LayerTemplate.CreateLineFeature(chart, feature, style);
     }
 
-    private static Color? GetDepthContourColor(S57LineFeature feature)
+    // S-52 depth zone colour tokens (DAY table, CIE xyL → approximate sRGB).
+    // See S-52 Ed 6.1.1, Colour Table 2.1 (DAY) and section 3.2.2.
+    //
+    // The five-zone model uses mariner-selectable contours; these defaults
+    // match S-52 section 3.2.2 default values:
+    //   DEPIT  — intertidal (DRVAL1 < 0)
+    //   DEPVS  — very shallow, 0 m to shallow contour (default 2 m)
+    //   DEPMS  — medium-shallow, shallow contour to safety contour (default 5 m)
+    //   DEPMD  — medium-deep, safety contour to deep contour (default 30 m)
+    //   DEPDW  — deep water, deeper than deep contour (> 30 m)
+    private static readonly Color ColorDepit = new(180, 200, 130, 255);  // yellow-green  (CIE .26 .36 L35)
+    private static readonly Color ColorDepvs = new(151, 182, 220, 255);  // medium blue   (CIE .21 .22 L45)
+    private static readonly Color ColorDepms = new(172, 195, 223, 255);  // light blue    (CIE .23 .25 L55)
+    private static readonly Color ColorDepmd = new(195, 210, 230, 255);  // pale blue     (CIE .26 .29 L65)
+    private static readonly Color ColorDepdw = new(220, 225, 230, 255);  // near-white    (CIE .28 .31 L80)
+
+    // S-52 depth contour colour tokens (DAY table).
+    // DEPSC — own-ship's safety contour: conspicuous grey (CIE .28 .31 L10)
+    // DEPCN — all other depth contours:  faint grey       (CIE .28 .31 L25)
+    private static readonly Color ColorDepsc = new(26, 26, 26, 255);   // DEPSC dark grey
+    private static readonly Color ColorDepcn = new(63, 63, 63, 255);   // DEPCN medium grey
+
+    // Per-zone depth contour colours. S-52 specifies DEPCN (grey) for all
+    // non-safety contours; these are broken out per zone so that a future
+    // chart "theme" can assign distinct contour colours per depth band.
+    private static readonly Color ContourColorDepit = ColorDepcn;
+    private static readonly Color ContourColorDepvs = ColorDepcn;
+    private static readonly Color ContourColorDepms = ColorDepcn;
+    private static readonly Color ContourColorDepmd = ColorDepcn;
+    private static readonly Color ContourColorDepdw = ColorDepcn;
+
+    // S-52 contour line widths (approximate pixel equivalents of 0.6 mm / 0.3 mm).
+    private const double ContourWidthSafety = 1.5;  // DEPSC — thick (S-52: 0.6 mm)
+    private const double ContourWidthNormal = 0.5;  // DEPCN — thin  (S-52: 0.3 mm)
+
+    // Default depth zone boundaries (metres). S-52 allows the mariner to
+    // adjust these; the values below are the S-52 recommended defaults.
+    private const double DepthDryingLine = 0.0;   // boundary between DEPIT and DEPVS
+    private const double DepthShallow    = 2.0;   // boundary between DEPVS and DEPMS
+    private const double DepthSafety     = 5.0;   // boundary between DEPMS and DEPMD (default safety contour)
+    private const double DepthDeep       = 30.0;  // boundary between DEPMD and DEPDW
+
+    /// <summary>
+    /// Returns the colour and line width for a depth contour feature.
+    /// The safety contour (VALDCO matching <see cref="DepthSafety"/>) uses
+    /// DEPSC (dark grey, thick); all others use per-zone colours (DEPCN grey
+    /// by default) at normal width.
+    /// </summary>
+    private static (Color Color, double Width) GetDepthContourStyle(S57LineFeature feature)
     {
         var valdcoStr = feature.GetAttributeValue(VALDCO);
         if (valdcoStr == null || !double.TryParse(valdcoStr, NumberStyles.Float, CultureInfo.InvariantCulture, out var depth))
-            return new Color(0, 100, 200, 255); // fallback: default blue
+            return (ColorDepcn, ContourWidthNormal); // fallback: DEPCN grey
 
-        if (depth < 2)
-            return new Color(130, 170, 120, 255); // matches DEPARE <2m green
-        if (depth < 5)
-            return new Color(100, 170, 220, 255); // matches DEPARE 2–5m blue
-        if (depth < 10)
-            return new Color(120, 140, 170, 255); // matches DEPARE 5–10m grey-blue
+        // Safety contour — S-52 requires conspicuous DEPSC + thick line.
+        // Use approximate equality for floating-point contour values.
+        if (Math.Abs(depth - DepthSafety) < 0.01)
+            return (ColorDepsc, ContourWidthSafety);
 
-        return null; // deep (≥10m): omit contour
+        // Per-zone contour colour (all DEPCN grey in S-52 standard theme).
+        if (depth <= DepthDryingLine)
+            return (ContourColorDepit, ContourWidthNormal);
+        if (depth <= DepthShallow)
+            return (ContourColorDepvs, ContourWidthNormal);
+        if (depth < DepthSafety)
+            return (ContourColorDepms, ContourWidthNormal);
+        if (depth <= DepthDeep)
+            return (ContourColorDepmd, ContourWidthNormal);
+
+        return (ContourColorDepdw, ContourWidthNormal);
     }
 
     private static IEnumerable<IFeature> CreateDepareFeatures(S57Chart chart, S57AreaFeature feature)
     {
         var style = CreateDepareStyle(feature);
-        if (style is null)
-            yield break;
 
         var polygon = S57AreaGeometryBuilder.CreatePolygonFromAreaFeature(chart, feature);
         if (polygon is null)
@@ -415,48 +467,37 @@ internal static class S57LayerTemplates
         yield return mapsuiFeature;
     }
 
-    private static IStyle? CreateDepareStyle(S57AreaFeature feature)
+    private static IStyle CreateDepareStyle(S57AreaFeature feature)
     {
         var drval1Str = feature.GetAttributeValue(DRVAL1);
         if (drval1Str == null || !double.TryParse(drval1Str, NumberStyles.Float, CultureInfo.InvariantCulture, out var minDepth))
         {
-            // Fallback: default DEPARE color
+            // Fallback: default DEPARE color (DEPMS — medium-shallow blue)
             return new VectorStyle
             {
-                Fill = new Brush(new Color(180, 220, 255, 255)),
+                Fill = new Brush(ColorDepms),
                 Outline = null,
             };
         }
 
-        if (minDepth < 2)
+        // S-52 five-zone model (see S-52 Ed 6.1.1, section 3.2.2)
+        Color fill;
+        if (minDepth < DepthDryingLine)
+            fill = ColorDepit;    // DEPIT: intertidal (drying area)
+        else if (minDepth < DepthShallow)
+            fill = ColorDepvs;    // DEPVS: very shallow (0–2 m)
+        else if (minDepth < DepthSafety)
+            fill = ColorDepms;    // DEPMS: medium-shallow (2–5 m)
+        else if (minDepth < DepthDeep)
+            fill = ColorDepmd;    // DEPMD: medium-deep (5–30 m)
+        else
+            fill = ColorDepdw;    // DEPDW: deep water (> 30 m)
+
+        return new VectorStyle
         {
-            return new VectorStyle
-            {
-                Fill = new Brush(new Color(180, 210, 170, 255)),
-                Outline = null,
-            };
-        }
-
-        if (minDepth < 5)
-        {
-            return new VectorStyle
-            {
-                Fill = new Brush(new Color(170, 210, 240, 255)),
-                Outline = null,
-            };
-        }
-
-        if (minDepth < 10)
-        {
-            return new VectorStyle
-            {
-                Fill = new Brush(new Color(160, 180, 200, 255)),
-                Outline = null,
-            };
-        }
-
-        // Deep: >10m — not displayed
-        return null;
+            Fill = new Brush(fill),
+            Outline = null,
+        };
     }
 
     private static IEnumerable<IFeature> CreateSoundingFeatures(S57Chart chart, S57PointFeature pointFeature, DepthUnit depthUnit)
