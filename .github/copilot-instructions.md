@@ -6,6 +6,7 @@ This project is a .NET 10 library suite and Avalonia desktop application for rea
 
 - **ISO/IEC 8211** — the binary container format used by S-57 for data encoding
 - **IHO S-57** — the International Hydrographic Organization's transfer standard for digital hydrographic data
+- **IHO S-52** — specifications for chart content and display aspects of ECDIS (symbolization, colours, display categories, and the Presentation Library)
 - **Nautical chart visualization** — rendering ENC data on a Mapsui-based map with Avalonia UI
 
 ### Key Standards References
@@ -18,7 +19,7 @@ This project is a .NET 10 library suite and Avalonia desktop application for rea
 
 ### Standards Reference Documents
 
-The `standards/md/` directory contains Markdown versions of the key IHO S-57 standards. When working on S-57 parsing, field definitions, object codes, attribute handling, or topology, read the relevant document(s) for authoritative reference:
+The `standards/md/` directory contains Markdown versions of the key IHO standards. When working on S-57 parsing, field definitions, object codes, attribute handling, topology, or chart display/symbology, read the relevant document(s) for authoritative reference:
 
 | File | Contents |
 |---|---|
@@ -27,6 +28,8 @@ The `standards/md/` directory contains Markdown versions of the key IHO S-57 sta
 | `standards/md/S57v31AppendixACh2.md` | Appendix A Chapter 2 — Attributes (defines every S-57 attribute: acronym, code, definition, and value domain) |
 | `standards/md/S57v31AppendixB1AnnexA.md` | Appendix B.1 Annex A — ENC Product Specification (encoding rules, cell structure, mandatory/optional objects and attributes for ENC) |
 | `standards/md/S57v31AppendixB1AnnexD.md` | Appendix B.1 Annex D — ENC Encoding Guide (additional encoding guidance and examples) |
+| `standards/md/S52v611.md` | S-52 Edition 6.1.1 — Specifications for Chart Content and Display Aspects of ECDIS (display organization, symbology of areas/lines/points, colour specifications, display screen requirements) |
+| `standards/md/S52AnnexA.md` | S-52 Annex A — IHO ECDIS Presentation Library Edition 4.0.3 (symbol catalogue with paper-based symbol descriptions for ECDIS) |
 
 ## Project Architecture
 
