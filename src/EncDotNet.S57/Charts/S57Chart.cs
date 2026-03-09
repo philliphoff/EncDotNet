@@ -18,6 +18,8 @@ namespace EncDotNet.S57.Charts;
 /// </remarks>
 public sealed record S57Chart
 {
+    /// <summary>S-57 attribute code for Category of Coverage (CATCOV).</summary>
+    private const int CATCOV = 18;
     /// <summary>Gets the data set identification information.</summary>
     public S57DataSetIdentification? Identification { get; }
 
@@ -70,6 +72,12 @@ public sealed record S57Chart
     /// </summary>
     public IReadOnlyDictionary<S57ObjectCode, S57ObjectCodeFeatures> FeaturesByObjectCode { get; }
     /// <summary>
+    /// Gets the M_COVR area features with CATCOV=1 (coverage available).
+    /// These define the geographic areas where this chart provides data coverage.
+    /// </summary>
+    public IReadOnlyList<S57AreaFeature> CoverageAreas { get; }
+
+    /// <summary>
     /// Gets the coordinate multiplication factor for converting integer coordinates to decimal degrees.
     /// </summary>
     public int CoordinateMultiplicationFactor =>
@@ -120,6 +128,24 @@ public sealed record S57Chart
         ReferencingFeatures = BuildReferencingFeaturesIndex(AllFeatures);
         ColocatedPointFeatures = BuildColocatedPointFeaturesIndex(PointFeatures);
         FeaturesByObjectCode = BuildFeaturesByObjectCodeIndex(PointFeatures, LineFeatures, AreaFeatures, MetaFeatures);
+        CoverageAreas = BuildCoverageAreas(FeaturesByObjectCode);
+    }
+
+    private static ImmutableArray<S57AreaFeature> BuildCoverageAreas(
+        IReadOnlyDictionary<S57ObjectCode, S57ObjectCodeFeatures> featuresByObjectCode)
+    {
+        if (!featuresByObjectCode.TryGetValue(S57ObjectCode.M_COVR, out var covrFeatures))
+            return [];
+
+        var builder = ImmutableArray.CreateBuilder<S57AreaFeature>();
+        foreach (var area in covrFeatures.Areas)
+        {
+            // CATCOV attribute code 18, value "1" = coverage available
+            var catcov = area.GetAttributeValue(CATCOV);
+            if (catcov == "1")
+                builder.Add(area);
+        }
+        return builder.ToImmutable();
     }
 
     private static ImmutableDictionary<S57RecordName, S57TypedFeature> BuildAllFeaturesIndex(
@@ -335,6 +361,7 @@ public sealed record S57Chart
         ReferencingFeatures = BuildReferencingFeaturesIndex(AllFeatures);
         ColocatedPointFeatures = BuildColocatedPointFeaturesIndex(PointFeatures);
         FeaturesByObjectCode = BuildFeaturesByObjectCodeIndex(PointFeatures, LineFeatures, AreaFeatures, MetaFeatures);
+        CoverageAreas = BuildCoverageAreas(FeaturesByObjectCode);
     }
 
     /// <summary>

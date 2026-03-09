@@ -2,11 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using EncDotNet.ChartViewer.Catalogs;
 using EncDotNet.ChartViewer.Models;
@@ -19,6 +21,7 @@ using Mapsui.Layers;
 using System.Collections.Immutable;
 using Mapsui.Manipulations;
 using Mapsui.Nts;
+using Mapsui.Projections;
 using Mapsui.Styles;
 using Mapsui.Styles.Thematics;
 using Mapsui.Tiling;
@@ -77,6 +80,9 @@ public partial class MainWindow : Window
 
         ZoomInButton.Click += OnZoomInClick;
         ZoomOutButton.Click += OnZoomOutClick;
+
+        // Ctrl+Shift+D (or Cmd+Shift+D on macOS) captures diagnostic state to clipboard.
+        KeyDown += OnDiagnosticKeyDown;
     }
 
     private void OnChartItemTapped(object? sender, TappedEventArgs e)
@@ -575,6 +581,7 @@ public partial class MainWindow : Window
                 _loadedCharts.Remove(chartVm);
             }
         }
+
     }
 
     /// <summary>
@@ -598,6 +605,10 @@ public partial class MainWindow : Window
         {
             var chart = await vm.GetChartAsync(chartVm.Entry);
             chartVm.CompilationScale = chart.CompilationScale;
+
+            // Build and cache the projected coverage geometry (M_COVR CATCOV=1)
+            // for this chart. Available for future use (e.g. dynamic clipping).
+            chartVm.CoverageGeometry = S57CoverageHelper.BuildCoverageGeometry(chart);
 
             foreach (var featureVm in vm.FeatureCategories)
             {
@@ -655,6 +666,7 @@ public partial class MainWindow : Window
         }
 
         chartVm.Layers.Clear();
+        chartVm.CoverageGeometry = null;
         MyMapControl.Map?.Refresh();
     }
 
@@ -852,6 +864,157 @@ public partial class MainWindow : Window
             Features = features,
             Style = new BoundaryThemeStyle(),
         };
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // Diagnostic capture (Ctrl+Shift+D / Cmd+Shift+D)
+    // ────────────────────────────────────────────────────────────────────
+
+    private void OnDiagnosticKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.D)
+            return;
+
+        bool hasModifier = e.KeyModifiers.HasFlag(KeyModifiers.Shift)
+            && (e.KeyModifiers.HasFlag(KeyModifiers.Control) || e.KeyModifiers.HasFlag(KeyModifiers.Meta));
+
+        if (!hasModifier)
+            return;
+
+        e.Handled = true;
+        _ = CaptureDiagnosticsAsync();
+    }
+
+    private async Task CaptureDiagnosticsAsync()
+    {
+        try
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("# ChartViewer Diagnostic Snapshot");
+            sb.AppendLine($"- **Timestamp**: {DateTime.UtcNow:O}");
+            sb.AppendLine();
+
+            // ── Viewport ──
+            if (MyMapControl.Map?.Navigator is { } nav)
+            {
+                var vp = nav.Viewport;
+                var extent = vp.ToExtent();
+                sb.AppendLine("## Viewport");
+                sb.AppendLine($"- **CenterX**: {vp.CenterX:F2}");
+                sb.AppendLine($"- **CenterY**: {vp.CenterY:F2}");
+
+                // Convert center from Mercator to geographic for convenience.
+                var (lon, lat) = SphericalMercator.ToLonLat(vp.CenterX, vp.CenterY);
+                sb.AppendLine($"- **Center (lon, lat)**: ({lon:F6}, {lat:F6})");
+                sb.AppendLine($"- **Resolution**: {vp.Resolution:F6}");
+                sb.AppendLine($"- **Rotation**: {vp.Rotation:F2}");
+                sb.AppendLine($"- **Width**: {vp.Width:F0}");
+                sb.AppendLine($"- **Height**: {vp.Height:F0}");
+
+                if (extent is not null)
+                {
+                    sb.AppendLine($"- **Extent**: ({extent.MinX:F2}, {extent.MinY:F2}) — ({extent.MaxX:F2}, {extent.MaxY:F2})");
+                }
+
+                sb.AppendLine();
+            }
+
+            // ── Loaded Charts ──
+            sb.AppendLine("## Loaded Charts");
+            if (_loadedCharts.Count == 0)
+            {
+                sb.AppendLine("_(none)_");
+            }
+            else
+            {
+                sb.AppendLine("| Chart | CSCL | Layers | Enabled | MaxVisible Range |");
+                sb.AppendLine("|---|---|---|---|---|");
+                foreach (var chartVm in _loadedCharts.OrderBy(c => c.CompilationScale))
+                {
+                    int totalLayers = chartVm.Layers.Count;
+                    int enabledLayers = chartVm.Layers.Count(l => l.Enabled);
+                    double minMax = chartVm.Layers.Count > 0
+                        ? chartVm.Layers.Min(l => l.MaxVisible)
+                        : 0;
+                    double maxMax = chartVm.Layers.Count > 0
+                        ? chartVm.Layers.Max(l => l.MaxVisible)
+                        : 0;
+                    string maxVisStr = minMax == maxMax
+                        ? FormatMaxVisible(minMax)
+                        : $"{FormatMaxVisible(minMax)} – {FormatMaxVisible(maxMax)}";
+                    sb.AppendLine($"| {chartVm.Name} | {chartVm.CompilationScale} | {totalLayers} | {enabledLayers} | {maxVisStr} |");
+                }
+            }
+            sb.AppendLine();
+
+            // ── Loading Charts ──
+            if (_loadingCharts.Count > 0)
+            {
+                sb.AppendLine("## Loading Charts (in progress)");
+                foreach (var chartVm in _loadingCharts)
+                    sb.AppendLine($"- {chartVm.Name}");
+                sb.AppendLine();
+            }
+
+            // ── Map Layers (in render order) ──
+            sb.AppendLine("## Map Layers (render order, bottom to top)");
+            if (MyMapControl.Map is { } map)
+            {
+                sb.AppendLine("| # | Layer Name | Type | Enabled | MaxVisible |");
+                sb.AppendLine("|---|---|---|---|---|");
+                int idx = 0;
+                foreach (var layer in map.Layers)
+                {
+                    sb.AppendLine($"| {idx} | {layer.Name} | {layer.GetType().Name} | {layer.Enabled} | {FormatMaxVisible(layer.MaxVisible)} |");
+                    idx++;
+                }
+            }
+            sb.AppendLine();
+
+            // ── Screenshot ──
+            string? screenshotPath = null;
+            try
+            {
+                var pixelSize = new Avalonia.PixelSize((int)MyMapControl.Bounds.Width, (int)MyMapControl.Bounds.Height);
+                if (pixelSize.Width > 0 && pixelSize.Height > 0)
+                {
+                    var rtb = new RenderTargetBitmap(pixelSize);
+                    rtb.Render(MyMapControl);
+
+                    var dir = Path.Combine(Path.GetTempPath(), "EncDotNet-Diagnostics");
+                    Directory.CreateDirectory(dir);
+                    screenshotPath = Path.Combine(dir, $"diag-{DateTime.UtcNow:yyyyMMdd-HHmmss}.png");
+                    rtb.Save(screenshotPath);
+
+                    sb.AppendLine("## Screenshot");
+                    sb.AppendLine($"Saved to: `{screenshotPath}`");
+                }
+            }
+            catch (Exception ex)
+            {
+                sb.AppendLine("## Screenshot");
+                sb.AppendLine($"_(failed: {ex.Message})_");
+            }
+
+            // ── Copy to clipboard ──
+            var text = sb.ToString();
+            if (Clipboard is { } clipboard)
+            {
+                await clipboard.SetTextAsync(text);
+            }
+
+            System.Diagnostics.Debug.WriteLine("Diagnostic snapshot captured to clipboard.");
+            System.Diagnostics.Debug.WriteLine(text);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Diagnostic capture failed: {ex.Message}");
+        }
+    }
+
+    private static string FormatMaxVisible(double value)
+    {
+        return value >= double.MaxValue / 2 ? "∞" : $"{value:F4}";
     }
 
     private class BoundaryThemeStyle : IThemeStyle

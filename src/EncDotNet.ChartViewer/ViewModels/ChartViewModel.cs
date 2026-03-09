@@ -9,6 +9,7 @@ using EncDotNet.ChartViewer.Models;
 using Mapsui;
 using Mapsui.Layers;
 using Mapsui.Projections;
+using NetTopologySuite.Geometries;
 using ReactiveUI;
 
 namespace EncDotNet.ChartViewer.ViewModels;
@@ -35,6 +36,12 @@ public sealed class ChartViewModel : ViewModelBase
 
     /// <summary>Gets or sets the layers created for this chart.</summary>
     public List<MemoryLayer> Layers { get; } = new();
+
+    /// <summary>
+    /// Gets or sets the projected coverage geometry (M_COVR CATCOV=1) for this chart,
+    /// or <c>null</c> if the chart has no coverage areas. Set after chart loading.
+    /// </summary>
+    public Geometry? CoverageGeometry { get; set; }
 
     /// <summary>
     /// Pre-computed Mercator-projected bounds for the chart, or null if the chart has no geographic bounds.
