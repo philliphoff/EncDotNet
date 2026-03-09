@@ -80,6 +80,7 @@ public partial class MainWindow : Window
 
         ZoomInButton.Click += OnZoomInClick;
         ZoomOutButton.Click += OnZoomOutClick;
+        DiagnosticButton.Click += OnDiagnosticButtonClick;
 
         // Ctrl+Shift+D (or Cmd+Shift+D on macOS) captures diagnostic state to clipboard.
         KeyDown += OnDiagnosticKeyDown;
@@ -909,6 +910,11 @@ public partial class MainWindow : Window
     // Diagnostic capture (Ctrl+Shift+D / Cmd+Shift+D)
     // ────────────────────────────────────────────────────────────────────
 
+    private void OnDiagnosticButtonClick(object? sender, RoutedEventArgs e)
+    {
+        _ = CaptureDiagnosticsAsync();
+    }
+
     private void OnDiagnosticKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key != Key.D)
@@ -1042,6 +1048,10 @@ public partial class MainWindow : Window
                 await clipboard.SetTextAsync(text);
             }
 
+            ShowToast(screenshotPath is not null
+                ? $"Diagnostic snapshot copied to clipboard. Screenshot saved to {screenshotPath}"
+                : "Diagnostic snapshot copied to clipboard.");
+
             System.Diagnostics.Debug.WriteLine("Diagnostic snapshot captured to clipboard.");
             System.Diagnostics.Debug.WriteLine(text);
         }
@@ -1054,6 +1064,30 @@ public partial class MainWindow : Window
     private static string FormatMaxVisible(double value)
     {
         return value >= double.MaxValue / 2 ? "∞" : $"{value:F4}";
+    }
+
+    private CancellationTokenSource? _toastCts;
+
+    private void ShowToast(string message, int durationMs = 3000)
+    {
+        _toastCts?.Cancel();
+        var cts = _toastCts = new CancellationTokenSource();
+
+        ToastText.Text = message;
+        ToastBanner.IsVisible = true;
+
+        Dispatcher.UIThread.InvokeAsync(async () =>
+        {
+            try
+            {
+                await Task.Delay(durationMs, cts.Token);
+                ToastBanner.IsVisible = false;
+            }
+            catch (TaskCanceledException)
+            {
+                // Superseded by a newer toast
+            }
+        });
     }
 
     private class BoundaryThemeStyle : IThemeStyle
