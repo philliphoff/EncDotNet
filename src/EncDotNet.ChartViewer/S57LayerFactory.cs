@@ -4,6 +4,7 @@ using System.Collections.Immutable;
 using EncDotNet.S57;
 using EncDotNet.S57.Charts;
 using EncDotNet.ChartViewer.Models;
+using EncDotNet.ChartViewer.ViewModels;
 using Mapsui;
 using Mapsui.Layers;
 
@@ -99,5 +100,78 @@ public static class S57LayerFactory
             Style = null,
             MaxVisible = Math.Min(maxVisible, csclMaxVisible),
         };
+    }
+
+    /// <summary>
+    /// Recalculates <see cref="MemoryLayer.MinVisible"/> for all loaded charts so that
+    /// coarse overview charts are suppressed when sufficiently detailed charts are available,
+    /// while ensuring there are no zoom-level gaps where nothing renders.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The algorithm sorts loaded charts by compilation scale (finest first) and sets each
+    /// chart's MinVisible to the MaxVisible of the chart <b>two</b> scale levels finer.
+    /// This guarantees at least two adjacent scale levels are visible at every resolution,
+    /// providing geographic fallback coverage (since finer charts may not geographically
+    /// cover the same areas as coarser ones) while still suppressing very coarse overview
+    /// charts that would cause visual bleed-through.
+    /// </para>
+    /// <para>
+    /// The three finest scale levels keep MinVisible = 0 so they are always visible when
+    /// zoomed in.
+    /// </para>
+    /// </remarks>
+    internal static void RecalculateMinVisible(IReadOnlyCollection<ChartViewModel> loadedCharts)
+    {
+        if (loadedCharts.Count == 0)
+            return;
+
+        // Build a list of (CSCL, MaxVisible) for distinct scales, sorted ascending (finest first).
+        // Multiple charts at the same scale share the same visibility band.
+        var scaleMaxVisible = new SortedDictionary<int, double>();
+        foreach (var chartVm in loadedCharts)
+        {
+            int cscl = chartVm.CompilationScale;
+            if (cscl <= 0)
+                continue;
+
+            double maxVis = cscl * PixelSizeMeters * OverScaleFactor;
+
+            // A chart's layers may have template-specific MaxVisible lower than the CSCL-based
+            // limit. Use the CSCL-based value for the cascade since it represents the chart's
+            // overall visibility ceiling.
+            if (!scaleMaxVisible.ContainsKey(cscl))
+                scaleMaxVisible[cscl] = maxVis;
+        }
+
+        // Build a mapping from CSCL → MinVisible.
+        // Iterate scales from finest (lowest CSCL) to coarsest (highest CSCL).
+        // Each chart's MinVisible is the MaxVisible of the chart three scale levels finer,
+        // ensuring at least three scale levels overlap at every resolution. This provides
+        // geographic fallback coverage (since finer charts rarely cover the same full area
+        // as coarser ones) while still suppressing vastly coarser overview charts whose
+        // geometry would cause visual bleed-through.
+        const int overlapLevels = 3;
+        var scales = new List<KeyValuePair<int, double>>(scaleMaxVisible);
+        var scaleMinVisible = new Dictionary<int, double>();
+        for (int i = 0; i < scales.Count; i++)
+        {
+            // The finest N scales (i < overlapLevels) keep MinVisible = 0.
+            // Coarser scales reference the chart N levels finer.
+            double minVis = i >= overlapLevels ? scales[i - overlapLevels].Value : 0;
+            scaleMinVisible[scales[i].Key] = minVis;
+        }
+
+        // Apply MinVisible to all layers of each loaded chart.
+        foreach (var chartVm in loadedCharts)
+        {
+            int cscl = chartVm.CompilationScale;
+            double minVis = cscl > 0 && scaleMinVisible.TryGetValue(cscl, out var mv) ? mv : 0;
+
+            foreach (var layer in chartVm.Layers)
+            {
+                layer.MinVisible = minVis;
+            }
+        }
     }
 }

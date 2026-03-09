@@ -589,6 +589,11 @@ public partial class MainWindow : Window
             }
         }
 
+        // Recompute MinVisible for all loaded charts so that each chart's layers
+        // hide once a finer-scale chart's layers take over. This adapts dynamically
+        // as charts are loaded and unloaded, ensuring no zoom-level gaps.
+        S57LayerFactory.RecalculateMinVisible(_loadedCharts);
+
     }
 
     /// <summary>
@@ -636,7 +641,7 @@ public partial class MainWindow : Window
             return true;
 
         double maxVisible = compilationScale * S57LayerFactory.PixelSizeMeters * S57LayerFactory.OverScaleFactor;
-        return maxVisible >= resolution;
+        return resolution <= maxVisible;
     }
 
     private async Task LoadChartAsync(ChartViewModel chartVm, MainWindowViewModel vm)
@@ -972,22 +977,19 @@ public partial class MainWindow : Window
             }
             else
             {
-                sb.AppendLine("| Chart | CSCL | Layers | Enabled | MaxVisible Range |");
+                sb.AppendLine("| Chart | CSCL | Layers | Enabled | Visible Range |");
                 sb.AppendLine("|---|---|---|---|---|");
                 foreach (var chartVm in _loadedCharts.OrderBy(c => c.CompilationScale))
                 {
                     int totalLayers = chartVm.Layers.Count;
                     int enabledLayers = chartVm.Layers.Count(l => l.Enabled);
-                    double minMax = chartVm.Layers.Count > 0
-                        ? chartVm.Layers.Min(l => l.MaxVisible)
+                    double minMin = chartVm.Layers.Count > 0
+                        ? chartVm.Layers.Min(l => l.MinVisible)
                         : 0;
                     double maxMax = chartVm.Layers.Count > 0
                         ? chartVm.Layers.Max(l => l.MaxVisible)
                         : 0;
-                    string maxVisStr = minMax == maxMax
-                        ? FormatMaxVisible(minMax)
-                        : $"{FormatMaxVisible(minMax)} – {FormatMaxVisible(maxMax)}";
-                    sb.AppendLine($"| {chartVm.Name} | {chartVm.CompilationScale} | {totalLayers} | {enabledLayers} | {maxVisStr} |");
+                    sb.AppendLine($"| {chartVm.Name} | {chartVm.CompilationScale} | {totalLayers} | {enabledLayers} | {FormatMaxVisible(minMin)} – {FormatMaxVisible(maxMax)} |");
                 }
             }
             sb.AppendLine();
@@ -1005,12 +1007,12 @@ public partial class MainWindow : Window
             sb.AppendLine("## Map Layers (render order, bottom to top)");
             if (MyMapControl.Map is { } map)
             {
-                sb.AppendLine("| # | Layer Name | Type | Enabled | MaxVisible |");
-                sb.AppendLine("|---|---|---|---|---|");
+                sb.AppendLine("| # | Layer Name | Type | Enabled | MinVisible | MaxVisible |");
+                sb.AppendLine("|---|---|---|---|---|---|");
                 int idx = 0;
                 foreach (var layer in map.Layers)
                 {
-                    sb.AppendLine($"| {idx} | {layer.Name} | {layer.GetType().Name} | {layer.Enabled} | {FormatMaxVisible(layer.MaxVisible)} |");
+                    sb.AppendLine($"| {idx} | {layer.Name} | {layer.GetType().Name} | {layer.Enabled} | {FormatMaxVisible(layer.MinVisible)} | {FormatMaxVisible(layer.MaxVisible)} |");
                     idx++;
                 }
             }
