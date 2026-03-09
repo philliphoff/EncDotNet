@@ -519,15 +519,21 @@ public partial class MainWindow : Window
             }
         }
 
-        // Sort: already-loaded charts first (to avoid churn), then by detail level
-        // (lower CompilationScale = more detail = higher priority).
-        // Charts with unknown scale (0) sort last so known charts fill the budget.
+        // Sort candidates so the budget is filled with the most useful charts first.
+        // Priority tiers (lower = more important):
+        //   0: Already loaded AND renderable at the current viewport resolution
+        //   1: Not yet loaded but renderable (candidates that should enter the map)
+        //   2: Already loaded but NOT renderable (keep warm if budget allows)
+        //   3: Not loaded and not renderable (lowest value at this zoom)
+        // Within each tier, prefer lower CompilationScale (more detail).
+        // Charts with unknown scale (CompilationScale == 0) are treated as
+        // potentially renderable so they get a chance to load.
         candidates.Sort((a, b) =>
         {
-            bool aLoaded = _loadedCharts.Contains(a);
-            bool bLoaded = _loadedCharts.Contains(b);
-            if (aLoaded != bLoaded)
-                return aLoaded ? -1 : 1;
+            int aPriority = ChartSortPriority(a, resolution);
+            int bPriority = ChartSortPriority(b, resolution);
+            if (aPriority != bPriority)
+                return aPriority.CompareTo(bPriority);
 
             int aScale = a.CompilationScale > 0 ? a.CompilationScale : int.MaxValue;
             int bScale = b.CompilationScale > 0 ? b.CompilationScale : int.MaxValue;
@@ -597,6 +603,39 @@ public partial class MainWindow : Window
             && bounds.MaxX >= viewportExtent.MinX
             && bounds.MinY <= viewportExtent.MaxY
             && bounds.MaxY >= viewportExtent.MinY;
+    }
+
+    /// <summary>
+    /// Returns a sort priority for a chart candidate (lower = more important).
+    /// Charts that are renderable at the current viewport resolution are preferred
+    /// over charts that are invisible, preventing the budget from filling with
+    /// detailed charts that can't actually render when zoomed out.
+    /// </summary>
+    private int ChartSortPriority(ChartViewModel chartVm, double resolution)
+    {
+        bool loaded = _loadedCharts.Contains(chartVm);
+        bool renderable = IsRenderableAtResolution(chartVm.CompilationScale, resolution);
+        return (loaded, renderable) switch
+        {
+            (true, true) => 0,   // loaded + renderable: highest priority
+            (false, true) => 1,  // not loaded but would render: should enter
+            (true, false) => 2,  // loaded but invisible: keep warm if room
+            _ => 3,              // not loaded, not renderable: lowest
+        };
+    }
+
+    /// <summary>
+    /// Returns true if a chart with the given compilation scale would have its layers
+    /// rendered at the specified viewport resolution.
+    /// </summary>
+    private static bool IsRenderableAtResolution(int compilationScale, double resolution)
+    {
+        // Unknown scale (0) — optimistically treat as renderable so it gets a chance to load.
+        if (compilationScale <= 0)
+            return true;
+
+        double maxVisible = compilationScale * S57LayerFactory.PixelSizeMeters * S57LayerFactory.OverScaleFactor;
+        return maxVisible >= resolution;
     }
 
     private async Task LoadChartAsync(ChartViewModel chartVm, MainWindowViewModel vm)

@@ -15,14 +15,14 @@ namespace EncDotNet.ChartViewer;
 public static class S57LayerFactory
 {
     /// <summary>Approximate pixel size in meters at standard screen DPI (~96).</summary>
-    private const double PixelSizeMeters = 0.000264583;
+    internal const double PixelSizeMeters = 0.000264583;
 
     /// <summary>
     /// Allow displaying chart features at up to 2x beyond the chart's compilation scale
     /// before hiding. This avoids abruptly hiding a chart right at its nominal scale and
     /// matches common ECDIS over-scale tolerance practice.
     /// </summary>
-    private const double OverScaleFactor = 2.0;
+    internal const double OverScaleFactor = 2.0;
 
     /// <summary>
     /// Creates a MemoryLayer containing only features matching the specified object codes.
