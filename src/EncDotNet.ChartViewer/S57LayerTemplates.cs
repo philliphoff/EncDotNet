@@ -26,6 +26,7 @@ internal static class S57LayerTemplates
     private const int COLOUR = 75;  // Colour
     private const int TOPSHP = 171; // Topmark shape
     private const int DRVAL1 = 87;  // Depth Range Value 1 (minimum depth, meters)
+    private const int OBJNAM = 116; // Object name
     private const int VALDCO = 174; // Value of depth contour (meters)
 
     private const double MetersToFeet = 3.2808399;
@@ -131,8 +132,8 @@ internal static class S57LayerTemplates
             },
             [S57ObjectCode.SEAARE] = new()
             {
-                Area = S57LayerTemplate.AreaStyle(
-                    new Color(200, 230, 255, 255)),
+                Area = CreateSeaAreaFeatures,
+                Point = CreateNamedPointLabelFeatures(SeaAreaLabelColor),
                 RenderOrder = OrderWater,
             },
             [S57ObjectCode.DRGARE] = new()
@@ -180,6 +181,12 @@ internal static class S57LayerTemplates
                     HorizontalAlignment = LabelStyle.HorizontalAlignmentEnum.Center,
                     VerticalAlignment = LabelStyle.VerticalAlignmentEnum.Center,
                 }),
+            },
+            [S57ObjectCode.LNDRGN] = new()
+            {
+                Area = CreateLandRegionFeatures,
+                Point = CreateNamedPointLabelFeatures(LandRegionLabelColor),
+                RenderOrder = OrderLabel,
             },
             [S57ObjectCode.BUAARE] = new()
             {
@@ -741,4 +748,85 @@ internal static class S57LayerTemplates
             _ => null,
         };
     }
+
+    // --- Name label rendering ---
+
+    private static readonly Color SeaAreaLabelColor = new(0, 80, 160, 255);
+    private static readonly Color LandRegionLabelColor = new(100, 80, 40, 255);
+
+    private static readonly Color SeaAreaFillColor = new(200, 230, 255, 255);
+
+    private static LabelStyle CreateNameLabelStyle(Color foreColor)
+        => new()
+        {
+            BackColor = null,
+            ForeColor = foreColor,
+            Font = new Font { FontFamily = "serif", Size = 14, Italic = true },
+            HorizontalAlignment = LabelStyle.HorizontalAlignmentEnum.Center,
+            VerticalAlignment = LabelStyle.VerticalAlignmentEnum.Center,
+        };
+
+    private static IEnumerable<IFeature> CreateSeaAreaFeatures(S57Chart chart, S57AreaFeature feature)
+    {
+        // Area fill
+        var fillStyle = new VectorStyle { Fill = new Brush(SeaAreaFillColor), Outline = null };
+        foreach (var f in S57LayerTemplate.CreateAreaFeature(chart, feature, fillStyle))
+            yield return f;
+
+        // Name label at interior point
+        var name = feature.GetAttributeValue(OBJNAM);
+        if (name == null)
+            yield break;
+
+        var polygon = S57AreaGeometryBuilder.CreatePolygonFromAreaFeature(chart, feature);
+        if (polygon == null)
+            yield break;
+
+        var interiorPoint = polygon.InteriorPoint;
+        var labelFeature = new GeometryFeature(interiorPoint);
+        labelFeature["ObjectCode"] = feature.ObjectCode;
+        var labelStyle = CreateNameLabelStyle(SeaAreaLabelColor);
+        labelStyle.Text = name;
+        labelFeature.Styles.Add(S57LayerTemplate.MaybeWrapWithScamin(labelStyle, feature));
+        yield return labelFeature;
+    }
+
+    private static IEnumerable<IFeature> CreateLandRegionFeatures(S57Chart chart, S57AreaFeature feature)
+    {
+        // LNDRGN has no fill — land is drawn by LNDARE. Only render a name label.
+        var name = feature.GetAttributeValue(OBJNAM);
+        if (name == null)
+            yield break;
+
+        var polygon = S57AreaGeometryBuilder.CreatePolygonFromAreaFeature(chart, feature);
+        if (polygon == null)
+            yield break;
+
+        var interiorPoint = polygon.InteriorPoint;
+        var labelFeature = new GeometryFeature(interiorPoint);
+        labelFeature["ObjectCode"] = feature.ObjectCode;
+        var labelStyle = CreateNameLabelStyle(LandRegionLabelColor);
+        labelStyle.Text = name;
+        labelFeature.Styles.Add(S57LayerTemplate.MaybeWrapWithScamin(labelStyle, feature));
+        yield return labelFeature;
+    }
+
+    private static Func<S57Chart, S57PointFeature, DepthUnit, IEnumerable<IFeature>> CreateNamedPointLabelFeatures(Color foreColor)
+        => (chart, feature, _) =>
+        {
+            var name = feature.GetAttributeValue(OBJNAM);
+            if (name == null)
+                return [];
+
+            var point = S57LayerTemplate.CreatePointGeometry(chart, feature);
+            if (point == null)
+                return [];
+
+            var labelFeature = new GeometryFeature(point);
+            labelFeature["ObjectCode"] = feature.ObjectCode;
+            var labelStyle = CreateNameLabelStyle(foreColor);
+            labelStyle.Text = name;
+            labelFeature.Styles.Add(S57LayerTemplate.MaybeWrapWithScamin(labelStyle, feature));
+            return [labelFeature];
+        };
 }
