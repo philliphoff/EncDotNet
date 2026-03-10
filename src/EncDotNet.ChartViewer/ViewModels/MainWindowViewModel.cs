@@ -159,10 +159,15 @@ public class MainWindowViewModel : ViewModelBase
     /// </summary>
     internal async Task LoadCatalogAsync(CancellationToken cancellationToken = default)
     {
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
         await foreach (var entry in _catalogSource.GetCatalogAsync(cancellationToken))
         {
             AvailableCharts.Add(new ChartViewModel(entry));
         }
+
+        stopwatch.Stop();
+        ChartViewerDiagnostics.CatalogLoadDuration.Record(stopwatch.Elapsed.TotalMilliseconds);
 
         System.Diagnostics.Debug.WriteLine($"Loaded {AvailableCharts.Count} charts from catalog");
 

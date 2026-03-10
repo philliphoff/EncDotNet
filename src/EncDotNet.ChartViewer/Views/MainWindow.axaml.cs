@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -675,14 +676,22 @@ public partial class MainWindow : Window
 
     private async Task LoadChartAsync(ChartViewModel chartVm, MainWindowViewModel vm)
     {
+        var tags = new KeyValuePair<string, object?>("chart.name", chartVm.Name);
+        ChartViewerDiagnostics.ChartsLoading.Add(1, tags);
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
         try
         {
             var chart = await vm.GetChartAsync(chartVm.Entry);
             chartVm.CompilationScale = chart.CompilationScale;
 
+            ChartViewerDiagnostics.ChartLoadDuration.Record(stopwatch.Elapsed.TotalMilliseconds, tags);
+
             // Build and cache the projected coverage geometry (M_COVR CATCOV=1)
             // for this chart. Available for future use (e.g. dynamic clipping).
             chartVm.CoverageGeometry = S57CoverageHelper.BuildCoverageGeometry(chart);
+
+            var layerStopwatch = System.Diagnostics.Stopwatch.StartNew();
 
             foreach (var featureVm in vm.FeatureCategories)
             {
@@ -701,8 +710,19 @@ public partial class MainWindow : Window
 
                     layer.Enabled = featureItem.IsVisible;
                     chartVm.Layers.Add(layer);
+
+                    var layerTags = new TagList
+                    {
+                        { "chart.name", chartVm.Name },
+                        { "object.code", featureItem.ObjectCode.ToString() },
+                    };
+                    ChartViewerDiagnostics.LayersCreated.Add(1, layerTags);
+                    ChartViewerDiagnostics.FeaturesPerLayer.Record(layer.Features.Count(), layerTags);
                 }
             }
+
+            layerStopwatch.Stop();
+            ChartViewerDiagnostics.LayerCreationDuration.Record(layerStopwatch.Elapsed.TotalMilliseconds, tags);
 
             // Sort layers by render order so that background areas (land, water, depth)
             // are drawn first and point features (buoys, beacons) are drawn on top.
@@ -726,10 +746,16 @@ public partial class MainWindow : Window
             }
 
             System.Diagnostics.Debug.WriteLine($"Loaded chart: {chartVm.Name}");
+            ChartViewerDiagnostics.ChartsLoaded.Add(1, tags);
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Error loading chart {chartVm.Name}: {ex.Message}");
+            ChartViewerDiagnostics.ChartLoadErrors.Add(1, tags);
+        }
+        finally
+        {
+            ChartViewerDiagnostics.ChartsLoading.Add(-1, tags);
         }
     }
 

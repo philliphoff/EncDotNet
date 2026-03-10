@@ -6,6 +6,7 @@ using EncDotNet.ChartViewer.Catalogs;
 using EncDotNet.ChartViewer.ViewModels;
 using EncDotNet.ChartViewer.Views;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
@@ -37,6 +38,13 @@ public partial class App : Application
         ConfigureServices(services);
         Services = services.BuildServiceProvider();
 
+        // Start OpenTelemetry hosted services (metric export, etc.)
+        // which are not automatically started outside of a generic host.
+        foreach (var hostedService in Services.GetServices<IHostedService>())
+        {
+            hostedService.StartAsync(CancellationToken.None);
+        }
+
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             desktop.MainWindow = new MainWindow
@@ -59,6 +67,7 @@ public partial class App : Application
             {
                 options.SetResourceBuilder(resourceBuilder);
                 options.AddConsoleExporter();
+                options.AddOtlpExporter();
             });
         });
 
@@ -68,6 +77,7 @@ public partial class App : Application
                 metrics.SetResourceBuilder(resourceBuilder);
                 metrics.AddMeter("EncDotNet.ChartViewer");
                 metrics.AddConsoleExporter();
+                metrics.AddOtlpExporter();
             });
 
         services.AddSingleton<ICatalogSource>(sp => new FileSystemCatalogSource(
