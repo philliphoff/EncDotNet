@@ -34,12 +34,14 @@ public static class S57LayerFactory
     /// <param name="objectCodes">The S-57 object codes to include.</param>
     /// <param name="layerName">Name for the layer.</param>
     /// <param name="depthUnit">The unit for displaying depth values.</param>
+    /// <param name="chartName">Display name of the chart (used for feature info on default-rendered points).</param>
     /// <returns>A MemoryLayer containing the matching features, or <c>null</c> if no features were produced.</returns>
     public static MemoryLayer? CreateLayerForObjectCodes(
         S57Chart chart,
         ImmutableArray<S57ObjectCode> objectCodes,
         string layerName,
-        DepthUnit depthUnit = DepthUnit.Feet)
+        DepthUnit depthUnit = DepthUnit.Feet,
+        string? chartName = null)
     {
         var features = new List<IFeature>();
         double maxVisible = double.MaxValue;
@@ -66,11 +68,35 @@ public static class S57LayerFactory
                     features.AddRange(lineHandler(chart, lineFeature));
             }
 
+            // Detect when the default point handler is used as a fallback
+            bool isDefaultPointHandler = template.Point == null;
             var pointHandler = template.Point ?? S57LayerTemplates.Default.Point;
             if (pointHandler != null)
             {
                 foreach (var pointFeature in codeFeatures.Points)
-                    features.AddRange(pointHandler(chart, pointFeature, depthUnit));
+                {
+                    var createdFeatures = pointHandler(chart, pointFeature, depthUnit);
+                    foreach (var f in createdFeatures)
+                    {
+                        if (isDefaultPointHandler)
+                        {
+                            f["IsDefaultRendering"] = true;
+                            f["ObjectCodeValue"] = (int)pointFeature.ObjectCode;
+                            f["ChartName"] = chartName ?? chart.Identification?.DataSetName ?? "Unknown";
+                            f["Primitive"] = "Point";
+                            f["Group"] = pointFeature.Group;
+                            f["FeatureAttributes"] = pointFeature.Attributes;
+                            var point = S57LayerTemplate.CreatePointGeometry(chart, pointFeature);
+                            if (point != null)
+                            {
+                                var (lon, lat) = Mapsui.Projections.SphericalMercator.ToLonLat(point.X, point.Y);
+                                f["Latitude"] = lat;
+                                f["Longitude"] = lon;
+                            }
+                        }
+                        features.Add(f);
+                    }
+                }
             }
         }
 

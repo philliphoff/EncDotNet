@@ -78,6 +78,9 @@ public partial class MainWindow : Window
         // Enable hover highlighting of chart boundaries
         MyMapControl.PointerMoved += OnMapPointerMoved;
 
+        // Enable click-to-identify on default-rendered (red circle) point features
+        MyMapControl.Tapped += OnMapFeatureTapped;
+
         ZoomInButton.Click += OnZoomInClick;
         ZoomOutButton.Click += OnZoomOutClick;
         DiagnosticButton.Click += OnDiagnosticButtonClick;
@@ -238,6 +241,32 @@ public partial class MainWindow : Window
         {
             vm.HoveredChart = null;
         }
+    }
+
+    private async void OnMapFeatureTapped(object? sender, TappedEventArgs e)
+    {
+        if (MyMapControl.Map is not { } map)
+            return;
+
+        var position = e.GetPosition(MyMapControl);
+        var screenPos = new ScreenPosition(position.X, position.Y);
+        var mapInfo = MyMapControl.GetMapInfo(screenPos, map.Layers);
+        if (mapInfo?.Feature is not { } feature)
+            return;
+
+        if (feature["IsDefaultRendering"] is not true)
+            return;
+
+        var objectCode = feature["ObjectCode"] is S57ObjectCode code ? code.ToString() : "Unknown";
+        var objectCodeValue = feature["ObjectCodeValue"] is int codeVal ? codeVal : (int?)null;
+        var chartName = feature["ChartName"] as string ?? "Unknown";
+        var lat = feature["Latitude"] is double latVal ? latVal.ToString("F6") : "N/A";
+        var lon = feature["Longitude"] is double lonVal ? lonVal.ToString("F6") : "N/A";
+        var group = feature["Group"] is int g ? g : (int?)null;
+        var attributes = feature["FeatureAttributes"] as IReadOnlyList<S57AttributeValue>;
+
+        var dialog = new FeatureInfoWindow(objectCode, objectCodeValue, chartName, lat, lon, group, attributes);
+        await dialog.ShowDialog(this);
     }
 
     private MainWindowViewModel? ViewModel => DataContext as MainWindowViewModel;
@@ -663,7 +692,8 @@ public partial class MainWindow : Window
                         chart,
                         ImmutableArray.Create(featureItem.ObjectCode),
                         featureItem.ObjectCode.ToString(),
-                        vm.DepthUnit);
+                        vm.DepthUnit,
+                        chartVm.Name);
 
                     // Skip object codes that have no renderable features in this chart.
                     if (layer is null)
@@ -779,7 +809,8 @@ public partial class MainWindow : Window
                     chart,
                     ImmutableArray.Create(S57ObjectCode.SOUNDG),
                     S57ObjectCode.SOUNDG.ToString(),
-                    depthUnit);
+                    depthUnit,
+                    chartVm.Name);
 
                 if (newLayer is null)
                     continue;

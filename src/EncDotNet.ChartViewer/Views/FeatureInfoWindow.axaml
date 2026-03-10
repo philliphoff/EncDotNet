@@ -1,0 +1,42 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        x:Class="EncDotNet.ChartViewer.Views.FeatureInfoWindow"
+        Title="Feature Info"
+        Width="420"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        SizeToContent="Height">
+
+    <StackPanel Margin="20" Spacing="8">
+        <TextBlock Text="Unrendered Feature" FontSize="16" FontWeight="Bold" />
+        <TextBlock Text="This feature is using the default (red circle) rendering because no specific template is registered for its object code." TextWrapping="Wrap" Foreground="Gray" FontSize="12" Margin="0,0,0,8" />
+
+        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" Margin="0,0,0,4">
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="Object Code:" FontWeight="SemiBold" Margin="0,0,12,4" />
+            <TextBlock Grid.Row="0" Grid.Column="1" x:Name="ObjectCodeText" />
+
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="Chart:" FontWeight="SemiBold" Margin="0,0,12,4" />
+            <TextBlock Grid.Row="1" Grid.Column="1" x:Name="ChartNameText" />
+
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="Latitude:" FontWeight="SemiBold" Margin="0,0,12,4" />
+            <TextBlock Grid.Row="2" Grid.Column="1" x:Name="LatitudeText" />
+
+            <TextBlock Grid.Row="3" Grid.Column="0" Text="Longitude:" FontWeight="SemiBold" Margin="0,0,12,4" />
+            <TextBlock Grid.Row="3" Grid.Column="1" x:Name="LongitudeText" />
+
+            <TextBlock Grid.Row="4" Grid.Column="0" Text="Group:" FontWeight="SemiBold" Margin="0,0,12,4" />
+            <TextBlock Grid.Row="4" Grid.Column="1" x:Name="GroupText" />
+        </Grid>
+
+        <TextBlock x:Name="AttributesHeader" Text="Attributes:" FontWeight="SemiBold" IsVisible="False" />
+        <TextBlock x:Name="AttributesText" TextWrapping="Wrap" FontSize="12" FontFamily="Consolas,Menlo,monospace" Margin="8,0,0,8" IsVisible="False" />
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12" Margin="0,8,0,0">
+            <Button Content="Copy for Agent" Click="OnCopyClick" />
+            <Button Content="OK" Width="80" Click="OnOkClick" />
+        </StackPanel>
+    </StackPanel>
+</Window>
