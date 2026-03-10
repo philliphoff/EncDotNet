@@ -16,7 +16,11 @@
         <PackageVersion Include="Mapsui.Avalonia" Version="5.0.2" />
         <PackageVersion Include="Mapsui.Nts" Version="5.0.2" />
         <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.3" />
+        <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.3" />
         <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
+        <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="1.15.0" />
+        <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.0" />
+        <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.15.0" />
         <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
         <PackageVersion Include="ReactiveUI.Avalonia" Version="11.3.8" />
         <PackageVersion Include="xunit" Version="2.9.3" />

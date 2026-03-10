@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using EncDotNet.ChartViewer.Models;
 using EncDotNet.S57.Charts;
 using EncDotNet.S57.ExchangeSets;
+using Microsoft.Extensions.Logging;
 
 namespace EncDotNet.ChartViewer.Catalogs;
 
@@ -15,11 +16,13 @@ internal sealed class FileSystemCatalogSource : ICatalogSource
 {
     private readonly string _chartIndexPath;
     private readonly string _baseDirectory;
+    private readonly ILogger<FileSystemCatalogSource> _logger;
 
-    public FileSystemCatalogSource(string chartIndexPath)
+    public FileSystemCatalogSource(string chartIndexPath, ILogger<FileSystemCatalogSource> logger)
     {
         _chartIndexPath = chartIndexPath;
         _baseDirectory = Path.GetDirectoryName(chartIndexPath) ?? "";
+        _logger = logger;
     }
 
     public async IAsyncEnumerable<ChartIndexEntry> GetCatalogAsync(
@@ -49,6 +52,6 @@ internal sealed class FileSystemCatalogSource : ICatalogSource
         var chartPath = Path.Combine(_baseDirectory, entry.Path);
         var chartDirectory = Path.GetDirectoryName(chartPath)!;
         var exchangeSet = S57ExchangeSetReader.Read(chartDirectory);
-        return await exchangeSet.ReadChartAsync(chartDirectory, cancellationToken: cancellationToken).ConfigureAwait(false);
+        return await exchangeSet.ReadChartAsync(chartDirectory, _logger, cancellationToken).ConfigureAwait(false);
     }
 }

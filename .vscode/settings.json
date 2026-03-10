@@ -8,6 +8,7 @@
         "dotnet add": true,
         "dotnet nuget": true,
         "docfx": true,
-        "dotnet script": true
+        "dotnet script": true,
+        "dotnet package": true
     }
 }

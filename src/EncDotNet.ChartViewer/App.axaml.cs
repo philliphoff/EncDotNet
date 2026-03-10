@@ -6,6 +6,10 @@ using EncDotNet.ChartViewer.Catalogs;
 using EncDotNet.ChartViewer.ViewModels;
 using EncDotNet.ChartViewer.Views;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using OpenTelemetry.Logs;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
 
 namespace EncDotNet.ChartViewer;
 
@@ -46,7 +50,29 @@ public partial class App : Application
 
     private static void ConfigureServices(IServiceCollection services)
     {
-        services.AddSingleton<ICatalogSource>(_ => new FileSystemCatalogSource(AppDataPaths.ChartIndexPath));
+        var resourceBuilder = ResourceBuilder.CreateDefault()
+            .AddService("EncDotNet.ChartViewer");
+
+        services.AddLogging(builder =>
+        {
+            builder.AddOpenTelemetry(options =>
+            {
+                options.SetResourceBuilder(resourceBuilder);
+                options.AddConsoleExporter();
+            });
+        });
+
+        services.AddOpenTelemetry()
+            .WithMetrics(metrics =>
+            {
+                metrics.SetResourceBuilder(resourceBuilder);
+                metrics.AddMeter("EncDotNet.ChartViewer");
+                metrics.AddConsoleExporter();
+            });
+
+        services.AddSingleton<ICatalogSource>(sp => new FileSystemCatalogSource(
+            AppDataPaths.ChartIndexPath,
+            sp.GetRequiredService<ILogger<FileSystemCatalogSource>>()));
         services.AddSingleton<IChartPackageManager, NoaaChartPackageManager>();
         services.AddTransient<MainWindowViewModel>();
         services.AddTransient<SetupWizardViewModel>();
