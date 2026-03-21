@@ -722,6 +722,11 @@ public partial class MainWindow : Window
             {
                 foreach (var featureItem in featureVm.Features)
                 {
+                    // Skip object codes not present in this chart to avoid
+                    // stopwatch, factory, and diagnostics overhead for no-ops.
+                    if (!chart.FeaturesByObjectCode.ContainsKey(featureItem.ObjectCode))
+                        continue;
+
                     var singleLayerStopwatch = Stopwatch.StartNew();
 
                     var layer = S57LayerFactory.CreateLayerForObjectCodes(
