@@ -52,6 +52,33 @@ public partial class MainWindow : Window
     /// <summary>Whether the catalog has been loaded and viewport-driven loading is active.</summary>
     private bool _viewportLoadingActive;
 
+    // ── Predictive preloading state ──────────────────────────────────
+
+    /// <summary>Previous viewport center X (Mercator) at last evaluation.</summary>
+    private double _prevCenterX;
+    /// <summary>Previous viewport center Y (Mercator) at last evaluation.</summary>
+    private double _prevCenterY;
+    /// <summary>Previous viewport resolution at last evaluation.</summary>
+    private double _prevResolution;
+    /// <summary>Timestamp (ticks) of the previous viewport evaluation.</summary>
+    private long _prevEvalTicks;
+    /// <summary>Charts currently being preloaded in the background.</summary>
+    private readonly HashSet<ChartViewModel> _preloadingCharts = new();
+    /// <summary>Cancellation for the current preload batch.</summary>
+    private CancellationTokenSource? _preloadCts;
+
+    /// <summary>
+    /// How far ahead (in seconds) to project the viewport for preloading.
+    /// Larger values preload more aggressively but use more memory/CPU.
+    /// </summary>
+    private const double PreloadLookaheadSeconds = 1.5;
+
+    /// <summary>
+    /// Maximum number of charts to preload per evaluation cycle.
+    /// Keeps background work bounded so it doesn't starve the main loading pipeline.
+    /// </summary>
+    private const int MaxPreloadCharts = 5;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -407,6 +434,8 @@ public partial class MainWindow : Window
         }
         _loadedCharts.Clear();
         _loadingCharts.Clear();
+        _preloadCts?.Cancel();
+        _preloadingCharts.Clear();
 
         // Remove the old boundary layer
         if (MyMapControl.Map is { } map)
@@ -459,6 +488,8 @@ public partial class MainWindow : Window
         }
         _loadedCharts.Clear();
         _loadingCharts.Clear();
+        _preloadCts?.Cancel();
+        _preloadingCharts.Clear();
 
         // Remove the old boundary layer
         if (MyMapControl.Map is { } map)
@@ -534,6 +565,7 @@ public partial class MainWindow : Window
             return;
 
         var evalStopwatch = Stopwatch.StartNew();
+        long nowTicks = Stopwatch.GetTimestamp();
 
         var viewport = nav.Viewport;
         var extent = viewport.ToExtent();
@@ -541,6 +573,38 @@ public partial class MainWindow : Window
             return;
 
         var resolution = viewport.Resolution;
+        double centerX = viewport.CenterX;
+        double centerY = viewport.CenterY;
+
+        // ── Compute pan velocity ─────────────────────────────────────
+        double velocityX = 0, velocityY = 0;
+        bool hasVelocity = false;
+
+        if (_prevEvalTicks > 0)
+        {
+            double elapsedSec = Stopwatch.GetElapsedTime(_prevEvalTicks, nowTicks).TotalSeconds;
+
+            // Ignore intervals < 10ms (noise / first call) or > 5s (stale after idle)
+            if (elapsedSec >= 0.01 && elapsedSec <= 5.0)
+            {
+                double dx = centerX - _prevCenterX;
+                double dy = centerY - _prevCenterY;
+                bool panned = dx != 0 || dy != 0;
+                bool zoomed = resolution != _prevResolution;
+
+                if (panned || zoomed)
+                {
+                    velocityX = dx / elapsedSec;
+                    velocityY = dy / elapsedSec;
+                    hasVelocity = true;
+                }
+            }
+        }
+
+        _prevCenterX = centerX;
+        _prevCenterY = centerY;
+        _prevResolution = resolution;
+        _prevEvalTicks = nowTicks;
 
         // Determine which charts overlap the viewport.
         // Prefer more-detailed charts (lower CompilationScale) by sorting candidates
@@ -653,6 +717,111 @@ public partial class MainWindow : Window
         ChartViewerDiagnostics.ViewportEvaluationDuration.Record(
             evalStopwatch.Elapsed.TotalMilliseconds,
             new KeyValuePair<string, object?>("loaded.charts", _loadedCharts.Count));
+
+        // ── Predictive preloading ────────────────────────────────────
+        if (hasVelocity)
+        {
+            SchedulePreload(vm, extent, resolution, velocityX, velocityY);
+        }
+    }
+
+    /// <summary>
+    /// Computes an expanded viewport extent from the current pan velocity, finds charts
+    /// that overlap the expanded extent but not the current extent, and fires background
+    /// preloads to warm both the chart cache and the per-object-code layer cache.
+    /// Preloaded layers are NOT added to the map — they sit in cache until the next
+    /// <see cref="EvaluateViewportChartsAsync"/> determines the chart is in the viewport.
+    /// </summary>
+    private void SchedulePreload(
+        MainWindowViewModel vm,
+        MRect currentExtent,
+        double resolution,
+        double velocityX,
+        double velocityY)
+    {
+        // Cancel the previous preload batch so stale work is abandoned quickly.
+        _preloadCts?.Cancel();
+        var cts = _preloadCts = new CancellationTokenSource();
+
+        // Project the viewport forward by the lookahead duration.
+        double dx = velocityX * PreloadLookaheadSeconds;
+        double dy = velocityY * PreloadLookaheadSeconds;
+
+        // Build an expanded extent that covers both the current and predicted viewports.
+        double minX = Math.Min(currentExtent.MinX, currentExtent.MinX + dx);
+        double maxX = Math.Max(currentExtent.MaxX, currentExtent.MaxX + dx);
+        double minY = Math.Min(currentExtent.MinY, currentExtent.MinY + dy);
+        double maxY = Math.Max(currentExtent.MaxY, currentExtent.MaxY + dy);
+        var expandedExtent = new MRect(minX, minY, maxX, maxY);
+
+        // Find charts that overlap the expanded extent but NOT the current extent.
+        var preloadCandidates = new List<ChartViewModel>();
+        foreach (var chartVm in vm.AvailableCharts)
+        {
+            if (ChartOverlapsViewport(chartVm, expandedExtent)
+                && !ChartOverlapsViewport(chartVm, currentExtent)
+                && !_loadedCharts.Contains(chartVm)
+                && !_loadingCharts.Contains(chartVm)
+                && !_preloadingCharts.Contains(chartVm)
+                && IsRenderableAtResolution(chartVm.CompilationScale, resolution))
+            {
+                preloadCandidates.Add(chartVm);
+            }
+        }
+
+        if (preloadCandidates.Count == 0)
+            return;
+
+        // Sort by detail (finest first) and cap to avoid excessive background work.
+        preloadCandidates.Sort((a, b) =>
+        {
+            int aScale = a.CompilationScale > 0 ? a.CompilationScale : int.MaxValue;
+            int bScale = b.CompilationScale > 0 ? b.CompilationScale : int.MaxValue;
+            return aScale.CompareTo(bScale);
+        });
+
+        int count = Math.Min(preloadCandidates.Count, MaxPreloadCharts);
+        for (int i = 0; i < count; i++)
+        {
+            var chartVm = preloadCandidates[i];
+            _preloadingCharts.Add(chartVm);
+            _ = PreloadChartAsync(vm, chartVm, cts.Token);
+        }
+    }
+
+    /// <summary>
+    /// Background preload: parses the chart and builds layers to warm the caches.
+    /// Does NOT add layers to the map — the next viewport evaluation will pick them up.
+    /// </summary>
+    private async Task PreloadChartAsync(
+        MainWindowViewModel vm,
+        ChartViewModel chartVm,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var chart = await Task.Run(() => vm.GetChartAsync(chartVm.Entry, cancellationToken), cancellationToken);
+
+            if (cancellationToken.IsCancellationRequested)
+                return;
+
+            var settings = CreateLayerSettings(vm, chartVm.Name);
+            await chartVm.BuildLayersAsync(chart, settings);
+
+            Debug.WriteLine($"Preloaded chart: {chartVm.Name}");
+        }
+        catch (OperationCanceledException)
+        {
+            // Preload was cancelled — expected when viewport changes direction.
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error preloading chart {chartVm.Name}: {ex.Message}");
+        }
+        finally
+        {
+            _preloadingCharts.Remove(chartVm);
+        }
     }
 
     /// <summary>
