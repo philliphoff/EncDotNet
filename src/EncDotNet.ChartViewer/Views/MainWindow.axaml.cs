@@ -403,6 +403,7 @@ public partial class MainWindow : Window
         foreach (var chartVm in _loadedCharts.ToArray())
         {
             UnloadChart(chartVm);
+            chartVm.ClearLayerCache();
         }
         _loadedCharts.Clear();
         _loadingCharts.Clear();
@@ -454,6 +455,7 @@ public partial class MainWindow : Window
         foreach (var chartVm in _loadedCharts.ToArray())
         {
             UnloadChart(chartVm);
+            chartVm.ClearLayerCache();
         }
         _loadedCharts.Clear();
         _loadingCharts.Clear();
@@ -587,7 +589,7 @@ public partial class MainWindow : Window
         var token = _viewportDebounce;
 
         // Load charts one at a time, but offload CPU-heavy parsing + geometry
-        // building to the thread pool (inside BuildChartLayersAsync) so the UI
+        // building to the thread pool (inside BuildLayersAsync) so the UI
         // thread stays responsive.  Each chart is inserted as soon as it's ready,
         // giving the user progressive visual feedback.
         foreach (var chartVm in candidates)
@@ -605,15 +607,20 @@ public partial class MainWindow : Window
             _loadingCharts.Add(chartVm);
             try
             {
-                if (await BuildChartLayersAsync(chartVm, vm))
+                var chart = await Task.Run(() => vm.GetChartAsync(chartVm.Entry));
+                var settings = CreateLayerSettings(vm, chartVm.Name);
+                var update = await chartVm.BuildLayersAsync(chart, settings);
+
+                // Re-check after the await — viewport may have changed.
+                if (token == _viewportDebounce && update.ActiveLayers.Count > 0)
                 {
-                    // Re-check after the await — viewport may have changed.
-                    if (token == _viewportDebounce)
-                    {
-                        InsertChartLayers(chartVm, vm);
-                        _loadedCharts.Add(chartVm);
-                    }
+                    InsertAllChartLayers(chartVm, update, vm);
+                    _loadedCharts.Add(chartVm);
                 }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error loading chart {chartVm.Name}: {ex.Message}");
             }
             finally
             {
@@ -696,113 +703,66 @@ public partial class MainWindow : Window
         return resolution <= maxVisible;
     }
 
+    // ── Layer pipeline helpers ──────────────────────────────────────
+
     /// <summary>
-    /// Parses the chart and builds all Mapsui layers on the thread pool.
-    /// Returns <c>true</c> on success; the built layers are stored on <paramref name="chartVm"/>.
-    /// Does NOT touch the Mapsui map — safe to run concurrently for multiple charts.
+    /// Creates a <see cref="ChartLayerSettings"/> snapshot from the current view model state.
     /// </summary>
-    private async Task<bool> BuildChartLayersAsync(ChartViewModel chartVm, MainWindowViewModel vm)
+    private static ChartLayerSettings CreateLayerSettings(MainWindowViewModel vm, string chartName)
     {
-        var tags = new KeyValuePair<string, object?>("chart.name", chartVm.Name);
-        ChartViewerDiagnostics.ChartsLoading.Add(1, tags);
-        var stopwatch = Stopwatch.StartNew();
+        var enabledCodes = vm.FeatureCategories
+            .SelectMany(c => c.Features)
+            .Where(f => f.IsVisible)
+            .Select(f => f.ObjectCode)
+            .ToImmutableHashSet();
 
-        try
-        {
-            var chart = await Task.Run(() => vm.GetChartAsync(chartVm.Entry)).ConfigureAwait(false);
-            chartVm.CompilationScale = chart.CompilationScale;
-
-            ChartViewerDiagnostics.ChartLoadDuration.Record(stopwatch.Elapsed.TotalMilliseconds, tags);
-
-            chartVm.CoverageGeometry = S57CoverageHelper.BuildCoverageGeometry(chart);
-
-            var layerStopwatch = Stopwatch.StartNew();
-
-            foreach (var featureVm in vm.FeatureCategories)
-            {
-                foreach (var featureItem in featureVm.Features)
-                {
-                    // Skip object codes not present in this chart to avoid
-                    // stopwatch, factory, and diagnostics overhead for no-ops.
-                    if (!chart.FeaturesByObjectCode.ContainsKey(featureItem.ObjectCode))
-                        continue;
-
-                    var singleLayerStopwatch = Stopwatch.StartNew();
-
-                    var layer = S57LayerFactory.CreateLayerForObjectCodes(
-                        chart,
-                        ImmutableArray.Create(featureItem.ObjectCode),
-                        featureItem.ObjectCode.ToString(),
-                        vm.DepthUnit,
-                        chartVm.Name);
-
-                    singleLayerStopwatch.Stop();
-
-                    if (layer is null)
-                        continue;
-
-                    layer.Enabled = featureItem.IsVisible;
-                    chartVm.Layers.Add(layer);
-
-                    var layerTags = new TagList
-                    {
-                        { "chart.name", chartVm.Name },
-                        { "object.code", featureItem.ObjectCode.ToString() },
-                    };
-                    ChartViewerDiagnostics.LayersCreated.Add(1, layerTags);
-                    ChartViewerDiagnostics.FeaturesPerLayer.Record(layer.Features.Count(), layerTags);
-                    ChartViewerDiagnostics.SingleLayerCreationDuration.Record(singleLayerStopwatch.Elapsed.TotalMilliseconds, layerTags);
-                }
-            }
-
-            layerStopwatch.Stop();
-            ChartViewerDiagnostics.LayerCreationDuration.Record(layerStopwatch.Elapsed.TotalMilliseconds, tags);
-
-            // Sort layers by render order so that background areas (land, water, depth)
-            // are drawn first and point features (buoys, beacons) are drawn on top.
-            chartVm.Layers.Sort((a, b) =>
-            {
-                var orderA = Enum.TryParse<S57ObjectCode>(a.Name, out var codeA)
-                    ? S57LayerTemplates.GetRenderOrder(codeA) : int.MaxValue;
-                var orderB = Enum.TryParse<S57ObjectCode>(b.Name, out var codeB)
-                    ? S57LayerTemplates.GetRenderOrder(codeB) : int.MaxValue;
-                return orderA.CompareTo(orderB);
-            });
-
-            Debug.WriteLine($"Built layers for chart: {chartVm.Name}");
-            return true;
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Error building chart {chartVm.Name}: {ex.Message}");
-            ChartViewerDiagnostics.ChartLoadErrors.Add(1, tags);
-            return false;
-        }
-        finally
-        {
-            ChartViewerDiagnostics.ChartsLoading.Add(-1, tags);
-        }
+        return new ChartLayerSettings(vm.DepthUnit, enabledCodes, chartName);
     }
 
     /// <summary>
-    /// Inserts pre-built layers from <paramref name="chartVm"/> into the Mapsui map.
+    /// Inserts all active layers from a <see cref="LayerUpdate"/> into the Mapsui map.
+    /// Used when a chart is first loaded or re-enters the viewport from cache.
     /// Must be called on the UI thread.
     /// </summary>
-    private void InsertChartLayers(ChartViewModel chartVm, MainWindowViewModel vm)
+    private void InsertAllChartLayers(ChartViewModel chartVm, LayerUpdate update, MainWindowViewModel vm)
     {
-        if (MyMapControl.Map is { } map)
-        {
-            var enabledLayers = chartVm.Layers.Where(l => l.Enabled).ToList();
-            int insertIndex = FindChartLayerInsertionIndex(map, chartVm.CompilationScale, vm);
-            map.Layers.Insert(insertIndex, enabledLayers);
-            EnsureBoundaryLayerOnTop(map);
-        }
+        if (MyMapControl.Map is not { } map)
+            return;
+
+        int insertIndex = FindChartLayerInsertionIndex(map, chartVm.CompilationScale, vm);
+        map.Layers.Insert(insertIndex, update.ActiveLayers.ToList());
+        EnsureBoundaryLayerOnTop(map);
 
         var tags = new KeyValuePair<string, object?>("chart.name", chartVm.Name);
         ChartViewerDiagnostics.ChartsLoaded.Add(1, tags);
         Debug.WriteLine($"Loaded chart: {chartVm.Name}");
     }
 
+    /// <summary>
+    /// Applies the diff from a <see cref="LayerUpdate"/> to the Mapsui map,
+    /// removing old layers and inserting new ones at the correct positions.
+    /// Used for in-place updates (feature toggle, depth unit change) on already-loaded charts.
+    /// Must be called on the UI thread.
+    /// </summary>
+    private void ApplyLayerDiff(ChartViewModel chartVm, LayerUpdate update, Map map, MainWindowViewModel vm)
+    {
+        foreach (var layer in update.Removed)
+            map.Layers.Remove(layer);
+
+        foreach (var layer in update.Added)
+        {
+            int idx = FindLayerInsertionIndex(map, chartVm, layer, vm);
+            map.Layers.Insert(idx, layer);
+        }
+
+        if (update.Added.Count > 0)
+            EnsureBoundaryLayerOnTop(map);
+    }
+
+    /// <summary>
+    /// Removes a chart's active layers from the Mapsui map without clearing
+    /// the layer cache, so re-entering the viewport reuses cached layers.
+    /// </summary>
     private void UnloadChart(ChartViewModel chartVm)
     {
         foreach (var layer in chartVm.Layers)
@@ -810,100 +770,48 @@ public partial class MainWindow : Window
             MyMapControl.Map?.Layers.Remove(layer);
         }
 
-        chartVm.Layers.Clear();
-        chartVm.CoverageGeometry = null;
         MyMapControl.Map?.Refresh();
     }
 
-    private void OnFeatureItemVisibilityChanged(object? sender, ChartFeatureItemViewModel featureItem)
+    /// <summary>
+    /// Handles a feature visibility toggle by rebuilding layers for all loaded charts
+    /// with the updated settings and applying the diff to the map.
+    /// </summary>
+    private async void OnFeatureItemVisibilityChanged(object? sender, ChartFeatureItemViewModel featureItem)
     {
         if (ViewModel is not { } vm || MyMapControl.Map is not { } map)
             return;
 
-        var objectCodeName = featureItem.ObjectCode.ToString();
         foreach (var chartVm in _loadedCharts)
         {
-            foreach (var layer in chartVm.Layers)
-            {
-                if (layer.Name != objectCodeName)
-                    continue;
-
-                layer.Enabled = featureItem.IsVisible;
-
-                if (featureItem.IsVisible)
-                {
-                    // Add the layer to the map if it isn't already present.
-                    if (!map.Layers.Contains(layer))
-                    {
-                        int insertIndex = FindLayerInsertionIndex(map, chartVm, layer, vm);
-                        map.Layers.Insert(insertIndex, layer);
-                        EnsureBoundaryLayerOnTop(map);
-                    }
-                }
-                else
-                {
-                    // Remove disabled layers from the map to reduce rendering overhead.
-                    map.Layers.Remove(layer);
-                }
-            }
+            var settings = CreateLayerSettings(vm, chartVm.Name);
+            var chart = await vm.GetChartAsync(chartVm.Entry);
+            var update = await chartVm.BuildLayersAsync(chart, settings);
+            ApplyLayerDiff(chartVm, update, map, vm);
         }
 
         map.Refresh();
     }
 
-    private void OnDepthUnitChanged(object? sender, Models.DepthUnit depthUnit)
+    /// <summary>
+    /// Handles a depth unit change by rebuilding layers for all loaded charts
+    /// with the updated settings and applying the diff to the map.
+    /// Only SOUNDG layers are actually regenerated; all others are cache hits.
+    /// </summary>
+    private async void OnDepthUnitChanged(object? sender, Models.DepthUnit depthUnit)
     {
-        if (ViewModel is not { } vm)
+        if (ViewModel is not { } vm || MyMapControl.Map is not { } map)
             return;
 
-        // Reload sounding layers for all loaded charts
         foreach (var chartVm in _loadedCharts)
         {
-
-            for (int i = chartVm.Layers.Count - 1; i >= 0; i--)
-            {
-                var layer = chartVm.Layers[i];
-                if (layer.Name != S57ObjectCode.SOUNDG.ToString())
-                    continue;
-
-                // The layer may or may not be in the map (only enabled layers are).
-                int mapIndex = FindMapLayerIndex(layer);
-                if (mapIndex >= 0)
-                    MyMapControl.Map?.Layers.Remove(layer);
-
-                chartVm.Layers.RemoveAt(i);
-
-                // Create new sounding layer with updated depth unit
-                var chart = vm.GetChartAsync(chartVm.Entry).GetAwaiter().GetResult();
-                var newLayer = S57LayerFactory.CreateLayerForObjectCodes(
-                    chart,
-                    ImmutableArray.Create(S57ObjectCode.SOUNDG),
-                    S57ObjectCode.SOUNDG.ToString(),
-                    depthUnit,
-                    chartVm.Name);
-
-                if (newLayer is null)
-                    continue;
-
-                var soundingFeatureItem = vm.FeatureCategories
-                    .SelectMany(c => c.Features)
-                    .FirstOrDefault(f => f.ObjectCode == S57ObjectCode.SOUNDG);
-                newLayer.Enabled = soundingFeatureItem?.IsVisible ?? false;
-
-                chartVm.Layers.Insert(i, newLayer);
-
-                // Only re-add to the map if soundings are enabled.
-                if (newLayer.Enabled)
-                {
-                    if (mapIndex >= 0)
-                        MyMapControl.Map?.Layers.Insert(mapIndex, newLayer);
-                    else
-                        MyMapControl.Map?.Layers.Add(newLayer);
-                }
-            }
+            var settings = CreateLayerSettings(vm, chartVm.Name);
+            var chart = await vm.GetChartAsync(chartVm.Entry);
+            var update = await chartVm.BuildLayersAsync(chart, settings);
+            ApplyLayerDiff(chartVm, update, map, vm);
         }
 
-        MyMapControl.Map?.Refresh();
+        map.Refresh();
     }
 
     /// <summary>
@@ -950,7 +858,15 @@ public partial class MainWindow : Window
     private int FindLayerInsertionIndex(Map map, ChartViewModel chartVm, MemoryLayer layer, MainWindowViewModel vm)
     {
         // Find the position of this layer within the chart's sorted layer list.
-        int layerIndex = chartVm.Layers.IndexOf(layer);
+        int layerIndex = -1;
+        for (int j = 0; j < chartVm.Layers.Count; j++)
+        {
+            if (ReferenceEquals(chartVm.Layers[j], layer))
+            {
+                layerIndex = j;
+                break;
+            }
+        }
 
         // Find the last sibling layer from the same chart that precedes this layer
         // and is currently in the map — insert right after it.
