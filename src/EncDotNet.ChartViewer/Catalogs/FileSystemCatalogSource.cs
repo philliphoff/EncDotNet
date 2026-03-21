@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.CompilerServices;
@@ -18,7 +17,6 @@ internal sealed class FileSystemCatalogSource : ICatalogSource
     private readonly string _chartIndexPath;
     private readonly string _baseDirectory;
     private readonly ILogger<FileSystemCatalogSource> _logger;
-    private readonly ConcurrentDictionary<string, S57Chart> _chartCache = new();
 
     public FileSystemCatalogSource(string chartIndexPath, ILogger<FileSystemCatalogSource> logger)
     {
@@ -51,15 +49,11 @@ internal sealed class FileSystemCatalogSource : ICatalogSource
 
     public async Task<S57Chart> GetChartAsync(ChartIndexEntry entry, CancellationToken cancellationToken = default)
     {
-        if (_chartCache.TryGetValue(entry.Path, out var cached))
-            return cached;
-
         var chartPath = Path.Combine(_baseDirectory, entry.Path);
         var chartDirectory = Path.GetDirectoryName(chartPath)!;
         var exchangeSet = S57ExchangeSetReader.Read(chartDirectory);
         var chart = await exchangeSet.ReadChartAsync(chartDirectory, _logger, cancellationToken).ConfigureAwait(false);
 
-        _chartCache.TryAdd(entry.Path, chart);
         return chart;
     }
 }

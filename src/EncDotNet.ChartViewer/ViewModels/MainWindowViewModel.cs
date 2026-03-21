@@ -128,10 +128,12 @@ public class MainWindowViewModel : ViewModelBase
     public bool HasHoveredChart => _hoveredChart is not null;
 
     private readonly ICatalogSource _catalogSource;
+    private readonly IChartSource _chartSource;
 
-    public MainWindowViewModel(ICatalogSource catalogSource)
+    public MainWindowViewModel(ICatalogSource catalogSource, IChartSource chartSource)
     {
         _catalogSource = catalogSource;
+        _chartSource = chartSource;
         foreach (var category in S57FeatureCategory.All)
         {
             FeatureCategories.Add(new ChartFeatureViewModel(category));
@@ -179,7 +181,7 @@ public class MainWindowViewModel : ViewModelBase
     /// </summary>
     internal Task<S57Chart> GetChartAsync(ChartIndexEntry entry, CancellationToken cancellationToken = default)
     {
-        return _catalogSource.GetChartAsync(entry, cancellationToken);
+        return _chartSource.GetChartAsync(entry, cancellationToken);
     }
 
     private async void ScheduleChartFilter()

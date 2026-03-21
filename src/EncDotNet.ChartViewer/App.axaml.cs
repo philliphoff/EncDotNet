@@ -83,6 +83,8 @@ public partial class App : Application
         services.AddSingleton<ICatalogSource>(sp => new FileSystemCatalogSource(
             AppDataPaths.ChartIndexPath,
             sp.GetRequiredService<ILogger<FileSystemCatalogSource>>()));
+        services.AddSingleton<IChartSource>(sp => new ChartCache(
+            sp.GetRequiredService<ICatalogSource>()));
         services.AddSingleton<IChartPackageManager, NoaaChartPackageManager>();
         services.AddTransient<MainWindowViewModel>();
         services.AddTransient<SetupWizardViewModel>();
