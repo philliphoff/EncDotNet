@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using EncDotNet.S57;
 using EncDotNet.S57.Charts;
 using EncDotNet.ChartViewer.Models;
@@ -54,18 +56,29 @@ public static class S57LayerFactory
             if (!chart.FeaturesByObjectCode.TryGetValue(code, out var codeFeatures))
                 continue;
 
+            var handlerTags = new TagList
+            {
+                { "object.code", code.ToString() },
+            };
+
             var areaHandler = template.Area ?? S57LayerTemplates.Default.Area;
             if (areaHandler != null)
             {
+                var sw = Stopwatch.StartNew();
                 foreach (var areaFeature in codeFeatures.Areas)
                     features.AddRange(areaHandler(chart, areaFeature));
+                sw.Stop();
+                ChartViewerDiagnostics.AreaGeometryDuration.Record(sw.Elapsed.TotalMilliseconds, handlerTags);
             }
 
             var lineHandler = template.Line ?? S57LayerTemplates.Default.Line;
             if (lineHandler != null)
             {
+                var sw = Stopwatch.StartNew();
                 foreach (var lineFeature in codeFeatures.Lines)
                     features.AddRange(lineHandler(chart, lineFeature));
+                sw.Stop();
+                ChartViewerDiagnostics.LineGeometryDuration.Record(sw.Elapsed.TotalMilliseconds, handlerTags);
             }
 
             // Detect when the default point handler is used as a fallback
@@ -73,6 +86,7 @@ public static class S57LayerFactory
             var pointHandler = template.Point ?? S57LayerTemplates.Default.Point;
             if (pointHandler != null)
             {
+                var sw = Stopwatch.StartNew();
                 foreach (var pointFeature in codeFeatures.Points)
                 {
                     var createdFeatures = pointHandler(chart, pointFeature, depthUnit);
@@ -97,6 +111,8 @@ public static class S57LayerFactory
                         features.Add(f);
                     }
                 }
+                sw.Stop();
+                ChartViewerDiagnostics.PointGeometryDuration.Record(sw.Elapsed.TotalMilliseconds, handlerTags);
             }
         }
 

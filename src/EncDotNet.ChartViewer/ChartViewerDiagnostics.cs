@@ -48,6 +48,40 @@ internal static class ChartViewerDiagnostics
         unit: "{feature}",
         description: "Number of Mapsui features generated per layer");
 
+    public static readonly Histogram<double> SingleLayerCreationDuration = Meter.CreateHistogram<double>(
+        "encdotnet.chartviewer.single_layer_creation_duration",
+        unit: "ms",
+        description: "Time to create a single layer for one object code");
+
+    // --- Geometry building ---
+
+    public static readonly Histogram<double> AreaGeometryDuration = Meter.CreateHistogram<double>(
+        "encdotnet.chartviewer.area_geometry_duration",
+        unit: "ms",
+        description: "Time spent building area geometries within a single layer");
+
+    public static readonly Histogram<double> LineGeometryDuration = Meter.CreateHistogram<double>(
+        "encdotnet.chartviewer.line_geometry_duration",
+        unit: "ms",
+        description: "Time spent building line geometries within a single layer");
+
+    public static readonly Histogram<double> PointGeometryDuration = Meter.CreateHistogram<double>(
+        "encdotnet.chartviewer.point_geometry_duration",
+        unit: "ms",
+        description: "Time spent building point geometries within a single layer");
+
+    // --- Viewport evaluation ---
+
+    public static readonly Histogram<double> ViewportEvaluationDuration = Meter.CreateHistogram<double>(
+        "encdotnet.chartviewer.viewport_evaluation_duration",
+        unit: "ms",
+        description: "Time to evaluate viewport and load/unload charts");
+
+    public static readonly Histogram<double> RecalculateMinVisibleDuration = Meter.CreateHistogram<double>(
+        "encdotnet.chartviewer.recalculate_min_visible_duration",
+        unit: "ms",
+        description: "Time to recalculate MinVisible across all loaded charts");
+
     // --- Catalog ---
 
     public static readonly Histogram<double> CatalogLoadDuration = Meter.CreateHistogram<double>(

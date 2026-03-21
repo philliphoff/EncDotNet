@@ -531,6 +531,8 @@ public partial class MainWindow : Window
         if (ViewModel is not { } vm || MyMapControl.Map?.Navigator is not { } nav)
             return;
 
+        var evalStopwatch = Stopwatch.StartNew();
+
         var viewport = nav.Viewport;
         var extent = viewport.ToExtent();
         if (extent is null)
@@ -622,8 +624,17 @@ public partial class MainWindow : Window
         // Recompute MinVisible for all loaded charts so that each chart's layers
         // hide once a finer-scale chart's layers take over. This adapts dynamically
         // as charts are loaded and unloaded, ensuring no zoom-level gaps.
+        var recalcStopwatch = Stopwatch.StartNew();
         S57LayerFactory.RecalculateMinVisible(_loadedCharts);
+        recalcStopwatch.Stop();
+        ChartViewerDiagnostics.RecalculateMinVisibleDuration.Record(
+            recalcStopwatch.Elapsed.TotalMilliseconds,
+            new KeyValuePair<string, object?>("loaded.charts", _loadedCharts.Count));
 
+        evalStopwatch.Stop();
+        ChartViewerDiagnostics.ViewportEvaluationDuration.Record(
+            evalStopwatch.Elapsed.TotalMilliseconds,
+            new KeyValuePair<string, object?>("loaded.charts", _loadedCharts.Count));
     }
 
     /// <summary>
@@ -697,12 +708,16 @@ public partial class MainWindow : Window
             {
                 foreach (var featureItem in featureVm.Features)
                 {
+                    var singleLayerStopwatch = Stopwatch.StartNew();
+
                     var layer = S57LayerFactory.CreateLayerForObjectCodes(
                         chart,
                         ImmutableArray.Create(featureItem.ObjectCode),
                         featureItem.ObjectCode.ToString(),
                         vm.DepthUnit,
                         chartVm.Name);
+
+                    singleLayerStopwatch.Stop();
 
                     // Skip object codes that have no renderable features in this chart.
                     if (layer is null)
@@ -718,6 +733,7 @@ public partial class MainWindow : Window
                     };
                     ChartViewerDiagnostics.LayersCreated.Add(1, layerTags);
                     ChartViewerDiagnostics.FeaturesPerLayer.Record(layer.Features.Count(), layerTags);
+                    ChartViewerDiagnostics.SingleLayerCreationDuration.Record(singleLayerStopwatch.Elapsed.TotalMilliseconds, layerTags);
                 }
             }
 
