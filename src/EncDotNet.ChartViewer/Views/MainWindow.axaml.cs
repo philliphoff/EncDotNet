@@ -585,28 +585,39 @@ public partial class MainWindow : Window
 
         // Capture the debounce token so we can bail out if the viewport changes mid-load.
         var token = _viewportDebounce;
+
+        // Load charts one at a time, but offload CPU-heavy parsing + geometry
+        // building to the thread pool (inside BuildChartLayersAsync) so the UI
+        // thread stays responsive.  Each chart is inserted as soon as it's ready,
+        // giving the user progressive visual feedback.
         foreach (var chartVm in candidates)
         {
             if (!shouldBeVisible.Contains(chartVm))
                 continue;
 
-            // If the viewport changed while we were loading, stop and let the
-            // new evaluation handle the updated state.
-            if (token != _viewportDebounce)
-                return;
+            if (_loadedCharts.Contains(chartVm) || _loadingCharts.Contains(chartVm))
+                continue;
 
-            if (!_loadedCharts.Contains(chartVm) && !_loadingCharts.Contains(chartVm))
+            // Bail out early if the viewport changed while we were loading.
+            if (token != _viewportDebounce)
+                break;
+
+            _loadingCharts.Add(chartVm);
+            try
             {
-                _loadingCharts.Add(chartVm);
-                try
+                if (await BuildChartLayersAsync(chartVm, vm))
                 {
-                    await LoadChartAsync(chartVm, vm);
-                    _loadedCharts.Add(chartVm);
+                    // Re-check after the await — viewport may have changed.
+                    if (token == _viewportDebounce)
+                    {
+                        InsertChartLayers(chartVm, vm);
+                        _loadedCharts.Add(chartVm);
+                    }
                 }
-                finally
-                {
-                    _loadingCharts.Remove(chartVm);
-                }
+            }
+            finally
+            {
+                _loadingCharts.Remove(chartVm);
             }
         }
 
@@ -685,24 +696,27 @@ public partial class MainWindow : Window
         return resolution <= maxVisible;
     }
 
-    private async Task LoadChartAsync(ChartViewModel chartVm, MainWindowViewModel vm)
+    /// <summary>
+    /// Parses the chart and builds all Mapsui layers on the thread pool.
+    /// Returns <c>true</c> on success; the built layers are stored on <paramref name="chartVm"/>.
+    /// Does NOT touch the Mapsui map — safe to run concurrently for multiple charts.
+    /// </summary>
+    private async Task<bool> BuildChartLayersAsync(ChartViewModel chartVm, MainWindowViewModel vm)
     {
         var tags = new KeyValuePair<string, object?>("chart.name", chartVm.Name);
         ChartViewerDiagnostics.ChartsLoading.Add(1, tags);
-        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        var stopwatch = Stopwatch.StartNew();
 
         try
         {
-            var chart = await vm.GetChartAsync(chartVm.Entry);
+            var chart = await Task.Run(() => vm.GetChartAsync(chartVm.Entry)).ConfigureAwait(false);
             chartVm.CompilationScale = chart.CompilationScale;
 
             ChartViewerDiagnostics.ChartLoadDuration.Record(stopwatch.Elapsed.TotalMilliseconds, tags);
 
-            // Build and cache the projected coverage geometry (M_COVR CATCOV=1)
-            // for this chart. Available for future use (e.g. dynamic clipping).
             chartVm.CoverageGeometry = S57CoverageHelper.BuildCoverageGeometry(chart);
 
-            var layerStopwatch = System.Diagnostics.Stopwatch.StartNew();
+            var layerStopwatch = Stopwatch.StartNew();
 
             foreach (var featureVm in vm.FeatureCategories)
             {
@@ -719,7 +733,6 @@ public partial class MainWindow : Window
 
                     singleLayerStopwatch.Stop();
 
-                    // Skip object codes that have no renderable features in this chart.
                     if (layer is null)
                         continue;
 
@@ -751,28 +764,38 @@ public partial class MainWindow : Window
                 return orderA.CompareTo(orderB);
             });
 
-            // Only add enabled layers to the map; disabled layers stay in chartVm.Layers
-            // so they can be added later when toggled on, but don't burden Mapsui rendering.
-            if (MyMapControl.Map is { } map)
-            {
-                var enabledLayers = chartVm.Layers.Where(l => l.Enabled).ToList();
-                int insertIndex = FindChartLayerInsertionIndex(map, chartVm.CompilationScale, vm);
-                map.Layers.Insert(insertIndex, enabledLayers);
-                EnsureBoundaryLayerOnTop(map);
-            }
-
-            System.Diagnostics.Debug.WriteLine($"Loaded chart: {chartVm.Name}");
-            ChartViewerDiagnostics.ChartsLoaded.Add(1, tags);
+            Debug.WriteLine($"Built layers for chart: {chartVm.Name}");
+            return true;
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Error loading chart {chartVm.Name}: {ex.Message}");
+            Debug.WriteLine($"Error building chart {chartVm.Name}: {ex.Message}");
             ChartViewerDiagnostics.ChartLoadErrors.Add(1, tags);
+            return false;
         }
         finally
         {
             ChartViewerDiagnostics.ChartsLoading.Add(-1, tags);
         }
+    }
+
+    /// <summary>
+    /// Inserts pre-built layers from <paramref name="chartVm"/> into the Mapsui map.
+    /// Must be called on the UI thread.
+    /// </summary>
+    private void InsertChartLayers(ChartViewModel chartVm, MainWindowViewModel vm)
+    {
+        if (MyMapControl.Map is { } map)
+        {
+            var enabledLayers = chartVm.Layers.Where(l => l.Enabled).ToList();
+            int insertIndex = FindChartLayerInsertionIndex(map, chartVm.CompilationScale, vm);
+            map.Layers.Insert(insertIndex, enabledLayers);
+            EnsureBoundaryLayerOnTop(map);
+        }
+
+        var tags = new KeyValuePair<string, object?>("chart.name", chartVm.Name);
+        ChartViewerDiagnostics.ChartsLoaded.Add(1, tags);
+        Debug.WriteLine($"Loaded chart: {chartVm.Name}");
     }
 
     private void UnloadChart(ChartViewModel chartVm)
