@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace EncDotNet.ChartViewer.Catalogs;
+namespace EncDotNet.ChartViewer.Charts;
 
 public sealed record ChartPackage
 {

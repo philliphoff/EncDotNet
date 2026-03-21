@@ -4,7 +4,7 @@ using System.Reactive;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
-using EncDotNet.ChartViewer.Catalogs;
+using EncDotNet.ChartViewer.Charts;
 using EncDotNet.ChartViewer.Models;
 using EncDotNet.S57.Charts;
 using ReactiveUI;
@@ -127,10 +127,10 @@ public class MainWindowViewModel : ViewModelBase
     /// </summary>
     public bool HasHoveredChart => _hoveredChart is not null;
 
-    private readonly ICatalogSource _catalogSource;
+    private readonly IChartCatalogSource _catalogSource;
     private readonly IChartSource _chartSource;
 
-    public MainWindowViewModel(ICatalogSource catalogSource, IChartSource chartSource)
+    public MainWindowViewModel(IChartCatalogSource catalogSource, IChartSource chartSource)
     {
         _catalogSource = catalogSource;
         _chartSource = chartSource;

@@ -2,7 +2,7 @@ using System;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
-using EncDotNet.ChartViewer.Catalogs;
+using EncDotNet.ChartViewer.Charts;
 using EncDotNet.ChartViewer.ViewModels;
 using EncDotNet.ChartViewer.Views;
 using Microsoft.Extensions.DependencyInjection;
@@ -80,11 +80,11 @@ public partial class App : Application
                 metrics.AddOtlpExporter();
             });
 
-        services.AddSingleton<ICatalogSource>(sp => new FileSystemCatalogSource(
+        services.AddSingleton<IChartCatalogSource>(sp => new FileSystemChartCatalogSource(
             AppDataPaths.ChartIndexPath,
-            sp.GetRequiredService<ILogger<FileSystemCatalogSource>>()));
-        services.AddSingleton<IChartSource>(sp => new ChartCache(
-            sp.GetRequiredService<ICatalogSource>()));
+            sp.GetRequiredService<ILogger<FileSystemChartCatalogSource>>()));
+        services.AddSingleton<IChartSource>(sp => new CachedChartSource(
+            sp.GetRequiredService<IChartCatalogSource>()));
         services.AddSingleton<IChartPackageManager, NoaaChartPackageManager>();
         services.AddTransient<MainWindowViewModel>();
         services.AddTransient<SetupWizardViewModel>();

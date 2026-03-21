@@ -10,15 +10,15 @@ using EncDotNet.S57.Charts;
 using EncDotNet.S57.ExchangeSets;
 using Microsoft.Extensions.Logging;
 
-namespace EncDotNet.ChartViewer.Catalogs;
+namespace EncDotNet.ChartViewer.Charts;
 
-internal sealed class FileSystemCatalogSource : ICatalogSource
+internal sealed class FileSystemChartCatalogSource : IChartCatalogSource
 {
     private readonly string _chartIndexPath;
     private readonly string _baseDirectory;
-    private readonly ILogger<FileSystemCatalogSource> _logger;
+    private readonly ILogger<FileSystemChartCatalogSource> _logger;
 
-    public FileSystemCatalogSource(string chartIndexPath, ILogger<FileSystemCatalogSource> logger)
+    public FileSystemChartCatalogSource(string chartIndexPath, ILogger<FileSystemChartCatalogSource> logger)
     {
         _chartIndexPath = chartIndexPath;
         _baseDirectory = Path.GetDirectoryName(chartIndexPath) ?? "";

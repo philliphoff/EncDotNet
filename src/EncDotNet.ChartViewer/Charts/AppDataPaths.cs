@@ -5,7 +5,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using EncDotNet.ChartViewer.Models;
 
-namespace EncDotNet.ChartViewer.Catalogs;
+namespace EncDotNet.ChartViewer.Charts;
 
 /// <summary>
 /// Provides paths to the app-local storage locations for chart data.

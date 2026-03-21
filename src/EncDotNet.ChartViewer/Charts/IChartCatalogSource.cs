@@ -2,9 +2,9 @@ using System.Collections.Generic;
 using System.Threading;
 using EncDotNet.ChartViewer.Models;
 
-namespace EncDotNet.ChartViewer.Catalogs;
+namespace EncDotNet.ChartViewer.Charts;
 
-public interface ICatalogSource : IChartSource
+public interface IChartCatalogSource : IChartSource
 {
     IAsyncEnumerable<ChartIndexEntry> GetCatalogAsync(CancellationToken cancellationToken = default);
 }

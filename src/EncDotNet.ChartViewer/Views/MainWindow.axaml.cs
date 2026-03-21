@@ -11,7 +11,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
-using EncDotNet.ChartViewer.Catalogs;
+using EncDotNet.ChartViewer.Charts;
 using EncDotNet.ChartViewer.Models;
 using EncDotNet.ChartViewer.ViewModels;
 using EncDotNet.S57;

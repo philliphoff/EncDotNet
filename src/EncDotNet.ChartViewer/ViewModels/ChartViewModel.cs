@@ -4,7 +4,7 @@ using System.IO;
 using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
-using EncDotNet.ChartViewer.Catalogs;
+using EncDotNet.ChartViewer.Charts;
 using EncDotNet.ChartViewer.Models;
 using Mapsui;
 using Mapsui.Layers;
