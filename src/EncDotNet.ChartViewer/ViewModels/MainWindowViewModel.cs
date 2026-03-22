@@ -189,15 +189,9 @@ public class MainWindowViewModel : ViewModelBase
         _filterDebounce?.Cancel();
         var cts = _filterDebounce = new CancellationTokenSource();
 
-        try
-        {
-            await System.Threading.Tasks.Task.Delay(250, cts.Token);
+        await System.Threading.Tasks.Task.Delay(250);
+        if (!cts.IsCancellationRequested)
             ApplyChartFilter();
-        }
-        catch (System.Threading.Tasks.TaskCanceledException)
-        {
-            // Superseded by a newer keystroke
-        }
     }
 
     private void ApplyChartFilter()

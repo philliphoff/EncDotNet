@@ -535,15 +535,9 @@ public partial class MainWindow : Window
 
         Dispatcher.UIThread.InvokeAsync(async () =>
         {
-            try
-            {
-                await Task.Delay(200, cts.Token);
+            await Task.Delay(200);
+            if (!cts.IsCancellationRequested)
                 await EvaluateViewportChartsAsync();
-            }
-            catch (TaskCanceledException)
-            {
-                // Superseded by a newer viewport change
-            }
         });
     }
 
@@ -1266,15 +1260,9 @@ public partial class MainWindow : Window
 
         Dispatcher.UIThread.InvokeAsync(async () =>
         {
-            try
-            {
-                await Task.Delay(durationMs, cts.Token);
+            await Task.Delay(durationMs);
+            if (!cts.IsCancellationRequested)
                 ToastBanner.IsVisible = false;
-            }
-            catch (TaskCanceledException)
-            {
-                // Superseded by a newer toast
-            }
         });
     }
 
