@@ -17,16 +17,17 @@ public static class S57AreaGeometryBuilder
     /// </summary>
     /// <param name="chart">The S-57 chart providing spatial lookups.</param>
     /// <param name="areaFeature">The area feature to convert.</param>
+    /// <param name="edgeCache">Optional projected edge coordinate cache for performance.</param>
     /// <returns>A geometry representing the area feature, or <c>null</c> if the feature has no spatial data.</returns>
-    public static Geometry? CreatePolygonFromAreaFeature(S57Chart chart, S57AreaFeature areaFeature)
+    public static Geometry? CreatePolygonFromAreaFeature(S57Chart chart, S57AreaFeature areaFeature, ProjectedEdgeCache? edgeCache = null)
     {
         // Full topology (level 3): area references faces
         if (areaFeature.HasFaceReference)
-            return CreatePolygonFromFaces(chart, areaFeature);
+            return CreatePolygonFromFaces(chart, areaFeature, edgeCache);
 
         // Chain-node topology (level 2): area references edges directly
         if (areaFeature.HasExteriorEdgeReferences)
-            return CreatePolygonFromEdges(chart, areaFeature);
+            return CreatePolygonFromEdges(chart, areaFeature, edgeCache);
 
         return null;
     }
@@ -38,11 +39,12 @@ public static class S57AreaGeometryBuilder
     /// </summary>
     /// <param name="chart">The S-57 chart providing spatial lookups.</param>
     /// <param name="areaFeature">The area feature whose visible edges to extract.</param>
+    /// <param name="edgeCache">Optional projected edge coordinate cache for performance.</param>
     /// <returns>
     /// A <see cref="LineString"/> or <see cref="MultiLineString"/> for the visible edges,
     /// or <c>null</c> if there are no visible edges.
     /// </returns>
-    public static Geometry? CreateVisibleEdgeLinesFromAreaFeature(S57Chart chart, S57AreaFeature areaFeature)
+    public static Geometry? CreateVisibleEdgeLinesFromAreaFeature(S57Chart chart, S57AreaFeature areaFeature, ProjectedEdgeCache? edgeCache = null)
     {
         // Collect all edge references from this area feature
         IEnumerable<S57EdgeReference> allEdgeRefs;
@@ -68,14 +70,14 @@ public static class S57AreaGeometryBuilder
             return null;
         }
 
-        return BuildLinesFromVisibleEdges(chart, allEdgeRefs);
+        return BuildLinesFromVisibleEdges(chart, allEdgeRefs, edgeCache);
     }
 
     /// <summary>
     /// Builds line geometry from visible edges, skipping masked and cell-boundary-truncated edges.
     /// Contiguous visible edges are merged into single line strings.
     /// </summary>
-    internal static Geometry? BuildLinesFromVisibleEdges(S57Chart chart, IEnumerable<S57EdgeReference> edgeRefs)
+    internal static Geometry? BuildLinesFromVisibleEdges(S57Chart chart, IEnumerable<S57EdgeReference> edgeRefs, ProjectedEdgeCache? edgeCache = null)
     {
         var allSegments = new List<List<Coordinate>>();
         var currentSegment = new List<Coordinate>();
@@ -110,7 +112,7 @@ public static class S57AreaGeometryBuilder
             var orientedStartNode = reverse ? edge.EndNode : edge.BeginningNode;
             var orientedEndNode = reverse ? edge.BeginningNode : edge.EndNode;
 
-            var edgeCoords = S57LineGeometryBuilder.GetEdgeCoordinates(chart, edge, reverse);
+            var edgeCoords = S57LineGeometryBuilder.GetEdgeCoordinates(chart, edge, reverse, edgeCache: edgeCache);
             if (edgeCoords.Count == 0)
                 continue;
 
@@ -159,7 +161,7 @@ public static class S57AreaGeometryBuilder
             allSegments.Select(s => new LineString(s.ToArray())).ToArray());
     }
 
-    internal static Geometry? CreatePolygonFromFaces(S57Chart chart, S57AreaFeature areaFeature)
+    internal static Geometry? CreatePolygonFromFaces(S57Chart chart, S57AreaFeature areaFeature, ProjectedEdgeCache? edgeCache = null)
     {
         var polygons = new List<Polygon>();
 
@@ -170,7 +172,7 @@ public static class S57AreaGeometryBuilder
                 continue;
 
             // Build exterior ring(s)
-            var exteriorRings = BuildRingsFromEdges(chart, face.ExteriorBoundary);
+            var exteriorRings = BuildRingsFromEdges(chart, face.ExteriorBoundary, edgeCache);
             if (exteriorRings.Count == 0)
                 continue;
 
@@ -178,7 +180,7 @@ public static class S57AreaGeometryBuilder
             var interiorRings = new List<LinearRing>();
             if (face.HasInteriorBoundaries)
             {
-                foreach (var ring in BuildRingsFromEdges(chart, face.InteriorBoundaries))
+                foreach (var ring in BuildRingsFromEdges(chart, face.InteriorBoundaries, edgeCache))
                 {
                     interiorRings.Add(new LinearRing(ring.ToArray()));
                 }
@@ -201,16 +203,16 @@ public static class S57AreaGeometryBuilder
         };
     }
 
-    internal static Geometry? CreatePolygonFromEdges(S57Chart chart, S57AreaFeature areaFeature)
+    internal static Geometry? CreatePolygonFromEdges(S57Chart chart, S57AreaFeature areaFeature, ProjectedEdgeCache? edgeCache = null)
     {
-        var exteriorRings = BuildRingsFromEdges(chart, areaFeature.ExteriorEdgeReferences);
+        var exteriorRings = BuildRingsFromEdges(chart, areaFeature.ExteriorEdgeReferences, edgeCache);
         if (exteriorRings.Count == 0)
             return null;
 
         var interiorRings = new List<LinearRing>();
         if (areaFeature.InteriorEdgeReferences.Count > 0)
         {
-            foreach (var ring in BuildRingsFromEdges(chart, areaFeature.InteriorEdgeReferences))
+            foreach (var ring in BuildRingsFromEdges(chart, areaFeature.InteriorEdgeReferences, edgeCache))
             {
                 interiorRings.Add(new LinearRing(ring.ToArray()));
             }
@@ -235,7 +237,7 @@ public static class S57AreaGeometryBuilder
         return new MultiPolygon(polygons.ToArray());
     }
 
-    internal static List<List<Coordinate>> BuildRingsFromEdges(S57Chart chart, IEnumerable<S57EdgeReference> edgeRefs)
+    internal static List<List<Coordinate>> BuildRingsFromEdges(S57Chart chart, IEnumerable<S57EdgeReference> edgeRefs, ProjectedEdgeCache? edgeCache = null)
     {
         var rings = new List<List<Coordinate>>();
         var currentRing = new List<Coordinate>();
@@ -253,7 +255,7 @@ public static class S57AreaGeometryBuilder
             var orientedStartNode = reverse ? edge.EndNode : edge.BeginningNode;
             var orientedEndNode = reverse ? edge.BeginningNode : edge.EndNode;
 
-            var edgeCoords = S57LineGeometryBuilder.GetEdgeCoordinates(chart, edge, reverse);
+            var edgeCoords = S57LineGeometryBuilder.GetEdgeCoordinates(chart, edge, reverse, edgeCache: edgeCache);
             if (edgeCoords.Count == 0)
                 continue;
 

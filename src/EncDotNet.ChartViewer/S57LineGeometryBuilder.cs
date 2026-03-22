@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using System.Linq;
 using EncDotNet.S57;
 using EncDotNet.S57.Charts;
-using Mapsui.Projections;
 using NetTopologySuite.Geometries;
 
 namespace EncDotNet.ChartViewer;
@@ -18,8 +17,9 @@ public static class S57LineGeometryBuilder
     /// </summary>
     /// <param name="chart">The S-57 chart providing spatial lookups.</param>
     /// <param name="lineFeature">The line feature to convert.</param>
+    /// <param name="edgeCache">Optional projected edge coordinate cache for performance.</param>
     /// <returns>A geometry representing the line feature, or <c>null</c> if the feature has no edges.</returns>
-    public static Geometry? CreateLineStringFromLineFeature(S57Chart chart, S57LineFeature lineFeature)
+    public static Geometry? CreateLineStringFromLineFeature(S57Chart chart, S57LineFeature lineFeature, ProjectedEdgeCache? edgeCache = null)
     {
         if (!lineFeature.HasEdgeReferences)
             return null;
@@ -48,7 +48,7 @@ public static class S57LineGeometryBuilder
             var orientedStartNode = reverse ? edge.EndNode : edge.BeginningNode;
             var orientedEndNode = reverse ? edge.BeginningNode : edge.EndNode;
 
-            var edgeCoords = GetEdgeCoordinates(chart, edge, reverse);
+            var edgeCoords = GetEdgeCoordinates(chart, edge, reverse, edgeCache: edgeCache);
             if (edgeCoords.Count == 0)
                 continue;
 
@@ -146,44 +146,18 @@ public static class S57LineGeometryBuilder
         return firstStartNode.Value == lastEndNode.Value;
     }
 
-    internal static List<Coordinate> GetEdgeCoordinates(S57Chart chart, S57Edge edge, bool reverse, bool excludeEndNode = false)
+    internal static List<Coordinate> GetEdgeCoordinates(
+        S57Chart chart, S57Edge edge, bool reverse,
+        bool excludeEndNode = false, ProjectedEdgeCache? edgeCache = null)
     {
-        var coords = new List<Coordinate>();
+        // Use the explicit cache if provided, otherwise fall back to the ambient
+        // per-chart cache (ConditionalWeakTable). This ensures callers that don't
+        // thread the cache explicitly (e.g. template handler delegates) still get
+        // the benefit of caching.
+        Coordinate[] forward = (edgeCache ?? ProjectedEdgeCache.For(chart))
+            .GetOrCompute(chart, edge);
 
-        // Get beginning node coordinate
-        if (edge.HasBeginningNode)
-        {
-            var beginNode = chart.GetConnectedNode(edge.BeginningNode!.Value);
-            if (beginNode != null)
-            {
-                var (lon, lat) = chart.ToDecimalDegrees(beginNode.Position);
-                var (x, y) = SphericalMercator.FromLonLat(lon, lat);
-                coords.Add(new Coordinate(x, y));
-            }
-        }
-
-        // Get intermediate points
-        if (edge.HasIntermediatePoints)
-        {
-            foreach (var point in edge.IntermediatePoints)
-            {
-                var (lon, lat) = chart.ToDecimalDegrees(point);
-                var (x, y) = SphericalMercator.FromLonLat(lon, lat);
-                coords.Add(new Coordinate(x, y));
-            }
-        }
-
-        // Get end node coordinate
-        if (edge.HasEndNode)
-        {
-            var endNode = chart.GetConnectedNode(edge.EndNode!.Value);
-            if (endNode != null)
-            {
-                var (lon, lat) = chart.ToDecimalDegrees(endNode.Position);
-                var (x, y) = SphericalMercator.FromLonLat(lon, lat);
-                coords.Add(new Coordinate(x, y));
-            }
-        }
+        var coords = new List<Coordinate>(forward);
 
         if (reverse)
         {
