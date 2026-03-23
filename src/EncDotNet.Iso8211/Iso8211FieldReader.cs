@@ -42,7 +42,7 @@ public sealed class Iso8211FieldReader
 
     private readonly Iso8211FieldDefinition _fieldDefinition;
     private readonly byte[] _data;
-    private readonly ImmutableArray<ParsedSubfield> _parsedSubfields;
+    private readonly ParsedSubfield[] _parsedSubfields;
     private readonly int _groupCount;
     private readonly int _lexicalLevel;
 
@@ -336,15 +336,22 @@ public sealed class Iso8211FieldReader
     /// <returns>
     /// A tuple containing the array of parsed subfields and the number of groups.
     /// </returns>
-    private (ImmutableArray<ParsedSubfield> subfields, int groupCount) ParseSubfields()
+    private (ParsedSubfield[] subfields, int groupCount) ParseSubfields()
     {
         var subfields = _fieldDefinition.SubfieldDefinitions;
         if (subfields.Count == 0)
         {
-            return (ImmutableArray<ParsedSubfield>.Empty, 0);
+            return ([], 0);
         }
 
-        var parsed = ImmutableArray.CreateBuilder<ParsedSubfield>();
+        // Pre-size: for repeating groups, estimate ~4 bytes per subfield
+        int initialCapacity = subfields.Count;
+        if (_fieldDefinition.HasRepeatingGroup && _data.Length > 0)
+        {
+            initialCapacity = Math.Max(initialCapacity, _data.Length / 4);
+        }
+
+        var parsed = new List<ParsedSubfield>(initialCapacity);
         var data = _data.AsSpan();
         int offset = 0;
         int subfieldIndex = 0;
@@ -437,7 +444,7 @@ public sealed class Iso8211FieldReader
             groupCount = 1;
         }
 
-        return (parsed.ToImmutable(), groupCount);
+        return (parsed.ToArray(), groupCount);
     }
 
     /// <summary>

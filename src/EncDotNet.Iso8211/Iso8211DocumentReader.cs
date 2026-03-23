@@ -1,4 +1,3 @@
-using System.Collections.Immutable;
 using System.Text;
 
 namespace EncDotNet.Iso8211;
@@ -88,7 +87,7 @@ public static class Iso8211DocumentReader
     /// <returns>The parsed ISO 8211 document.</returns>
     public static Iso8211Document Read(ref Iso8211Reader parser)
     {
-        var records = ImmutableArray.CreateBuilder<Iso8211Record>();
+        var records = new List<Iso8211Record>();
 
         while (parser.Read())
         {
@@ -105,7 +104,7 @@ public static class Iso8211DocumentReader
 
         return new Iso8211Document
         {
-            Records = records.ToImmutable()
+            Records = records
         };
     }
 
@@ -122,8 +121,8 @@ public static class Iso8211DocumentReader
         }
 
         var leader = Iso8211RecordLeader.FromLeader(parser.CurrentLeader);
-        var directoryEntries = ImmutableArray.CreateBuilder<Iso8211DirectoryEntry>();
-        var fields = ImmutableArray.CreateBuilder<Iso8211Field>();
+        var directoryEntries = new List<Iso8211DirectoryEntry>();
+        var fields = new List<Iso8211Field>();
 
         // Read directory entries
         while (parser.Read())
@@ -169,8 +168,8 @@ public static class Iso8211DocumentReader
         return new Iso8211Record
         {
             Leader = leader,
-            Directory = directoryEntries.ToImmutable(),
-            Fields = fields.ToImmutable()
+            Directory = directoryEntries,
+            Fields = fields
         };
     }
 }

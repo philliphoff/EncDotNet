@@ -356,7 +356,7 @@ public class Iso8211DocumentReaderTests
     }
 
     [Fact]
-    public void Document_Records_IsImmutableArray()
+    public void Document_Records_IsIReadOnlyList()
     {
         // Arrange
         var data = CreateMinimalRecord();
@@ -365,7 +365,7 @@ public class Iso8211DocumentReaderTests
         var document = Iso8211DocumentReader.Read(data);
 
         // Assert
-        Assert.IsType<ImmutableArray<Iso8211Record>>(document.Records);
+        Assert.IsAssignableFrom<IReadOnlyList<Iso8211Record>>(document.Records);
     }
 
     #endregion
