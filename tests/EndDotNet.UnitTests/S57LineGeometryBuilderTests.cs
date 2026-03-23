@@ -405,7 +405,7 @@ public class S57LineGeometryBuilderTests
         var coords = S57LineGeometryBuilder.GetEdgeCoordinates(chart, edge, reverse: false, excludeEndNode: true);
 
         // Only the beginning node remains
-        Assert.Single(coords);
+        Assert.Equal(1, coords.Count);
         var (x, y) = Project(0, 0);
         Assert.Equal(x, coords[0].X, 0.01);
         Assert.Equal(y, coords[0].Y, 0.01);

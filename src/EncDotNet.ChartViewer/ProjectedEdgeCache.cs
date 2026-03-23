@@ -81,7 +81,8 @@ public sealed class ProjectedEdgeCache
             + edge.IntermediatePoints.Count
             + (edge.HasEndNode ? 1 : 0);
 
-        var list = new List<Coordinate>(capacity);
+        var array = new Coordinate[capacity];
+        int index = 0;
 
         if (edge.HasBeginningNode)
         {
@@ -90,7 +91,7 @@ public sealed class ProjectedEdgeCache
             {
                 var (lon, lat) = chart.ToDecimalDegrees(beginNode.Position);
                 var (x, y) = SphericalMercator.FromLonLat(lon, lat);
-                list.Add(new Coordinate(x, y));
+                array[index++] = new Coordinate(x, y);
             }
         }
 
@@ -100,7 +101,7 @@ public sealed class ProjectedEdgeCache
             {
                 var (lon, lat) = chart.ToDecimalDegrees(point);
                 var (x, y) = SphericalMercator.FromLonLat(lon, lat);
-                list.Add(new Coordinate(x, y));
+                array[index++] = new Coordinate(x, y);
             }
         }
 
@@ -111,11 +112,12 @@ public sealed class ProjectedEdgeCache
             {
                 var (lon, lat) = chart.ToDecimalDegrees(endNode.Position);
                 var (x, y) = SphericalMercator.FromLonLat(lon, lat);
-                list.Add(new Coordinate(x, y));
+                array[index++] = new Coordinate(x, y);
             }
         }
 
-        return list.ToArray();
+        // Trim if some nodes were not found (rare)
+        return index == array.Length ? array : array[..index];
     }
 }
 

@@ -64,10 +64,7 @@ public static class S57LineGeometryBuilder
                 if (contiguous)
                 {
                     // Contiguous — skip the duplicate first coordinate and append
-                    for (var i = 1; i < edgeCoords.Count; i++)
-                    {
-                        currentSegment.Add(edgeCoords[i]);
-                    }
+                    edgeCoords.CopyTo(currentSegment, startIndex: 1);
                 }
                 else
                 {
@@ -76,12 +73,13 @@ public static class S57LineGeometryBuilder
                     {
                         allSegments.Add(currentSegment);
                     }
-                    currentSegment = new List<Coordinate>(edgeCoords);
+                    currentSegment = new List<Coordinate>(edgeCoords.Count);
+                    edgeCoords.CopyTo(currentSegment);
                 }
             }
             else
             {
-                currentSegment.AddRange(edgeCoords);
+                edgeCoords.CopyTo(currentSegment);
             }
 
             previousEndNode = orientedEndNode;
@@ -146,7 +144,7 @@ public static class S57LineGeometryBuilder
         return firstStartNode.Value == lastEndNode.Value;
     }
 
-    internal static List<Coordinate> GetEdgeCoordinates(
+    internal static EdgeCoordinateView GetEdgeCoordinates(
         S57Chart chart, S57Edge edge, bool reverse,
         bool excludeEndNode = false, ProjectedEdgeCache? edgeCache = null)
     {
@@ -157,20 +155,6 @@ public static class S57LineGeometryBuilder
         Coordinate[] forward = (edgeCache ?? ProjectedEdgeCache.For(chart))
             .GetOrCompute(chart, edge);
 
-        var coords = new List<Coordinate>(forward);
-
-        if (reverse)
-        {
-            coords.Reverse();
-        }
-
-        // After orientation is applied, remove the last coordinate (the oriented end node)
-        // if the caller requested it (e.g. to avoid closing a ring).
-        if (excludeEndNode && coords.Count > 0)
-        {
-            coords.RemoveAt(coords.Count - 1);
-        }
-
-        return coords;
+        return new EdgeCoordinateView(forward, reverse, excludeEndNode);
     }
 }

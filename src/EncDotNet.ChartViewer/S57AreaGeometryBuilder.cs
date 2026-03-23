@@ -124,10 +124,7 @@ public static class S57AreaGeometryBuilder
 
                 if (contiguous)
                 {
-                    for (var i = 1; i < edgeCoords.Count; i++)
-                    {
-                        currentSegment.Add(edgeCoords[i]);
-                    }
+                    edgeCoords.CopyTo(currentSegment, startIndex: 1);
                 }
                 else
                 {
@@ -135,12 +132,13 @@ public static class S57AreaGeometryBuilder
                     {
                         allSegments.Add(currentSegment);
                     }
-                    currentSegment = new List<Coordinate>(edgeCoords);
+                    currentSegment = new List<Coordinate>(edgeCoords.Count);
+                    edgeCoords.CopyTo(currentSegment);
                 }
             }
             else
             {
-                currentSegment.AddRange(edgeCoords);
+                edgeCoords.CopyTo(currentSegment);
             }
 
             previousEndNode = orientedEndNode;
@@ -270,10 +268,7 @@ public static class S57AreaGeometryBuilder
                 if (contiguous)
                 {
                     // Contiguous — skip the duplicate first coordinate and append
-                    for (var i = 1; i < edgeCoords.Count; i++)
-                    {
-                        currentRing.Add(edgeCoords[i]);
-                    }
+                    edgeCoords.CopyTo(currentRing, startIndex: 1);
                 }
                 else
                 {
@@ -284,12 +279,13 @@ public static class S57AreaGeometryBuilder
                         rings.Add(currentRing);
                     }
 
-                    currentRing = new List<Coordinate>(edgeCoords);
+                    currentRing = new List<Coordinate>(edgeCoords.Count);
+                    edgeCoords.CopyTo(currentRing);
                 }
             }
             else
             {
-                currentRing.AddRange(edgeCoords);
+                edgeCoords.CopyTo(currentRing);
             }
 
             previousEndNode = orientedEndNode;
