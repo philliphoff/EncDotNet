@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
@@ -313,6 +314,13 @@ public partial class MainWindow : Window
 
         // Load catalog if chart index exists (either previously or from wizard)
         await LoadCatalogIntoMapAsync();
+
+        // ── CLI diagnostic mode ──
+        if (DiagnosticOptions.Current is { IsEnabled: true } diagOpts)
+        {
+            await RunDiagnosticModeAsync(diagOpts);
+            return;
+        }
 
         // Restore saved viewport position
         if (MyMapControl.Map?.Navigator is { } nav
@@ -1144,6 +1152,154 @@ public partial class MainWindow : Window
             Features = features,
             Style = new BoundaryThemeStyle(),
         };
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // CLI diagnostic mode
+    // ────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Runs the app in CLI diagnostic mode: navigates to the specified viewport,
+    /// waits for charts to load, captures a diagnostic snapshot with screenshot,
+    /// writes both to the output path, and exits.
+    /// </summary>
+    private async Task RunDiagnosticModeAsync(DiagnosticOptions opts)
+    {
+        if (MyMapControl.Map?.Navigator is not { } nav)
+        {
+            Console.Error.WriteLine("ERROR: Map navigator not available.");
+            Environment.Exit(1);
+            return;
+        }
+
+        // Navigate to the requested viewport.
+        var (mx, my) = SphericalMercator.FromLonLat(opts.Longitude, opts.Latitude);
+        nav.CenterOnAndZoomTo(new MPoint(mx, my), opts.Resolution);
+
+        // Wait for the viewport change to trigger chart loading, then wait
+        // for all chart loading to settle (no more _loadingCharts in flight).
+        await Task.Delay(500); // Initial debounce
+        await EvaluateViewportChartsAsync();
+
+        // Wait for any remaining async chart loads to complete.
+        for (int attempt = 0; attempt < 60; attempt++)
+        {
+            await Task.Delay(500);
+            if (_loadingCharts.Count == 0)
+                break;
+        }
+
+        // One more render cycle for coverage clipping to apply.
+        await Task.Delay(300);
+        MyMapControl.Map?.Refresh();
+        await Task.Delay(300);
+
+        // Capture diagnostics to files.
+        var outputBase = opts.OutputPath;
+        var dir = Path.GetDirectoryName(outputBase);
+        if (!string.IsNullOrEmpty(dir))
+            Directory.CreateDirectory(dir);
+
+        var (markdown, screenshotPath) = await CaptureDiagnosticsToFilesAsync(outputBase);
+
+        // Write markdown.
+        var mdPath = outputBase + ".md";
+        await File.WriteAllTextAsync(mdPath, markdown);
+
+        Console.WriteLine(mdPath);
+        if (screenshotPath != null)
+            Console.WriteLine(screenshotPath);
+
+        // Exit.
+        if (Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            desktop.Shutdown(0);
+    }
+
+    /// <summary>
+    /// Captures diagnostic data and screenshot to files, returning the markdown
+    /// text and screenshot path. Reuses the same logic as <see cref="CaptureDiagnosticsAsync"/>
+    /// but writes to a specified path instead of clipboard.
+    /// </summary>
+    private async Task<(string Markdown, string? ScreenshotPath)> CaptureDiagnosticsToFilesAsync(string outputBase)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("# ChartViewer Diagnostic Snapshot");
+        sb.AppendLine($"- **Timestamp**: {DateTime.UtcNow:O}");
+        sb.AppendLine();
+
+        if (MyMapControl.Map?.Navigator is { } nav)
+        {
+            var vp = nav.Viewport;
+            var extent = vp.ToExtent();
+            sb.AppendLine("## Viewport");
+            sb.AppendLine($"- **CenterX**: {vp.CenterX:F2}");
+            sb.AppendLine($"- **CenterY**: {vp.CenterY:F2}");
+            var (lon, lat) = SphericalMercator.ToLonLat(vp.CenterX, vp.CenterY);
+            sb.AppendLine($"- **Center (lon, lat)**: ({lon:F6}, {lat:F6})");
+            sb.AppendLine($"- **Resolution**: {vp.Resolution:F6}");
+            sb.AppendLine($"- **Rotation**: {vp.Rotation:F2}");
+            sb.AppendLine($"- **Width**: {vp.Width:F0}");
+            sb.AppendLine($"- **Height**: {vp.Height:F0}");
+            if (extent is not null)
+                sb.AppendLine($"- **Extent**: ({extent.MinX:F2}, {extent.MinY:F2}) — ({extent.MaxX:F2}, {extent.MaxY:F2})");
+            sb.AppendLine();
+        }
+
+        sb.AppendLine("## Loaded Charts");
+        if (_loadedCharts.Count == 0)
+        {
+            sb.AppendLine("_(none)_");
+        }
+        else
+        {
+            sb.AppendLine("| Chart | CSCL | Layers | Enabled | Visible Range |");
+            sb.AppendLine("|---|---|---|---|---|");
+            foreach (var chartVm in _loadedCharts.OrderBy(c => c.CompilationScale))
+            {
+                int totalLayers = chartVm.Layers.Count;
+                int enabledLayers = chartVm.Layers.Count(l => l.Enabled);
+                double minMin = chartVm.Layers.Count > 0 ? chartVm.Layers.Min(l => l.MinVisible) : 0;
+                double maxMax = chartVm.Layers.Count > 0 ? chartVm.Layers.Max(l => l.MaxVisible) : 0;
+                sb.AppendLine($"| {chartVm.Name} | {chartVm.CompilationScale} | {totalLayers} | {enabledLayers} | {FormatMaxVisible(minMin)} – {FormatMaxVisible(maxMax)} |");
+            }
+        }
+        sb.AppendLine();
+
+        sb.AppendLine("## Map Layers (render order, bottom to top)");
+        if (MyMapControl.Map is { } map)
+        {
+            sb.AppendLine("| # | Layer Name | Type | Enabled | MinVisible | MaxVisible |");
+            sb.AppendLine("|---|---|---|---|---|---|");
+            int idx = 0;
+            foreach (var layer in map.Layers)
+            {
+                sb.AppendLine($"| {idx} | {layer.Name} | {layer.GetType().Name} | {layer.Enabled} | {FormatMaxVisible(layer.MinVisible)} | {FormatMaxVisible(layer.MaxVisible)} |");
+                idx++;
+            }
+        }
+        sb.AppendLine();
+
+        string? screenshotPath = null;
+        try
+        {
+            var pixelSize = new Avalonia.PixelSize((int)MyMapControl.Bounds.Width, (int)MyMapControl.Bounds.Height);
+            if (pixelSize.Width > 0 && pixelSize.Height > 0)
+            {
+                var rtb = new RenderTargetBitmap(pixelSize);
+                rtb.Render(MyMapControl);
+                screenshotPath = outputBase + ".png";
+                rtb.Save(screenshotPath);
+                sb.AppendLine("## Screenshot");
+                sb.AppendLine($"Saved to: `{screenshotPath}`");
+            }
+        }
+        catch (Exception ex)
+        {
+            sb.AppendLine("## Screenshot");
+            sb.AppendLine($"_(failed: {ex.Message})_");
+        }
+
+        return (sb.ToString(), screenshotPath);
     }
 
     // ────────────────────────────────────────────────────────────────────
