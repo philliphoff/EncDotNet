@@ -883,8 +883,11 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Inserts all active layers from a <see cref="LayerUpdate"/> into the Mapsui map.
-    /// Used when a chart is first loaded or re-enters the viewport from cache.
+    /// Inserts all active layers from a <see cref="LayerUpdate"/> into the Mapsui map
+    /// as a contiguous block at the position determined by the chart's compilation scale.
+    /// Coarser charts (higher CSCL) are placed behind finer charts (lower CSCL), so finer
+    /// chart features completely paint over coarser chart features where they overlap.
+    /// Within each chart block, layers are sorted by render order (land above depth).
     /// Must be called on the UI thread.
     /// </summary>
     private void InsertAllChartLayers(ChartViewModel chartVm, LayerUpdate update, MainWindowViewModel vm)
@@ -892,7 +895,7 @@ public partial class MainWindow : Window
         if (MyMapControl.Map is not { } map)
             return;
 
-        int insertIndex = FindChartLayerInsertionIndex(map, chartVm.CompilationScale, vm);
+        int insertIndex = FindChartBlockInsertionIndex(map, chartVm.CompilationScale);
         map.Layers.Insert(insertIndex, update.ActiveLayers.ToList());
         EnsureBoundaryLayerOnTop(map);
 
@@ -914,7 +917,7 @@ public partial class MainWindow : Window
 
         foreach (var layer in update.Added)
         {
-            int idx = FindLayerInsertionIndex(map, chartVm, layer, vm);
+            int idx = FindSingleLayerInsertionIndex(map, chartVm, layer);
             map.Layers.Insert(idx, layer);
         }
 
@@ -978,70 +981,94 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Finds the insertion index in the map's layer collection for a chart with the given
-    /// compilation scale. Higher CSCL charts are placed before lower CSCL charts.
+    /// Finds the insertion index in the map's layer collection for a chart block
+    /// with the given compilation scale. Higher CSCL (coarser) charts are placed
+    /// before lower CSCL (finer) charts, so finer chart features completely paint
+    /// over coarser chart features where they overlap — eliminating artifacts from
+    /// coarse charts' simplified coastlines and cell boundary edges.
     /// </summary>
-    private int FindChartLayerInsertionIndex(Map map, int compilationScale, MainWindowViewModel vm)
+    private int FindChartBlockInsertionIndex(Map map, int compilationScale)
     {
         int index = 0;
-        foreach (var existingLayer in map.Layers)
+        foreach (var existing in map.Layers)
         {
-            var ownerChart = vm.AvailableCharts.FirstOrDefault(
-                c => _loadedCharts.Contains(c) && c.Layers.Contains(existingLayer));
-
-            if (ownerChart != null && ownerChart.CompilationScale < compilationScale)
+            // Skip non-chart layers (e.g. OpenStreetMap tile layer at the bottom).
+            if (existing is not MemoryLayer)
             {
-                return index;
+                index++;
+                continue;
             }
+
+            // Insert before the chart boundaries overlay.
+            if (existing.Name == "Chart Boundaries")
+                return index;
+
+            // Insert before layers from finer charts (lower CSCL).
+            int existingCscl = GetOwnerCompilationScale(existing);
+            if (existingCscl > 0 && existingCscl < compilationScale)
+                return index;
 
             index++;
         }
         return index;
     }
 
-    private int FindMapLayerIndex(ILayer layer)
+    /// <summary>
+    /// Finds the insertion index for a single layer being added to an already-loaded
+    /// chart (e.g. feature toggle). Tries to place it among its sibling layers from
+    /// the same chart, falling back to the chart block position.
+    /// </summary>
+    private int FindSingleLayerInsertionIndex(Map map, ChartViewModel chartVm, ILayer layer)
     {
-        if (MyMapControl.Map is not { } map)
-            return -1;
+        int renderOrder = GetLayerRenderOrder(layer);
 
+        // Find the last sibling layer from the same chart that has a lower render
+        // order — insert right after it.
+        int lastSiblingIndex = -1;
         int index = 0;
-        foreach (var ml in map.Layers)
+        foreach (var existing in map.Layers)
         {
-            if (ReferenceEquals(ml, layer))
-                return index;
+            if (chartVm.Layers.Contains(existing))
+            {
+                int existingOrder = GetLayerRenderOrder(existing);
+                if (existingOrder <= renderOrder)
+                    lastSiblingIndex = index;
+                else if (lastSiblingIndex >= 0)
+                    return lastSiblingIndex + 1;
+            }
             index++;
         }
-        return -1;
+
+        if (lastSiblingIndex >= 0)
+            return lastSiblingIndex + 1;
+
+        // No sibling found — fall back to chart block position.
+        return FindChartBlockInsertionIndex(map, chartVm.CompilationScale);
     }
 
     /// <summary>
-    /// Finds the map insertion index for a single layer being toggled on, respecting both
-    /// the chart's compilation-scale ordering and the render order within the chart.
+    /// Returns the render order for a map layer by parsing its name as an S-57 object code.
+    /// Non-chart layers return <see cref="int.MaxValue"/> so they sort to the end.
     /// </summary>
-    private int FindLayerInsertionIndex(Map map, ChartViewModel chartVm, MemoryLayer layer, MainWindowViewModel vm)
+    private static int GetLayerRenderOrder(ILayer layer)
     {
-        // Find the position of this layer within the chart's sorted layer list.
-        int layerIndex = -1;
-        for (int j = 0; j < chartVm.Layers.Count; j++)
-        {
-            if (ReferenceEquals(chartVm.Layers[j], layer))
-            {
-                layerIndex = j;
-                break;
-            }
-        }
+        if (Enum.TryParse<S57ObjectCode>(layer.Name, out var code))
+            return S57LayerTemplates.GetRenderOrder(code);
+        return int.MaxValue;
+    }
 
-        // Find the last sibling layer from the same chart that precedes this layer
-        // and is currently in the map — insert right after it.
-        for (int i = layerIndex - 1; i >= 0; i--)
+    /// <summary>
+    /// Returns the compilation scale of the chart that owns the given layer,
+    /// or 0 if the layer is not owned by any loaded chart.
+    /// </summary>
+    private int GetOwnerCompilationScale(ILayer layer)
+    {
+        foreach (var chartVm in _loadedCharts)
         {
-            int mapIdx = FindMapLayerIndex(chartVm.Layers[i]);
-            if (mapIdx >= 0)
-                return mapIdx + 1;
+            if (chartVm.Layers.Contains(layer))
+                return chartVm.CompilationScale;
         }
-
-        // No preceding sibling found — fall back to the chart-level insertion index.
-        return FindChartLayerInsertionIndex(map, chartVm.CompilationScale, vm);
+        return 0;
     }
 
     /// <summary>

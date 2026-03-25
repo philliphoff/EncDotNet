@@ -122,6 +122,13 @@ public static class S57AreaGeometryBuilder
                     && orientedStartNode.HasValue
                     && previousEndNode.Value == orientedStartNode.Value;
 
+                // Coordinate proximity fallback (see BuildRingsFromEdges).
+                if (!contiguous && currentSegment.Count > 0 && edgeCoords.Count > 0
+                    && edgeCoords[0].Equals2D(currentSegment[^1]))
+                {
+                    contiguous = true;
+                }
+
                 if (contiguous)
                 {
                     edgeCoords.CopyTo(currentSegment, startIndex: 1);
@@ -264,6 +271,16 @@ public static class S57AreaGeometryBuilder
                 bool contiguous = previousEndNode.HasValue
                     && orientedStartNode.HasValue
                     && previousEndNode.Value == orientedStartNode.Value;
+
+                // When node-based contiguity fails, fall back to coordinate
+                // proximity. This handles edges with missing node references
+                // or mismatched node names that are still geometrically connected,
+                // preventing premature ring closure that creates needle artifacts.
+                if (!contiguous && currentRing.Count > 0 && edgeCoords.Count > 0
+                    && edgeCoords[0].Equals2D(currentRing[^1]))
+                {
+                    contiguous = true;
+                }
 
                 if (contiguous)
                 {

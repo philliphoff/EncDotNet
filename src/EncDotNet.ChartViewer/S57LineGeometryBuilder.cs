@@ -61,6 +61,13 @@ public static class S57LineGeometryBuilder
                     && orientedStartNode.HasValue
                     && previousEndNode.Value == orientedStartNode.Value;
 
+                // Coordinate proximity fallback (see S57AreaGeometryBuilder.BuildRingsFromEdges).
+                if (!contiguous && currentSegment.Count > 0 && edgeCoords.Count > 0
+                    && edgeCoords[0].Equals2D(currentSegment[^1]))
+                {
+                    contiguous = true;
+                }
+
                 if (contiguous)
                 {
                     // Contiguous — skip the duplicate first coordinate and append

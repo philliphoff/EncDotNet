@@ -192,7 +192,9 @@ public static class S57LayerFactory
         // ensuring at least three scale levels overlap at every resolution. This provides
         // geographic fallback coverage (since finer charts rarely cover the same full area
         // as coarser ones) while still suppressing vastly coarser overview charts whose
-        // geometry would cause visual bleed-through.
+        // simplified geometry could cause visual artifacts. Three levels balances coverage
+        // completeness against overscale artifact risk; fewer levels can leave gaps where
+        // no chart covers the viewport.
         const int overlapLevels = 3;
         var scales = new List<KeyValuePair<int, double>>(scaleMaxVisible);
         var scaleMinVisible = new Dictionary<int, double>();

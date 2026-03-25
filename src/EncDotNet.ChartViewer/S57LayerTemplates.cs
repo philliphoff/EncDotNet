@@ -36,6 +36,12 @@ internal static class S57LayerTemplates
     /// The default template applied when no object-code-specific template is registered.
     /// </summary>
     // Render order constants — lower values are drawn first (behind).
+    // LNDARE renders behind DEPARE/SEAARE so that cell-boundary truncation
+    // edges (where both LNDARE and DEPARE extend beyond the coastline into
+    // the chart's rectangular extent) are covered by depth fills rather than
+    // showing as stray land strips. Cross-chart artifacts are handled by
+    // per-chart block ordering (finer charts fully paint over coarser ones)
+    // and by suppressing vastly overscaled charts via RecalculateMinVisible.
     private const int OrderLand = 100;
     private const int OrderWater = 200;
     private const int OrderDepthArea = 300;
