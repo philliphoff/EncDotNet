@@ -707,11 +707,11 @@ public partial class MainWindow : Window
             recalcStopwatch.Elapsed.TotalMilliseconds,
             new KeyValuePair<string, object?>("loaded.charts", _loadedCharts.Count));
 
-        // ── Coverage-based exclusion clipping ────────────────────────
-        // Clip area features from coarser charts to exclude areas covered by
-        // finer charts. This prevents simplified coastlines and cell-boundary
-        // extensions from bleeding through where finer chart data exists.
-        ApplyExclusionClipping(vm);
+        // ── Coverage-based self-clipping ─────────────────────────────
+        // Clip each chart's area features to its own M_COVR coverage area,
+        // preventing cell-boundary extensions from showing as stray strips.
+        // Finer charts paint over coarser charts via per-chart block ordering.
+        ApplyCoverageClipping(vm);
 
         evalStopwatch.Stop();
         ChartViewerDiagnostics.ViewportEvaluationDuration.Record(
@@ -946,42 +946,19 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Computes and applies exclusion zone clipping to all loaded charts.
-    /// For each chart, the exclusion zone is the union of coverage geometries
-    /// from all loaded charts with a finer (lower) compilation scale that are
-    /// <b>visible at the current viewport resolution</b>. Charts that are hidden
-    /// (past their MaxVisible) are excluded to prevent clipping holes where no
-    /// finer chart data is actually rendered.
+    /// Clips each loaded chart's area features to its own M_COVR coverage area,
+    /// preventing cell-boundary truncation edges from extending polygons beyond
+    /// the chart's valid data boundary. Finer charts paint over coarser charts
+    /// via per-chart block ordering — no cross-chart exclusion is needed.
     /// </summary>
-    private void ApplyExclusionClipping(MainWindowViewModel vm)
+    private void ApplyCoverageClipping(MainWindowViewModel vm)
     {
         if (MyMapControl.Map is not { } map)
             return;
 
-        double resolution = MyMapControl.Map.Navigator.Viewport.Resolution;
-
-        // Build the coverage list from loaded charts that are visible at the
-        // current resolution. A chart is visible when its layers' MinVisible ≤
-        // resolution ≤ MaxVisible. Charts hidden at the current zoom must not
-        // contribute to exclusion zones — their coverage would clip coarser
-        // charts' fills but provide no rendered features to replace them.
-        var coverages = _loadedCharts
-            .Where(c =>
-            {
-                if (c.Layers.Count == 0) return false;
-                var firstLayer = c.Layers[0];
-                return resolution >= firstLayer.MinVisible
-                    && resolution <= firstLayer.MaxVisible;
-            })
-            .Select(c => (c.CompilationScale, c.CoverageGeometry))
-            .ToList();
-
         foreach (var chartVm in _loadedCharts)
         {
-            var zone = S57CoverageHelper.ComputeExclusionZone(
-                chartVm.CompilationScale, coverages);
-
-            var update = chartVm.ApplyExclusionZone(zone?.Zone);
+            var update = chartVm.ApplyCoverageClipping();
 
             if (update.Added.Count > 0 || update.Removed.Count > 0)
             {

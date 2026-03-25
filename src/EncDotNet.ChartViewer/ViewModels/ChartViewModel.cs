@@ -270,16 +270,13 @@ public sealed class ChartViewModel : ViewModelBase
     // ── Exclusion zone clipping ─────────────────────────────────────
 
     /// <summary>
-    /// The exclusion zone geometry most recently applied to active layers,
+    /// The coverage geometry most recently used for clipping,
     /// or <c>null</c> if no clipping has been applied.
     /// </summary>
-    private Geometry? _appliedExclusionZone;
+    private Geometry? _appliedCoverageClip;
 
     /// <summary>
-    /// Object codes whose area fills should be clipped by exclusion zones.
-    /// These are the primary area-fill codes that cause visual bleed-through
-    /// when coarse chart polygons extend beyond their actual coastline at
-    /// cell boundary edges.
+    /// Object codes whose area fills should be clipped to the chart's coverage area.
     /// </summary>
     private static readonly HashSet<S57ObjectCode> ClippableAreaCodes = new()
     {
@@ -289,33 +286,42 @@ public sealed class ChartViewModel : ViewModelBase
     };
 
     /// <summary>
-    /// Applies exclusion zone clipping to this chart's area layers, creating
-    /// clipped copies of area features that intersect the exclusion zone.
-    /// The base (unclipped) layers remain in the cache; only the active layers
-    /// are replaced with clipped versions.
+    /// Clips this chart's area features to its own M_COVR coverage geometry,
+    /// preventing cell-boundary truncation edges from extending polygons beyond
+    /// the chart's valid data area. Unlike exclusion-based clipping, this does
+    /// not create holes — features are kept within their own coverage boundary.
+    /// Finer charts paint over coarser charts via per-chart block ordering.
     /// </summary>
-    /// <param name="exclusionZone">
-    /// The combined coverage geometry of all loaded charts with finer (lower)
-    /// compilation scales, or <c>null</c> to remove any previous clipping.
-    /// </param>
     /// <returns>A <see cref="LayerUpdate"/> describing the changes to apply to the map.</returns>
-    public LayerUpdate ApplyExclusionZone(Geometry? exclusionZone)
+    public LayerUpdate ApplyCoverageClipping()
     {
-        // If the exclusion zone hasn't changed, no work needed.
-        if (ReferenceEquals(exclusionZone, _appliedExclusionZone))
+        var coverage = CoverageGeometry;
+
+        // Skip if no coverage geometry, or already applied with same geometry.
+        if (coverage == null || coverage.IsEmpty)
+        {
+            if (_appliedCoverageClip == null)
+                return new LayerUpdate(_activeLayers, [], []);
+
+            // Coverage was previously applied but now gone — restore unclipped.
+            _appliedCoverageClip = null;
+            return RebuildActiveFromCache();
+        }
+
+        if (ReferenceEquals(coverage, _appliedCoverageClip))
             return new LayerUpdate(_activeLayers, [], []);
 
-        _appliedExclusionZone = exclusionZone;
+        _appliedCoverageClip = coverage;
 
+        // Rebuild active layers from the unclipped cache, applying coverage clipping.
         var previousActive = _activeLayers;
 
-        // Rebuild active layers from the unclipped cache, applying clipping.
         var active = new List<MemoryLayer>();
         foreach (var (code, entry) in _layerCache)
         {
-            if (exclusionZone != null && !exclusionZone.IsEmpty && ClippableAreaCodes.Contains(code))
+            if (ClippableAreaCodes.Contains(code))
             {
-                var clipped = ClipAreaLayer(entry.Layer, exclusionZone);
+                var clipped = ClipLayerToCoverage(entry.Layer, coverage);
                 active.Add(clipped ?? entry.Layer);
             }
             else
@@ -347,14 +353,41 @@ public sealed class ChartViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Creates a clipped copy of a MemoryLayer by computing
-    /// <c>Geometry.Difference(exclusionZone)</c> for each polygon feature.
-    /// Returns <c>null</c> if no features were clipped (the original layer
-    /// can be reused as-is).
+    /// Rebuilds the active layer list from the unclipped cache (no clipping applied).
     /// </summary>
-    private static MemoryLayer? ClipAreaLayer(MemoryLayer layer, Geometry exclusionZone)
+    private LayerUpdate RebuildActiveFromCache()
     {
-        var prepared = NetTopologySuite.Geometries.Prepared.PreparedGeometryFactory.Prepare(exclusionZone);
+        var previousActive = _activeLayers;
+        var active = _layerCache.Values.Select(e => e.Layer).ToList();
+
+        active.Sort((a, b) =>
+        {
+            var orderA = Enum.TryParse<S57ObjectCode>(a.Name, out var codeA)
+                ? S57LayerTemplates.GetRenderOrder(codeA) : int.MaxValue;
+            var orderB = Enum.TryParse<S57ObjectCode>(b.Name, out var codeB)
+                ? S57LayerTemplates.GetRenderOrder(codeB) : int.MaxValue;
+            return orderA.CompareTo(orderB);
+        });
+
+        var newActive = active.ToImmutableArray();
+        _activeLayers = newActive;
+
+        var previousSet = new HashSet<MemoryLayer>(previousActive);
+        var newSet = new HashSet<MemoryLayer>(newActive);
+        return new LayerUpdate(newActive,
+            newActive.Where(l => !previousSet.Contains(l)).ToList(),
+            previousActive.Where(l => !newSet.Contains(l)).ToList());
+    }
+
+    /// <summary>
+    /// Creates a clipped copy of a MemoryLayer by computing
+    /// <c>Geometry.Intersection(coverage)</c> for each polygon feature,
+    /// keeping only the portions within the chart's coverage area.
+    /// Returns <c>null</c> if no features needed clipping.
+    /// </summary>
+    private static MemoryLayer? ClipLayerToCoverage(MemoryLayer layer, Geometry coverage)
+    {
+        var prepared = NetTopologySuite.Geometries.Prepared.PreparedGeometryFactory.Prepare(coverage);
         var clippedFeatures = new List<IFeature>();
         bool anyClipped = false;
 
@@ -362,36 +395,47 @@ public sealed class ChartViewModel : ViewModelBase
         {
             if (feature is GeometryFeature gf && gf.Geometry is Polygon or MultiPolygon)
             {
-                if (prepared.Intersects(gf.Geometry))
+                // Fast check: if entirely within coverage, no clipping needed.
+                if (prepared.ContainsProperly(gf.Geometry))
                 {
-                    try
+                    clippedFeatures.Add(feature);
+                    continue;
+                }
+
+                // If it doesn't intersect coverage at all, drop it.
+                if (!prepared.Intersects(gf.Geometry))
+                {
+                    anyClipped = true;
+                    continue;
+                }
+
+                // Partial overlap — clip to coverage.
+                try
+                {
+                    var clipped = gf.Geometry.Intersection(coverage);
+                    if (clipped != null && !clipped.IsEmpty)
                     {
-                        var diff = gf.Geometry.Difference(exclusionZone);
-                        if (diff != null && !diff.IsEmpty)
-                        {
-                            var clippedFeature = new GeometryFeature(diff);
-                            foreach (var style in gf.Styles)
-                                clippedFeature.Styles.Add(style);
-                            foreach (var field in gf.Fields)
-                                clippedFeature[field] = gf[field];
-                            clippedFeatures.Add(clippedFeature);
-                            anyClipped = true;
-                        }
-                        // Feature entirely within exclusion zone — drop it.
+                        var clippedFeature = new GeometryFeature(clipped);
+                        foreach (var style in gf.Styles)
+                            clippedFeature.Styles.Add(style);
+                        foreach (var field in gf.Fields)
+                            clippedFeature[field] = gf[field];
+                        clippedFeatures.Add(clippedFeature);
+                        anyClipped = true;
                     }
-                    catch
+                    else
                     {
-                        clippedFeatures.Add(feature); // Clipping failed — keep original.
+                        anyClipped = true;
                     }
                 }
-                else
+                catch
                 {
-                    clippedFeatures.Add(feature); // No intersection — keep as-is.
+                    clippedFeatures.Add(feature);
                 }
             }
             else
             {
-                clippedFeatures.Add(feature); // Non-polygon (outline lines, labels) — keep.
+                clippedFeatures.Add(feature);
             }
         }
 
