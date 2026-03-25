@@ -31,6 +31,7 @@
         </PackageReference>
         <PackageReference Include="Mapsui.Avalonia" />
         <PackageReference Include="Mapsui.Nts" />
+        <PackageReference Include="MessagePack" />
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
         <PackageReference Include="Microsoft.Extensions.Logging" />
         <PackageReference Include="OpenTelemetry.Exporter.Console" />

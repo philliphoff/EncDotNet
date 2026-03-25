@@ -1,10 +1,12 @@
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using System.Threading;
 using System.Threading.Tasks;
+using EncDotNet.ChartViewer.Baking;
 using EncDotNet.ChartViewer.Models;
 using EncDotNet.S57.Charts;
 using EncDotNet.S57.ExchangeSets;
@@ -51,9 +53,85 @@ internal sealed class FileSystemChartCatalogSource : IChartCatalogSource
     {
         var chartPath = Path.Combine(_baseDirectory, entry.Path);
         var chartDirectory = Path.GetDirectoryName(chartPath)!;
-        var exchangeSet = S57ExchangeSetReader.Read(chartDirectory);
-        var chart = await exchangeSet.ReadChartAsync(chartDirectory, _logger, cancellationToken).ConfigureAwait(false);
+        var totalSw = Stopwatch.StartNew();
 
-        return chart;
+        // Try loading from baked cache first
+        if (ChartBaker.HasValidBakedFile(chartPath))
+        {
+            try
+            {
+                var (data, deserializeTime) = await ChartBaker.LoadBakedAsync(chartPath, cancellationToken).ConfigureAwait(false);
+                var chartBuildSw = Stopwatch.StartNew();
+                var chart = S57Chart.FromDocument(data.Document);
+
+                // Pre-populate the projected edge cache from baked data
+                if (data.ProjectedEdgeCoords.Count > 0)
+                {
+                    var edgeCache = ProjectedEdgeCache.For(chart);
+                    edgeCache.Import(chart, data.ProjectedEdgeCoords);
+                }
+
+                chartBuildSw.Stop();
+                totalSw.Stop();
+
+                _logger.LogInformation(
+                    "Loaded {Chart} from baked cache: deserialize={DeserializeMs}ms, chartBuild={ChartBuildMs}ms, total={TotalMs}ms, edges={EdgeCount}",
+                    entry.Name, deserializeTime.TotalMilliseconds, chartBuildSw.Elapsed.TotalMilliseconds,
+                    totalSw.Elapsed.TotalMilliseconds, data.ProjectedEdgeCoords.Count);
+
+                return chart;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to load baked cache for {Chart}, falling back to parse", entry.Name);
+            }
+        }
+
+        // Parse from source
+        var exchangeSet = S57ExchangeSetReader.Read(chartDirectory);
+
+        var parseSw = Stopwatch.StartNew();
+        var doc = await exchangeSet.ReadDocumentAsync(chartDirectory, _logger, cancellationToken).ConfigureAwait(false);
+        parseSw.Stop();
+
+        var buildSw = Stopwatch.StartNew();
+        var parsedChart = S57Chart.FromDocument(doc);
+        buildSw.Stop();
+        totalSw.Stop();
+
+        _logger.LogInformation(
+            "Parsed {Chart} from source: parse={ParseMs}ms, chartBuild={ChartBuildMs}ms, total={TotalMs}ms",
+            entry.Name, parseSw.Elapsed.TotalMilliseconds, buildSw.Elapsed.TotalMilliseconds, totalSw.Elapsed.TotalMilliseconds);
+
+        // Bake for next time (fire and forget, don't block chart load)
+        // Pre-compute all edge projections so they're included in the baked file.
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var edgeCache = ProjectedEdgeCache.For(parsedChart);
+                foreach (var edge in parsedChart.Edges.Values)
+                {
+                    edgeCache.GetOrCompute(parsedChart, edge);
+                }
+
+                var bakedData = new BakedChartData
+                {
+                    Document = doc,
+                    ProjectedEdgeCoords = edgeCache.Export()
+                };
+
+                var (path, duration, size) = await ChartBaker.BakeAsync(bakedData, chartPath, CancellationToken.None).ConfigureAwait(false);
+                _logger.LogInformation(
+                    "Baked {Chart}: {Size:N0} bytes ({Edges} edges) in {Duration}ms → {Path}",
+                    entry.Name, size, bakedData.ProjectedEdgeCoords.Count, duration.TotalMilliseconds, path);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to bake {Chart}", entry.Name);
+            }
+        }, CancellationToken.None);
+
+        return parsedChart;
     }
 }

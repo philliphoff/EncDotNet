@@ -72,6 +72,49 @@ public sealed class ProjectedEdgeCache
     public int Count => _cache.Count;
 
     /// <summary>
+    /// Exports the cache contents as a dictionary of record IDs to flat coordinate arrays
+    /// (alternating x, y values) for serialization.
+    /// </summary>
+    internal Dictionary<int, double[]> Export()
+    {
+        var result = new Dictionary<int, double[]>(_cache.Count);
+        foreach (var (name, coords) in _cache)
+        {
+            var flat = new double[coords.Length * 2];
+            for (int i = 0; i < coords.Length; i++)
+            {
+                flat[i * 2] = coords[i].X;
+                flat[i * 2 + 1] = coords[i].Y;
+            }
+            result[name.RecordId] = flat;
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Pre-populates the cache from previously baked coordinate data.
+    /// </summary>
+    /// <param name="chart">The chart whose edges to match.</param>
+    /// <param name="bakedCoords">
+    /// Dictionary of edge record ID to flat coordinate arrays (alternating x, y values).
+    /// </param>
+    internal void Import(S57Chart chart, Dictionary<int, double[]> bakedCoords)
+    {
+        foreach (var (recordId, flat) in bakedCoords)
+        {
+            var coords = new Coordinate[flat.Length / 2];
+            for (int i = 0; i < coords.Length; i++)
+            {
+                coords[i] = new Coordinate(flat[i * 2], flat[i * 2 + 1]);
+            }
+
+            // Find the edge record name with this ID (RCNM=130 for edges)
+            var name = new S57RecordName { RecordId = recordId, RecordNameCode = 130 };
+            _cache[name] = coords;
+        }
+    }
+
+    /// <summary>
     /// Computes the forward-oriented projected coordinates for an edge.
     /// </summary>
     internal static Coordinate[] ComputeForwardCoordinates(S57Chart chart, S57Edge edge)
