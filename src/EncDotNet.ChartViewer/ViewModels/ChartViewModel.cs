@@ -15,6 +15,7 @@ using EncDotNet.S57;
 using EncDotNet.S57.Charts;
 using Mapsui;
 using Mapsui.Layers;
+using Mapsui.Nts;
 using Mapsui.Projections;
 using NetTopologySuite.Geometries;
 using ReactiveUI;
@@ -264,5 +265,146 @@ public sealed class ChartViewModel : ViewModelBase
         _activeLayers = [];
         _coverageGeometryComputed = false;
         CoverageGeometry = null;
+    }
+
+    // ── Exclusion zone clipping ─────────────────────────────────────
+
+    /// <summary>
+    /// The exclusion zone geometry most recently applied to active layers,
+    /// or <c>null</c> if no clipping has been applied.
+    /// </summary>
+    private Geometry? _appliedExclusionZone;
+
+    /// <summary>
+    /// Object codes whose area fills should be clipped by exclusion zones.
+    /// These are the primary area-fill codes that cause visual bleed-through
+    /// when coarse chart polygons extend beyond their actual coastline at
+    /// cell boundary edges.
+    /// </summary>
+    private static readonly HashSet<S57ObjectCode> ClippableAreaCodes = new()
+    {
+        S57ObjectCode.LNDARE,
+        S57ObjectCode.DEPARE,
+        S57ObjectCode.SEAARE,
+    };
+
+    /// <summary>
+    /// Applies exclusion zone clipping to this chart's area layers, creating
+    /// clipped copies of area features that intersect the exclusion zone.
+    /// The base (unclipped) layers remain in the cache; only the active layers
+    /// are replaced with clipped versions.
+    /// </summary>
+    /// <param name="exclusionZone">
+    /// The combined coverage geometry of all loaded charts with finer (lower)
+    /// compilation scales, or <c>null</c> to remove any previous clipping.
+    /// </param>
+    /// <returns>A <see cref="LayerUpdate"/> describing the changes to apply to the map.</returns>
+    public LayerUpdate ApplyExclusionZone(Geometry? exclusionZone)
+    {
+        // If the exclusion zone hasn't changed, no work needed.
+        if (ReferenceEquals(exclusionZone, _appliedExclusionZone))
+            return new LayerUpdate(_activeLayers, [], []);
+
+        _appliedExclusionZone = exclusionZone;
+
+        var previousActive = _activeLayers;
+
+        // Rebuild active layers from the unclipped cache, applying clipping.
+        var active = new List<MemoryLayer>();
+        foreach (var (code, entry) in _layerCache)
+        {
+            if (exclusionZone != null && !exclusionZone.IsEmpty && ClippableAreaCodes.Contains(code))
+            {
+                var clipped = ClipAreaLayer(entry.Layer, exclusionZone);
+                active.Add(clipped ?? entry.Layer);
+            }
+            else
+            {
+                active.Add(entry.Layer);
+            }
+        }
+
+        // Re-sort by render order (same as BuildLayersCore Phase 2).
+        active.Sort((a, b) =>
+        {
+            var orderA = Enum.TryParse<S57ObjectCode>(a.Name, out var codeA)
+                ? S57LayerTemplates.GetRenderOrder(codeA) : int.MaxValue;
+            var orderB = Enum.TryParse<S57ObjectCode>(b.Name, out var codeB)
+                ? S57LayerTemplates.GetRenderOrder(codeB) : int.MaxValue;
+            return orderA.CompareTo(orderB);
+        });
+
+        var newActive = active.ToImmutableArray();
+        _activeLayers = newActive;
+
+        // Compute diff.
+        var previousSet = new HashSet<MemoryLayer>(previousActive);
+        var newSet = new HashSet<MemoryLayer>(newActive);
+        var added = newActive.Where(l => !previousSet.Contains(l)).ToList();
+        var removed = previousActive.Where(l => !newSet.Contains(l)).ToList();
+
+        return new LayerUpdate(newActive, added, removed);
+    }
+
+    /// <summary>
+    /// Creates a clipped copy of a MemoryLayer by computing
+    /// <c>Geometry.Difference(exclusionZone)</c> for each polygon feature.
+    /// Returns <c>null</c> if no features were clipped (the original layer
+    /// can be reused as-is).
+    /// </summary>
+    private static MemoryLayer? ClipAreaLayer(MemoryLayer layer, Geometry exclusionZone)
+    {
+        var prepared = NetTopologySuite.Geometries.Prepared.PreparedGeometryFactory.Prepare(exclusionZone);
+        var clippedFeatures = new List<IFeature>();
+        bool anyClipped = false;
+
+        foreach (var feature in layer.Features)
+        {
+            if (feature is GeometryFeature gf && gf.Geometry is Polygon or MultiPolygon)
+            {
+                if (prepared.Intersects(gf.Geometry))
+                {
+                    try
+                    {
+                        var diff = gf.Geometry.Difference(exclusionZone);
+                        if (diff != null && !diff.IsEmpty)
+                        {
+                            var clippedFeature = new GeometryFeature(diff);
+                            foreach (var style in gf.Styles)
+                                clippedFeature.Styles.Add(style);
+                            foreach (var field in gf.Fields)
+                                clippedFeature[field] = gf[field];
+                            clippedFeatures.Add(clippedFeature);
+                            anyClipped = true;
+                        }
+                        // Feature entirely within exclusion zone — drop it.
+                    }
+                    catch
+                    {
+                        clippedFeatures.Add(feature); // Clipping failed — keep original.
+                    }
+                }
+                else
+                {
+                    clippedFeatures.Add(feature); // No intersection — keep as-is.
+                }
+            }
+            else
+            {
+                clippedFeatures.Add(feature); // Non-polygon (outline lines, labels) — keep.
+            }
+        }
+
+        if (!anyClipped)
+            return null;
+
+        return new MemoryLayer
+        {
+            Name = layer.Name,
+            Features = clippedFeatures,
+            Style = layer.Style,
+            MinVisible = layer.MinVisible,
+            MaxVisible = layer.MaxVisible,
+        };
     }
 }

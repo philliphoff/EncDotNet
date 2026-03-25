@@ -707,6 +707,12 @@ public partial class MainWindow : Window
             recalcStopwatch.Elapsed.TotalMilliseconds,
             new KeyValuePair<string, object?>("loaded.charts", _loadedCharts.Count));
 
+        // ── Coverage-based exclusion clipping ────────────────────────
+        // Clip area features from coarser charts to exclude areas covered by
+        // finer charts. This prevents simplified coastlines and cell-boundary
+        // extensions from bleeding through where finer chart data exists.
+        ApplyExclusionClipping(vm);
+
         evalStopwatch.Stop();
         ChartViewerDiagnostics.ViewportEvaluationDuration.Record(
             evalStopwatch.Elapsed.TotalMilliseconds,
@@ -937,6 +943,51 @@ public partial class MainWindow : Window
         }
 
         MyMapControl.Map?.Refresh();
+    }
+
+    /// <summary>
+    /// Computes and applies exclusion zone clipping to all loaded charts.
+    /// For each chart, the exclusion zone is the union of coverage geometries
+    /// from all loaded charts with a finer (lower) compilation scale that are
+    /// <b>visible at the current viewport resolution</b>. Charts that are hidden
+    /// (past their MaxVisible) are excluded to prevent clipping holes where no
+    /// finer chart data is actually rendered.
+    /// </summary>
+    private void ApplyExclusionClipping(MainWindowViewModel vm)
+    {
+        if (MyMapControl.Map is not { } map)
+            return;
+
+        double resolution = MyMapControl.Map.Navigator.Viewport.Resolution;
+
+        // Build the coverage list from loaded charts that are visible at the
+        // current resolution. A chart is visible when its layers' MinVisible ≤
+        // resolution ≤ MaxVisible. Charts hidden at the current zoom must not
+        // contribute to exclusion zones — their coverage would clip coarser
+        // charts' fills but provide no rendered features to replace them.
+        var coverages = _loadedCharts
+            .Where(c =>
+            {
+                if (c.Layers.Count == 0) return false;
+                var firstLayer = c.Layers[0];
+                return resolution >= firstLayer.MinVisible
+                    && resolution <= firstLayer.MaxVisible;
+            })
+            .Select(c => (c.CompilationScale, c.CoverageGeometry))
+            .ToList();
+
+        foreach (var chartVm in _loadedCharts)
+        {
+            var zone = S57CoverageHelper.ComputeExclusionZone(
+                chartVm.CompilationScale, coverages);
+
+            var update = chartVm.ApplyExclusionZone(zone?.Zone);
+
+            if (update.Added.Count > 0 || update.Removed.Count > 0)
+            {
+                ApplyLayerDiff(chartVm, update, map, vm);
+            }
+        }
     }
 
     /// <summary>
