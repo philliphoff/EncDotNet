@@ -128,6 +128,28 @@ jobs:
           name: ${{ matrix.artifact }}
           path: src/EncDotNet.ChartViewer/bin/Release/net10.0/${{ matrix.rid }}/publish/
 
+  publish-nuget:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Download NuGet packages
+        uses: actions/download-artifact@v4
+        with:
+          name: nupkgs
+          path: nupkgs
+
+      - name: Push to NuGet.org
+        run: dotnet nuget push "nupkgs/*.nupkg" --source https://api.nuget.org/v3/index.json
+
   create-release:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [build, publish]
