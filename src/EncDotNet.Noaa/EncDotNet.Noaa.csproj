@@ -1,3 +1,13 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+    <PropertyGroup>
+        <Description>A .NET client for the NOAA ENC product catalog, for discovering and downloading U.S. electronic navigational chart data.</Description>
+        <PackageTags>noaa;enc;nautical-chart;s57;s-57;hydrographic;maritime;navigation;chart-data;geospatial</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="\" />
+    </ItemGroup>
+
 </Project>
