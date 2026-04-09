@@ -198,11 +198,11 @@ public static class S57DocumentReader
         _ = reader.TryGetSubfield<byte>(S57SubfieldNames.EXPP, out _);  // EXPP - exchange purpose (not used)
         _ = reader.TryGetSubfield<byte>(S57SubfieldNames.INTU, out intu);  // INTU - intended usage (absent in S-101)
         dsnm = reader.GetSubfield<string>(S57SubfieldNames.DSNM);
-        edtn = reader.GetSubfield<string>(S57SubfieldNames.EDTN);
-        updn = reader.GetSubfield<string>(S57SubfieldNames.UPDN);
-        uadt = reader.GetSubfield<string>(S57SubfieldNames.UADT);
+        _ = reader.TryGetSubfield<string>(S57SubfieldNames.EDTN, out edtn);  // EDTN - edition number (absent in S-101)
+        _ = reader.TryGetSubfield<string>(S57SubfieldNames.UPDN, out updn);  // UPDN - update number (absent in S-101)
+        _ = reader.TryGetSubfield<string>(S57SubfieldNames.UADT, out uadt);  // UADT - update application date (absent in S-101)
         isdt = reader.GetSubfield<string>(S57SubfieldNames.ISDT);
-        sted = reader.GetSubfield<string>(S57SubfieldNames.STED);
+        _ = reader.TryGetSubfield<string>(S57SubfieldNames.STED, out sted);  // STED - S-57 edition number (absent in S-101)
 
         if (reader.TryGetSubfield<ushort>(S57SubfieldNames.AGEN, out var agenValue))
         {
