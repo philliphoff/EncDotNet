@@ -9,41 +9,25 @@ public sealed record S57DataSetIdentification
     public S57RecordName RecordName { get; init; }
 
     /// <summary>Gets the intended usage code (INTU).</summary>
-    /// <remarks>
-    /// S-57 datasets typically include an intended usage code but S-101 datasets do not.
-    /// </remarks>
-
-    public int? IntendedUsage { get; init; }
+    public int IntendedUsage { get; init; }
 
     /// <summary>Gets the data set name (DSNM).</summary>
     public string DataSetName { get; init; } = string.Empty;
 
     /// <summary>Gets the edition number (EDTN).</summary>
-    /// <remarks>
-    /// S-57 datasets typically include an edition number but S-101 datasets do not.
-    /// </remarks>
-    public string? EditionNumber { get; init; } = string.Empty;
+    public string EditionNumber { get; init; } = string.Empty;
 
     /// <summary>Gets the update number (UPDN).</summary>
-    /// <remarks>
-    /// S-57 datasets typically include an update number but S-101 datasets do not.
-    /// </remarks>
-    public string? UpdateNumber { get; init; } = string.Empty;
+    public string UpdateNumber { get; init; } = string.Empty;
 
     /// <summary>Gets the update application date (UADT).</summary>
-    /// <remarks>
-    /// S-57 datasets typically include an update application date but S-101 datasets do not.
-    /// </remarks>
-    public string? UpdateApplicationDate { get; init; } = string.Empty;
+    public string UpdateApplicationDate { get; init; } = string.Empty;
 
     /// <summary>Gets the issue date (ISDT).</summary>
     public string IssueDate { get; init; } = string.Empty;
 
     /// <summary>Gets the edition date (STED).</summary>
-    /// <remarks>
-    /// S-57 datasets typically include an edition date but S-101 datasets do not.
-    /// </remarks>
-    public string? S57EditionNumber { get; init; } = string.Empty;
+    public string S57EditionNumber { get; init; } = string.Empty;
 
     /// <summary>Gets the producing agency code (PRSP).</summary>
     public int ProducingAgency { get; init; }
