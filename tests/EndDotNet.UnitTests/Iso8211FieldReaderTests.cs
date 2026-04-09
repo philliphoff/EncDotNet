@@ -1045,6 +1045,89 @@ public class Iso8211FieldReaderTests
     }
 
     [Fact]
+    public void SubfieldGroup_GetSubfield_WithNonRepeatingPrefix_ReturnsCorrectValues()
+    {
+        // Arrange - field with non-repeating prefix subfields followed by a repeating group
+        // This simulates patterns like FSPT: RCNM(fixed) + NAME(repeating) + ORNT(repeating) + USAG(repeating) + MASK(repeating)
+        var fieldDef = CreateFieldDefinition("FSPT",
+            ("RCNM", Iso8211SubfieldFormatType.UnsignedInteger, 1, false),  // non-repeating prefix
+            ("RCID", Iso8211SubfieldFormatType.UnsignedInteger, 4, false),  // non-repeating prefix
+            ("ORNT", Iso8211SubfieldFormatType.UnsignedInteger, 1, true),   // repeating group start
+            ("USAG", Iso8211SubfieldFormatType.UnsignedInteger, 1, true),
+            ("MASK", Iso8211SubfieldFormatType.UnsignedInteger, 1, true));
+
+        var data = ConcatFieldData(
+            new byte[] { 130 },      // RCNM = 130 (Edge)
+            UInt32LE(42),            // RCID = 42
+            new byte[] { 1 },        // ORNT[0] = 1 (Forward)
+            new byte[] { 1 },        // USAG[0] = 1 (Exterior)
+            new byte[] { 2 },        // MASK[0] = 2 (Show)
+            new byte[] { 2 },        // ORNT[1] = 2 (Reverse)
+            new byte[] { 2 },        // USAG[1] = 2 (Interior)
+            new byte[] { 1 }         // MASK[1] = 1 (Mask)
+        );
+
+        var reader = new Iso8211FieldReader(fieldDef, data);
+        var groups = reader.GetSubfieldGroups().ToArray();
+
+        // Assert - should have the non-repeating prefix as group 0, then 2 repeating groups
+        // The prefix subfields should be accessible and repeating groups should correctly resolve subfield names
+        Assert.True(groups.Length >= 2);
+
+        // Verify repeating group subfields are correctly resolved by name
+        // Groups after the prefix should map ORNT/USAG/MASK correctly
+        var repeatingGroups = groups.Where(g => g.Count == 3).ToArray();
+        Assert.Equal(2, repeatingGroups.Length);
+
+        Assert.Equal(1, repeatingGroups[0].GetSubfield<byte>("ORNT"));
+        Assert.Equal(1, repeatingGroups[0].GetSubfield<byte>("USAG"));
+        Assert.Equal(2, repeatingGroups[0].GetSubfield<byte>("MASK"));
+
+        Assert.Equal(2, repeatingGroups[1].GetSubfield<byte>("ORNT"));
+        Assert.Equal(2, repeatingGroups[1].GetSubfield<byte>("USAG"));
+        Assert.Equal(1, repeatingGroups[1].GetSubfield<byte>("MASK"));
+    }
+
+    [Fact]
+    public void SubfieldGroup_GetSubfieldBytes_WithNonRepeatingPrefix_ReturnsCorrectBytes()
+    {
+        // Arrange - same pattern: non-repeating prefix + repeating group
+        var fieldDef = CreateFieldDefinition("TEST",
+            ("HDR", Iso8211SubfieldFormatType.UnsignedInteger, 2, false),   // non-repeating prefix
+            ("VAL", Iso8211SubfieldFormatType.UnsignedInteger, 4, true),    // repeating group start
+            ("FLG", Iso8211SubfieldFormatType.UnsignedInteger, 1, true));
+
+        var data = ConcatFieldData(
+            UInt16LE(0xBEEF),        // HDR
+            UInt32LE(100),           // VAL[0]
+            new byte[] { 0xAA },     // FLG[0]
+            UInt32LE(200),           // VAL[1]
+            new byte[] { 0xBB }      // FLG[1]
+        );
+
+        var reader = new Iso8211FieldReader(fieldDef, data);
+        var groups = reader.GetSubfieldGroups().ToArray();
+
+        var repeatingGroups = groups.Where(g => g.Count == 2).ToArray();
+        Assert.Equal(2, repeatingGroups.Length);
+
+        // Act & Assert - verify GetSubfieldBytes resolves correctly in repeating groups
+        var val0Bytes = repeatingGroups[0].GetSubfieldBytes("VAL");
+        Assert.Equal(4, val0Bytes.Length);
+        Assert.Equal(UInt32LE(100), val0Bytes.ToArray());
+
+        var flg0Bytes = repeatingGroups[0].GetSubfieldBytes("FLG");
+        Assert.Equal(1, flg0Bytes.Length);
+        Assert.Equal(0xAA, flg0Bytes[0]);
+
+        var val1Bytes = repeatingGroups[1].GetSubfieldBytes("VAL");
+        Assert.Equal(UInt32LE(200), val1Bytes.ToArray());
+
+        var flg1Bytes = repeatingGroups[1].GetSubfieldBytes("FLG");
+        Assert.Equal(0xBB, flg1Bytes[0]);
+    }
+
+    [Fact]
     public void GetSubfieldGroups_Ucs2NatfField_ParsesCorrectly()
     {
         // Arrange - simulates a NATF field with lexical level 2 (UCS-2/UTF-16LE)

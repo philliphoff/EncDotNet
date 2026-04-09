@@ -49,28 +49,15 @@ public sealed class Iso8211SubfieldGroup
             throw new KeyNotFoundException($"Subfield '{name}' not found in field definition.");
         }
 
-        // Find the subfield in this group
-        for (int i = 0; i < _length; i++)
+        var groupSubfieldIndex = subfieldDef.Index;
+        if (_reader.FieldDefinition.HasRepeatingGroup)
         {
-            var value = _reader.GetSubfieldAt<T>(_startIndex + i);
-            // Check if this is the right subfield by examining the definition index
-            // We need to verify this matches the expected subfield
-            var repeatStart = _reader.FieldDefinition.RepeatingSubfieldStartIndex;
-            var expectedIndex = repeatStart >= 0 && subfieldDef.Index >= repeatStart
-                ? i + repeatStart
-                : subfieldDef.Index;
-            
-            // This is a simplified check - get the subfield at the offset corresponding to the name
-            var groupSubfieldIndex = subfieldDef.Index;
-            if (_reader.FieldDefinition.HasRepeatingGroup)
-            {
-                groupSubfieldIndex = subfieldDef.Index - _reader.FieldDefinition.RepeatingSubfieldStartIndex;
-            }
-            
-            if (groupSubfieldIndex >= 0 && groupSubfieldIndex < _length)
-            {
-                return _reader.GetSubfieldAt<T>(_startIndex + groupSubfieldIndex);
-            }
+            groupSubfieldIndex = subfieldDef.Index - _reader.FieldDefinition.RepeatingSubfieldStartIndex;
+        }
+
+        if (groupSubfieldIndex >= 0 && groupSubfieldIndex < _length)
+        {
+            return _reader.GetSubfieldAt<T>(_startIndex + groupSubfieldIndex);
         }
 
         throw new KeyNotFoundException($"Subfield '{name}' not found in group {_groupIndex}.");
