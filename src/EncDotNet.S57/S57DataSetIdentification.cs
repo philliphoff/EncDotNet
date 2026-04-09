@@ -9,7 +9,11 @@ public sealed record S57DataSetIdentification
     public S57RecordName RecordName { get; init; }
 
     /// <summary>Gets the intended usage code (INTU).</summary>
-    public int IntendedUsage { get; init; }
+    /// <remarks>
+    /// S-57 datasets typically include an intended usage code but S-101 datasets do not.
+    /// </remarks>
+
+    public int? IntendedUsage { get; init; }
 
     /// <summary>Gets the data set name (DSNM).</summary>
     public string DataSetName { get; init; } = string.Empty;

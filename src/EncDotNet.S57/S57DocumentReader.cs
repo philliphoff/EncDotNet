@@ -196,7 +196,7 @@ public static class S57DocumentReader
         rcnm = reader.GetSubfield<byte>(S57SubfieldNames.RCNM);
         rcid = reader.GetSubfield<uint>(S57SubfieldNames.RCID);
         _ = reader.TryGetSubfield<byte>(S57SubfieldNames.EXPP, out _);  // EXPP - exchange purpose (not used)
-        intu = reader.GetSubfield<byte>(S57SubfieldNames.INTU);
+        _ = reader.TryGetSubfield<byte>(S57SubfieldNames.INTU, out intu);  // INTU - intended usage (absent in S-101)
         dsnm = reader.GetSubfield<string>(S57SubfieldNames.DSNM);
         edtn = reader.GetSubfield<string>(S57SubfieldNames.EDTN);
         updn = reader.GetSubfield<string>(S57SubfieldNames.UPDN);
