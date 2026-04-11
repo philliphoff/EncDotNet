@@ -10,6 +10,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
@@ -62,6 +64,8 @@ jobs:
             rid: linux-x64
             artifact: ChartViewer-linux-x64
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
     env:
       HAS_SIGNING_SECRETS: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12 != '' }}
 
@@ -80,6 +84,18 @@ jobs:
           --runtime ${{ matrix.rid }}
           ${{ matrix.rid == 'osx-arm64' && '-p:PublishSingleFile=false' || '' }}
 
+      - name: Create macOS .app bundle
+        if: matrix.rid == 'osx-arm64'
+        run: |
+          PUBLISH_DIR="src/EncDotNet.ChartViewer/bin/Release/net10.0/osx-arm64/publish"
+          APP="EncDotNet.ChartViewer.app"
+          mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+          cp src/EncDotNet.ChartViewer/Info.plist "$APP/Contents/"
+          cp -a "$PUBLISH_DIR"/. "$APP/Contents/MacOS/"
+          # Remove debug symbols; they are not needed in the release bundle
+          # and codesign treats them as unsigned code objects.
+          find "$APP" -name '*.pdb' -delete
+
       - name: Import signing certificate
         if: matrix.rid == 'osx-arm64' && env.HAS_SIGNING_SECRETS == 'true'
         env:
@@ -93,20 +109,34 @@ jobs:
           security import cert.p12 -k build.keychain -P "$P12_PASSWORD" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple: -s -k "" build.keychain
 
-      - name: Sign macOS binary
+      - name: Sign macOS .app bundle
         if: matrix.rid == 'osx-arm64' && env.HAS_SIGNING_SECRETS == 'true'
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         run: |
-          PUBLISH_DIR="src/EncDotNet.ChartViewer/bin/Release/net10.0/osx-arm64/publish"
-          # Sign all .dylib files first, then the main executable
-          find "$PUBLISH_DIR" -name '*.dylib' -exec \
-            codesign --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" {} \;
+          APP="EncDotNet.ChartViewer.app"
+          ENTITLEMENTS="src/EncDotNet.ChartViewer/entitlements.plist"
+          MAIN_EXE="EncDotNet.ChartViewer"
+          # Sign all subcomponents individually before sealing the bundle.
+          # Exclude the main executable — it will be signed when we sign
+          # the bundle itself, which also validates all subcomponents.
+          find "$APP/Contents/MacOS" -type f ! -name "$MAIN_EXE" | while read -r f; do
+            if file "$f" | grep -q "Mach-O"; then
+              codesign --force --options runtime --timestamp \
+                --entitlements "$ENTITLEMENTS" \
+                --sign "$APPLE_SIGNING_IDENTITY" "$f"
+            else
+              codesign --force --timestamp \
+                --sign "$APPLE_SIGNING_IDENTITY" "$f"
+            fi
+          done
+          # Sign the bundle (signs main executable and seals everything)
           codesign --force --options runtime --timestamp \
+            --entitlements "$ENTITLEMENTS" \
             --sign "$APPLE_SIGNING_IDENTITY" \
-            "$PUBLISH_DIR/EncDotNet.ChartViewer"
+            "$APP"
 
-      - name: Notarize macOS binary
+      - name: Notarize macOS .app bundle
         if: matrix.rid == 'osx-arm64' && env.HAS_SIGNING_SECRETS == 'true'
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -114,19 +144,55 @@ jobs:
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
         run: |
           ditto -c -k --keepParent \
-            src/EncDotNet.ChartViewer/bin/Release/net10.0/osx-arm64/publish \
+            EncDotNet.ChartViewer.app \
             ChartViewer.zip
           xcrun notarytool submit ChartViewer.zip \
             --apple-id "$APPLE_ID" \
             --team-id "$APPLE_TEAM_ID" \
             --password "$APPLE_APP_PASSWORD" \
-            --wait
+            --wait \
+            --output-format json | tee notarization-result.json
+          STATUS=$(python3 -c "import json,sys; print(json.load(sys.stdin)['status'])" < notarization-result.json)
+          if [ "$STATUS" != "Accepted" ]; then
+            ID=$(python3 -c "import json,sys; print(json.load(sys.stdin)['id'])" < notarization-result.json)
+            echo "::error::Notarization failed with status: $STATUS"
+            xcrun notarytool log "$ID" \
+              --apple-id "$APPLE_ID" \
+              --team-id "$APPLE_TEAM_ID" \
+              --password "$APPLE_APP_PASSWORD"
+            exit 1
+          fi
+
+      - name: Staple notarization ticket
+        if: matrix.rid == 'osx-arm64' && env.HAS_SIGNING_SECRETS == 'true'
+        continue-on-error: true
+        run: |
+          # The notarization ticket may not be immediately available in
+          # CloudKit. Stapling is optional — Gatekeeper will verify the
+          # notarization online on first launch if the ticket is absent.
+          for i in 1 2 3 4 5; do
+            if xcrun stapler staple EncDotNet.ChartViewer.app; then
+              exit 0
+            fi
+            echo "Staple attempt $i failed, waiting 30s..."
+            sleep 30
+          done
+          echo "::warning::Stapling failed after 5 attempts. The app is still notarized; Gatekeeper will verify online."
+
+      - name: Archive macOS .app bundle
+        if: matrix.rid == 'osx-arm64'
+        run: tar -czf "${{ matrix.artifact }}.tar.gz" EncDotNet.ChartViewer.app
+
+      - name: Archive published app
+        if: matrix.rid != 'osx-arm64'
+        shell: bash
+        run: tar -czf "${{ matrix.artifact }}.tar.gz" -C "src/EncDotNet.ChartViewer/bin/Release/net10.0/${{ matrix.rid }}/publish" .
 
       - name: Upload published app
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: src/EncDotNet.ChartViewer/bin/Release/net10.0/${{ matrix.rid }}/publish/
+          path: ${{ matrix.artifact }}.tar.gz
 
   publish-nuget:
     if: startsWith(github.ref, 'refs/tags/v')
@@ -169,18 +235,10 @@ jobs:
         with:
           path: artifacts
 
-      - name: Archive platform binaries
-        run: |
-          cd artifacts
-          for dir in ChartViewer-*/; do
-            name="${dir%/}"
-            tar -czf "${name}.tar.gz" -C "$dir" .
-          done
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
           files: |
             artifacts/nupkgs/*.nupkg
-            artifacts/ChartViewer-*.tar.gz
+            artifacts/ChartViewer-*/*.tar.gz
