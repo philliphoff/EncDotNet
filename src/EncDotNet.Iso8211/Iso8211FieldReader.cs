@@ -432,8 +432,10 @@ public sealed class Iso8211FieldReader
             }
             else if (!inRepeatingGroup && subfieldIndex == _fieldDefinition.RepeatingSubfieldStartIndex && _fieldDefinition.HasRepeatingGroup)
             {
-                // Just entered the repeating group for the first time
-                groupCount = 1;
+                // Just entered the repeating group for the first time.
+                // Set to 0; the wrap-around at line ~424 will increment to 1
+                // after the first complete group is parsed.
+                groupCount = 0;
                 inRepeatingGroup = true;
             }
         }
