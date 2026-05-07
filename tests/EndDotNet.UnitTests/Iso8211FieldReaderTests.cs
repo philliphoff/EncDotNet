@@ -1191,5 +1191,85 @@ public class Iso8211FieldReaderTests
         Assert.Equal("BOB", groups[1].GetSubfield<string>("ATVL"));
     }
 
+    [Fact]
+    public void ReadConcatenatedArrayWithLeaderAndRepeatingGroups()
+    {
+        // Arrange — C3IL-style field: 1 leader subfield (VCID) + 3 repeating subfields (YCOO, XCOO, ZCOO)
+        var fieldDef = new Iso8211FieldDefinition
+        {
+            Tag = "C3IL",
+            DataStructureCode = Iso8211DataStructureCode.ConcatenatedArray,
+            DataTypeCode = Iso8211DataTypeCode.MixedDataTypes,
+            FieldName = "C3IL",
+            FormatControls = string.Empty,
+            SubfieldDefinitions = ImmutableArray.Create(
+                new Iso8211SubfieldDefinition
+                {
+                    Name = "VCID",
+                    Format = new Iso8211SubfieldFormat { FormatType = Iso8211SubfieldFormatType.UnsignedInteger, Width = 1 },
+                    Index = 0,
+                    IsRepeating = false
+                },
+                new Iso8211SubfieldDefinition
+                {
+                    Name = "YCOO",
+                    Format = new Iso8211SubfieldFormat { FormatType = Iso8211SubfieldFormatType.SignedInteger, Width = 4 },
+                    Index = 1,
+                    IsRepeating = true
+                },
+                new Iso8211SubfieldDefinition
+                {
+                    Name = "XCOO",
+                    Format = new Iso8211SubfieldFormat { FormatType = Iso8211SubfieldFormatType.SignedInteger, Width = 4 },
+                    Index = 2,
+                    IsRepeating = true
+                },
+                new Iso8211SubfieldDefinition
+                {
+                    Name = "ZCOO",
+                    Format = new Iso8211SubfieldFormat { FormatType = Iso8211SubfieldFormatType.SignedInteger, Width = 4 },
+                    Index = 3,
+                    IsRepeating = true
+                }),
+            RepeatingSubfieldStartIndex = 1
+        };
+
+        // 1 leader byte (VCID=7) + 3 sounding points × 12 bytes each = 37 bytes
+        var data = ConcatFieldData(
+            new byte[] { 7 },          // VCID = 7
+            Int32LE(407128000),         // YCOO[0]
+            Int32LE(-740060000),        // XCOO[0]
+            Int32LE(150),               // ZCOO[0] — depth
+            Int32LE(407130000),         // YCOO[1]
+            Int32LE(-740062000),        // XCOO[1]
+            Int32LE(200),               // ZCOO[1]
+            Int32LE(407125000),         // YCOO[2]
+            Int32LE(-740058000),        // XCOO[2]
+            Int32LE(100)                // ZCOO[2]
+        );
+
+        var reader = new Iso8211FieldReader(fieldDef, data);
+
+        // Assert — leader subfield
+        Assert.Equal((byte)7, reader.GetFixedSubfield<byte>("VCID"));
+
+        // Assert — repeating groups
+        Assert.Equal(3, reader.GroupCount);
+        var groups = reader.GetSubfieldGroups().ToArray();
+        Assert.Equal(3, groups.Length);
+
+        Assert.Equal(407128000, groups[0].GetSubfield<int>("YCOO"));
+        Assert.Equal(-740060000, groups[0].GetSubfield<int>("XCOO"));
+        Assert.Equal(150, groups[0].GetSubfield<int>("ZCOO"));
+
+        Assert.Equal(407130000, groups[1].GetSubfield<int>("YCOO"));
+        Assert.Equal(-740062000, groups[1].GetSubfield<int>("XCOO"));
+        Assert.Equal(200, groups[1].GetSubfield<int>("ZCOO"));
+
+        Assert.Equal(407125000, groups[2].GetSubfield<int>("YCOO"));
+        Assert.Equal(-740058000, groups[2].GetSubfield<int>("XCOO"));
+        Assert.Equal(100, groups[2].GetSubfield<int>("ZCOO"));
+    }
+
     #endregion
 }

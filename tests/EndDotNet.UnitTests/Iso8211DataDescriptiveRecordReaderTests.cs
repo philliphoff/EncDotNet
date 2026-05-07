@@ -1426,5 +1426,71 @@ public class Iso8211DataDescriptiveRecordReaderTests
         Assert.Equal(0, sg3d.RepeatingSubfieldStartIndex);
     }
 
+    [Fact]
+    public void Parse_TwoUtFormat_ConcatenatedArrayWithLeaderAndRepeating_ParsesCorrectly()
+    {
+        // Arrange — ConcatenatedArray with mid-string '*' separating leader from repeating subfields.
+        // This is the S-101 C3IL pattern: VCID is a leader subfield, YCOO/XCOO/ZCOO repeat.
+        var record = CreateDdrRecordTwoUt(
+            tag: "C3IL",
+            dataStructureCode: '3',
+            dataTypeCode: '5',
+            fieldName: "3-D Coordinate with Leader",
+            subfieldLabels: "VCID*YCOO!XCOO!ZCOO",
+            formatControls: "(b11,3b24)");
+
+        // Act
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
+        var c3il = ddr.FieldDefinitions[0];
+
+        // Assert — 4 subfield definitions
+        Assert.Equal(4, c3il.SubfieldDefinitions.Count);
+
+        Assert.Equal("VCID", c3il.SubfieldDefinitions[0].Name);
+        Assert.Equal(Iso8211SubfieldFormatType.UnsignedInteger, c3il.SubfieldDefinitions[0].Format.FormatType);
+        Assert.Equal(1, c3il.SubfieldDefinitions[0].Format.Width);
+
+        Assert.Equal("YCOO", c3il.SubfieldDefinitions[1].Name);
+        Assert.Equal(Iso8211SubfieldFormatType.SignedInteger, c3il.SubfieldDefinitions[1].Format.FormatType);
+        Assert.Equal(4, c3il.SubfieldDefinitions[1].Format.Width);
+
+        Assert.Equal("XCOO", c3il.SubfieldDefinitions[2].Name);
+        Assert.Equal("ZCOO", c3il.SubfieldDefinitions[3].Name);
+
+        // Repeating group starts at index 1 (after VCID leader)
+        Assert.True(c3il.HasRepeatingGroup);
+        Assert.Equal(1, c3il.RepeatingSubfieldStartIndex);
+
+        // VCID is non-repeating leader, YCOO/XCOO/ZCOO are repeating
+        Assert.False(c3il.SubfieldDefinitions[0].IsRepeating);
+        Assert.True(c3il.SubfieldDefinitions[1].IsRepeating);
+        Assert.True(c3il.SubfieldDefinitions[2].IsRepeating);
+        Assert.True(c3il.SubfieldDefinitions[3].IsRepeating);
+    }
+
+    [Fact]
+    public void Parse_TwoUtFormat_VectorStyleStarAtStart_StillWorks()
+    {
+        // Arrange — regression guard: '*' at the start of labels (Vector-style)
+        var record = CreateDdrRecordTwoUt(
+            tag: "SG2D",
+            dataStructureCode: '1',
+            dataTypeCode: '6',
+            fieldName: "2-D Coordinate Field",
+            subfieldLabels: "*YCOO!XCOO",
+            formatControls: "(2b24)");
+
+        // Act
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
+        var sg2d = ddr.FieldDefinitions[0];
+
+        // Assert
+        Assert.Equal(2, sg2d.SubfieldDefinitions.Count);
+        Assert.Equal("YCOO", sg2d.SubfieldDefinitions[0].Name);
+        Assert.Equal("XCOO", sg2d.SubfieldDefinitions[1].Name);
+        Assert.Equal(0, sg2d.RepeatingSubfieldStartIndex);
+        Assert.True(sg2d.HasRepeatingGroup);
+    }
+
     #endregion
 }

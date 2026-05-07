@@ -360,6 +360,24 @@ public static class Iso8211DataDescriptiveRecordReader
                 repeatingGroupStartIndex = subfieldIndex;
                 rawName = rawName.Substring(1);
             }
+            else
+            {
+                // Handle mid-string '*' — concatenated array leader/repeating separator.
+                // ISO 8211 §6.4.3.3: leader labels appear before '*', cell labels after.
+                int starIndex = rawName.IndexOf('*');
+                if (starIndex > 0)
+                {
+                    string leaderName = rawName.Substring(0, starIndex);
+                    if (!string.IsNullOrEmpty(leaderName))
+                    {
+                        names.Add(leaderName);
+                        subfieldIndex++;
+                    }
+
+                    repeatingGroupStartIndex = subfieldIndex;
+                    rawName = rawName.Substring(starIndex + 1);
+                }
+            }
 
             if (!string.IsNullOrEmpty(rawName))
             {
