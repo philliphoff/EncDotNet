@@ -491,12 +491,50 @@ public static class Iso8211DataDescriptiveRecordReader
 
         foreach (var part in parts)
         {
-            var parsed = ParseSingleFormat(part.Trim(), out int repeatCount);
+            var trimmedPart = part.Trim();
+
+            // Check for parenthesized sub-groups, e.g. "(3b24)" or "2(b14,I(10))"
+            int parenStart = trimmedPart.IndexOf('(');
+            if (parenStart >= 0 && trimmedPart.EndsWith(')'))
+            {
+                // Parse any leading repeat count before the opening paren
+                int outerRepeat = 0;
+                for (int i = 0; i < parenStart; i++)
+                {
+                    if (char.IsDigit(trimmedPart[i]))
+                    {
+                        outerRepeat = outerRepeat * 10 + (trimmedPart[i] - '0');
+                    }
+                    else
+                    {
+                        // Not a digit before '(' — not a sub-group, fall through to ParseSingleFormat
+                        outerRepeat = -1;
+                        break;
+                    }
+                }
+
+                if (outerRepeat >= 0)
+                {
+                    int count = outerRepeat > 0 ? outerRepeat : 1;
+                    // Recursively parse the parenthesized content
+                    var innerContent = trimmedPart.Substring(parenStart + 1, trimmedPart.Length - parenStart - 2);
+                    var innerFormats = ParseFormatControls(innerContent);
+
+                    for (int r = 0; r < count; r++)
+                    {
+                        formats.AddRange(innerFormats);
+                    }
+
+                    continue;
+                }
+            }
+
+            var parsed = ParseSingleFormat(trimmedPart, out int repeatCount);
             if (parsed.HasValue)
             {
                 // Expand repeat counts: e.g., "2b24" produces two b24 entries
-                int count = repeatCount > 0 ? repeatCount : 1;
-                for (int r = 0; r < count; r++)
+                int repeatN = repeatCount > 0 ? repeatCount : 1;
+                for (int r = 0; r < repeatN; r++)
                 {
                     formats.Add(parsed.Value);
                 }
