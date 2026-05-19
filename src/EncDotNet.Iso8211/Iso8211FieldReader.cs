@@ -533,7 +533,7 @@ public sealed class Iso8211FieldReader
     /// </summary>
     private object ConvertCharacterData<T>(ReadOnlySpan<byte> data)
     {
-        var encoding = _lexicalLevel >= 2 ? Encoding.Unicode : Encoding.ASCII;
+        var encoding = _lexicalLevel >= 2 ? Encoding.Unicode : Encoding.UTF8;
         var str = encoding.GetString(data).TrimEnd('\x1F', '\x1E', '\0', ' ');
 
         if (typeof(T) == typeof(string))
