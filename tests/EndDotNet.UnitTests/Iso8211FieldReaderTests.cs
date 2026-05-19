@@ -297,6 +297,54 @@ public class Iso8211FieldReaderTests
     }
 
     [Fact]
+    public void GetSubfield_AsciiString_DecodesCorrectlyAtLexicalLevel0()
+    {
+        // Arrange: pure ASCII text at lexical level 0
+        var fieldDef = CreateFieldDefinition("TEST",
+            ("NAME", Iso8211SubfieldFormatType.CharacterData, 0, false));
+        var data = Encoding.ASCII.GetBytes("Halifax\u001E");
+        var reader = new Iso8211FieldReader(fieldDef, data, lexicalLevel: 0);
+
+        // Act
+        var value = reader.GetSubfield<string>("NAME");
+
+        // Assert
+        Assert.Equal("Halifax", value);
+    }
+
+    [Fact]
+    public void GetSubfield_Utf8String_DecodesAccentedCharactersAtLexicalLevel0()
+    {
+        // Arrange: UTF-8 encoded "Île d'Orléans" at lexical level 0
+        var fieldDef = CreateFieldDefinition("TEST",
+            ("NAME", Iso8211SubfieldFormatType.CharacterData, 0, false));
+        byte[] utf8Bytes = [0xC3, 0x8E, 0x6C, 0x65, 0x20, 0x64, 0x27, 0x4F, 0x72, 0x6C, 0xC3, 0xA9, 0x61, 0x6E, 0x73, 0x1E];
+        var reader = new Iso8211FieldReader(fieldDef, utf8Bytes, lexicalLevel: 0);
+
+        // Act
+        var value = reader.GetSubfield<string>("NAME");
+
+        // Assert
+        Assert.Equal("Île d'Orléans", value);
+    }
+
+    [Fact]
+    public void GetSubfield_Utf8String_DecodesAccentedCharactersAtLexicalLevel1()
+    {
+        // Arrange: UTF-8 encoded "Île d'Orléans" at lexical level 1
+        var fieldDef = CreateFieldDefinition("TEST",
+            ("NAME", Iso8211SubfieldFormatType.CharacterData, 0, false));
+        byte[] utf8Bytes = [0xC3, 0x8E, 0x6C, 0x65, 0x20, 0x64, 0x27, 0x4F, 0x72, 0x6C, 0xC3, 0xA9, 0x61, 0x6E, 0x73, 0x1E];
+        var reader = new Iso8211FieldReader(fieldDef, utf8Bytes, lexicalLevel: 1);
+
+        // Act
+        var value = reader.GetSubfield<string>("NAME");
+
+        // Assert
+        Assert.Equal("Île d'Orléans", value);
+    }
+
+    [Fact]
     public void GetSubfield_VariableLengthString_StopsAtUnitTerminator()
     {
         // Arrange
