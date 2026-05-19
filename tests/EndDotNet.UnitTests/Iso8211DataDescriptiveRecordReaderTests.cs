@@ -921,6 +921,66 @@ public class Iso8211DataDescriptiveRecordReaderTests
         Assert.Equal(4, formats[4].Width);
     }
 
+    [Fact]
+    public void ParseFormatControls_NestedParentheses_InnerGroupExpanded()
+    {
+        // Act — "(b11,(3b24))" should produce: b11, b24, b24, b24
+        var formats = Iso8211DataDescriptiveRecordReader.ParseFormatControls("(b11,(3b24))");
+
+        // Assert
+        Assert.Equal(4, formats.Length);
+
+        Assert.Equal(Iso8211SubfieldFormatType.UnsignedInteger, formats[0].FormatType);
+        Assert.Equal(1, formats[0].Width);
+
+        for (int i = 1; i < 4; i++)
+        {
+            Assert.Equal(Iso8211SubfieldFormatType.SignedInteger, formats[i].FormatType);
+            Assert.Equal(4, formats[i].Width);
+        }
+    }
+
+    [Fact]
+    public void ParseFormatControls_NestedParentheses_RepeatBeforeParen()
+    {
+        // Act — "(b11,3(b24))" should produce: b11, b24, b24, b24
+        var formats = Iso8211DataDescriptiveRecordReader.ParseFormatControls("(b11,3(b24))");
+
+        // Assert
+        Assert.Equal(4, formats.Length);
+
+        Assert.Equal(Iso8211SubfieldFormatType.UnsignedInteger, formats[0].FormatType);
+        Assert.Equal(1, formats[0].Width);
+
+        for (int i = 1; i < 4; i++)
+        {
+            Assert.Equal(Iso8211SubfieldFormatType.SignedInteger, formats[i].FormatType);
+            Assert.Equal(4, formats[i].Width);
+        }
+    }
+
+    [Fact]
+    public void ParseFormatControls_NestedParentheses_MixedGroup()
+    {
+        // Act — "(A,2(I(10),b14))" should produce: A, I(10), b14, I(10), b14
+        var formats = Iso8211DataDescriptiveRecordReader.ParseFormatControls("(A,2(I(10),b14))");
+
+        // Assert
+        Assert.Equal(5, formats.Length);
+
+        Assert.Equal(Iso8211SubfieldFormatType.CharacterData, formats[0].FormatType);
+
+        Assert.Equal(Iso8211SubfieldFormatType.Integer, formats[1].FormatType);
+        Assert.Equal(10, formats[1].Width);
+        Assert.Equal(Iso8211SubfieldFormatType.UnsignedInteger, formats[2].FormatType);
+        Assert.Equal(4, formats[2].Width);
+
+        Assert.Equal(Iso8211SubfieldFormatType.Integer, formats[3].FormatType);
+        Assert.Equal(10, formats[3].Width);
+        Assert.Equal(Iso8211SubfieldFormatType.UnsignedInteger, formats[4].FormatType);
+        Assert.Equal(4, formats[4].Width);
+    }
+
     #endregion
 
     #region Repeating Group Tests
