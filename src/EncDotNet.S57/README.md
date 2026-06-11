@@ -122,6 +122,47 @@ foreach (var entry in catalog.Entries)
 }
 ```
 
+### Verifying Exchange Set Integrity
+
+The `CATALOG.031` file records a CRC-32 checksum (CATD `CRCS` subfield) for each chart file.
+`S57ExchangeSet.VerifyAsync` validates those checksums against the files on disk. It is
+opt-in and non-throwing — per-file results are returned rather than raised as exceptions:
+
+```csharp
+using EncDotNet.S57.ExchangeSets;
+
+var exchangeSet = S57ExchangeSetReader.Read("ENC_ROOT");
+var result = await exchangeSet.VerifyAsync("ENC_ROOT");
+
+if (result.AllValid)
+{
+    Console.WriteLine("All checksums valid.");
+}
+else
+{
+    foreach (var file in result.FileResults)
+    {
+        Console.WriteLine($"{file.FileName}: checksum={file.ChecksumOutcome}, signature={file.SignatureOutcome}");
+    }
+}
+```
+
+The checksum and S-63 digital-signature outcomes are tracked as **independent dimensions** on
+each `S57FileVerificationResult`. CRC-32 checksum verification is fully implemented;
+**S-63 signature verification is currently a seam** (`IS63SignatureVerifier`,
+`S63TrustAnchorOptions`) reporting `NotSigned`, to be completed alongside future S-63
+decryption support.
+
+| `S57VerificationOutcome` | Meaning |
+|---|---|
+| `Ok` | The dimension verified successfully |
+| `NoChecksum` | The catalogue entry declares no CRC to verify against |
+| `ChecksumMismatch` | The computed CRC does not match the catalogue value |
+| `FileMissing` | The referenced file was not found on disk |
+| `NotSigned` | The file carries no digital signature |
+| `SignatureInvalid` / `CertificateUntrusted` / `CertificateExpired` / `CertificateNotFound` | S-63 signature outcomes (seam) |
+| `Error` | An unexpected error occurred during verification |
+
 ## Key Types
 
 ### Core (Document-Level)
@@ -155,6 +196,8 @@ foreach (var entry in catalog.Entries)
 | `S57CatalogReader` | Reads a catalog file into an `S57Catalog` |
 | `S57ExchangeSet` | A complete exchange set with catalog and all referenced charts |
 | `S57ExchangeSetReader` | Reads an exchange set directory |
+| `S57ExchangeSetVerifier` | Verifies per-file CRC checksums (and S-63 signature seam) against the files on disk |
+| `S57ExchangeSetVerificationResult` | Aggregate verification result with per-file outcomes |
 
 ## Background
 
