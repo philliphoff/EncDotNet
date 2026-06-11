@@ -292,7 +292,8 @@ public class S57ExchangeSetVerifierTests
 
             var file = Assert.Single(result.FileResults);
             Assert.Equal(S57VerificationOutcome.NoChecksum, file.ChecksumOutcome);
-            Assert.False(result.AllValid);
+            // A missing CRC is not a failure (CRCs are optional in S-57), so AllValid holds.
+            Assert.True(result.AllValid);
             Assert.False(result.HasChecksumMismatches);
         }
         finally

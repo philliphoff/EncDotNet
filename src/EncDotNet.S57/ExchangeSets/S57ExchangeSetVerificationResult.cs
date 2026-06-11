@@ -11,12 +11,14 @@ public sealed class S57ExchangeSetVerificationResult
     public required ImmutableArray<S57FileVerificationResult> FileResults { get; init; }
 
     /// <summary>
-    /// Gets a value indicating whether every file verified successfully: each file's checksum
-    /// is <see cref="S57VerificationOutcome.Ok"/> and its signature is either
-    /// <see cref="S57VerificationOutcome.Ok"/> or <see cref="S57VerificationOutcome.NotSigned"/>.
+    /// Gets a value indicating whether the exchange set has no integrity violations: every
+    /// file's checksum is <see cref="S57VerificationOutcome.Ok"/> or
+    /// <see cref="S57VerificationOutcome.NoChecksum"/> (the CRC is optional in S-57, so its
+    /// absence is not a failure), and every signature is <see cref="S57VerificationOutcome.Ok"/>
+    /// or <see cref="S57VerificationOutcome.NotSigned"/>.
     /// </summary>
     public bool AllValid => FileResults.All(r =>
-        r.ChecksumOutcome == S57VerificationOutcome.Ok
+        r.ChecksumOutcome is S57VerificationOutcome.Ok or S57VerificationOutcome.NoChecksum
         && r.SignatureOutcome is S57VerificationOutcome.Ok or S57VerificationOutcome.NotSigned);
 
     /// <summary>Gets a value indicating whether at least one file's CRC checksum did not match.</summary>
