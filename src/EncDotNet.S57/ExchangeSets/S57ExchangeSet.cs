@@ -71,6 +71,37 @@ public sealed record S57ExchangeSet
     }
 
     /// <summary>
+    /// Verifies the integrity of the files referenced by this exchange set's <c>CATALOG.031</c>.
+    /// </summary>
+    /// <remarks>
+    /// This is an opt-in, non-throwing operation: it reads the catalogue and validates each
+    /// entry's CRC checksum against the corresponding file on disk, returning the per-file
+    /// outcomes. S-63 digital-signature verification is a seam and currently reports every file
+    /// as <see cref="S57VerificationOutcome.NotSigned"/>.
+    /// </remarks>
+    /// <param name="rootPath">The absolute path to the root directory of the exchange set.</param>
+    /// <param name="trustAnchors">Optional S-63 trust anchor options (currently unused).</param>
+    /// <param name="logger">An optional logger for reporting verification warnings.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A result enumerating per-file verification outcomes.</returns>
+    /// <exception cref="InvalidOperationException"><see cref="CatalogFileName"/> is <see langword="null"/>.</exception>
+    public async Task<S57ExchangeSetVerificationResult> VerifyAsync(
+        string rootPath,
+        S63TrustAnchorOptions? trustAnchors = null,
+        ILogger? logger = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (CatalogFileName is null)
+        {
+            throw new InvalidOperationException("The exchange set does not contain a catalog file.");
+        }
+
+        var catalog = await ReadCatalogAsync(rootPath, logger, cancellationToken).ConfigureAwait(false);
+        var verifier = new S57ExchangeSetVerifier();
+        return await verifier.VerifyAsync(rootPath, catalog, trustAnchors, logger, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Reads the base cell file and applies any update files in order, returning the resulting document.
     /// </summary>
     /// <param name="rootPath">The absolute path to the root directory of the exchange set.</param>

@@ -12,6 +12,9 @@
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     </ItemGroup>
     <ItemGroup>
+        <InternalsVisibleTo Include="EndDotNet.UnitTests" />
+    </ItemGroup>
+    <ItemGroup>
         <ProjectReference Include="..\EncDotNet.Iso8211\EncDotNet.Iso8211.csproj" />
     </ItemGroup>
 
