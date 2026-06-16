@@ -1,7 +1,7 @@
 # ENC.NET
 
 [![CI](https://github.com/philliphoff/EncDotNet/actions/workflows/ci.yml/badge.svg)](https://github.com/philliphoff/EncDotNet/actions/workflows/ci.yml)
-[![Discord](https://img.shields.io/discord/1516327073663156294?label=Discord&logo=discord&logoColor=white)](https://discord.gg/1516327073663156294)
+[![Discord](https://img.shields.io/discord/1516327073663156294?label=Discord&logo=discord&logoColor=white)](https://discord.gg/kf6B9EZqqB)
 
 A .NET 10 library suite and desktop application for reading, parsing, and rendering [IHO S-57](https://iho.int/en/s-57-unc) Electronic Navigational Charts (ENCs).
 
