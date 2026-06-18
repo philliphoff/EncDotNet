@@ -1320,4 +1320,84 @@ public class Iso8211FieldReaderTests
     }
 
     #endregion
+
+    #region Regression Tests - 8-byte Binary Format Controls (b48)
+
+    /// <summary>
+    /// Regression test for issue #9: <see cref="Iso8211FieldReader"/> mis-parsed binary
+    /// format controls of the form <c>bXY</c> where the width digit is 8 (e.g. <c>b48</c>).
+    /// </summary>
+    /// <remarks>
+    /// The S-100 / S-101 DSSI field declares <c>(3b48,10b14)</c>: three 8-byte floating-point
+    /// origin shifts (<c>DCOX/DCOY/DCOZ</c>) followed by ten 4-byte unsigned integers. Previously
+    /// the leading <c>b48</c> subfields were dropped (or read as 4 bytes), shifting every later
+    /// subfield by 12 bytes and decoding <c>CMFX/CMFY/CMFZ</c> as 0. This test parses the raw
+    /// 64-byte DSSI blob from the issue and asserts the correctly aligned values.
+    /// </remarks>
+    [Fact]
+    public void GetSubfield_DssiFieldWith8ByteBinaryControls_DecodesCorrectly()
+    {
+        // Arrange — the real DSSI format control read back from a cell's DDR.
+        var formats = Iso8211DataDescriptiveRecordReader.ParseFormatControls("(3b48,10b14)");
+
+        var names = new[]
+        {
+            "DCOX", "DCOY", "DCOZ",
+            "CMFX", "CMFY", "CMFZ",
+            "NOIR", "NOPN", "NOMN", "NOCN", "NOXN", "NOSN", "NOFR"
+        };
+
+        // The three leading subfields must be 8-byte floating-point; the rest 4-byte unsigned.
+        Assert.Equal(13, formats.Length);
+        for (int i = 0; i < 3; i++)
+        {
+            Assert.Equal(Iso8211SubfieldFormatType.FloatingPoint, formats[i].FormatType);
+            Assert.Equal(8, formats[i].Width);
+        }
+        for (int i = 3; i < 13; i++)
+        {
+            Assert.Equal(Iso8211SubfieldFormatType.UnsignedInteger, formats[i].FormatType);
+            Assert.Equal(4, formats[i].Width);
+        }
+
+        var definitions = ImmutableArray.CreateBuilder<Iso8211SubfieldDefinition>();
+        for (int i = 0; i < names.Length; i++)
+        {
+            definitions.Add(new Iso8211SubfieldDefinition
+            {
+                Name = names[i],
+                Format = formats[i],
+                Index = i,
+                IsRepeating = false
+            });
+        }
+
+        var fieldDef = new Iso8211FieldDefinition
+        {
+            Tag = "DSSI",
+            DataStructureCode = Iso8211DataStructureCode.Vector,
+            DataTypeCode = Iso8211DataTypeCode.MixedDataTypes,
+            FieldName = "DSSI",
+            FormatControls = "(3b48,10b14)",
+            SubfieldDefinitions = definitions.ToImmutable(),
+            RepeatingSubfieldStartIndex = -1
+        };
+
+        var data = Convert.FromHexString(
+            "00000000000000000000000000000000000000000000000080969800809698006400000055000000C012000005000000451500002B0500007A0400000E0C0000");
+
+        Assert.Equal(64, data.Length);
+
+        var reader = new Iso8211FieldReader(fieldDef, data);
+
+        // Act & Assert — the multiplication factors must align past the three 8-byte shifts.
+        Assert.Equal(10000000u, reader.GetSubfield<uint>("CMFX"));
+        Assert.Equal(10000000u, reader.GetSubfield<uint>("CMFY"));
+        Assert.Equal(100u, reader.GetSubfield<uint>("CMFZ"));
+        Assert.Equal(85u, reader.GetSubfield<uint>("NOIR"));
+        Assert.Equal(4800u, reader.GetSubfield<uint>("NOPN"));
+        Assert.Equal(5u, reader.GetSubfield<uint>("NOMN"));
+    }
+
+    #endregion
 }

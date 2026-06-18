@@ -34,5 +34,12 @@ public enum Iso8211SubfieldFormatType : byte
     /// Bit string data. Corresponds to format code <c>B(n)</c> where n is the width in bits.
     /// The <see cref="Iso8211SubfieldFormat.Width"/> is stored in bytes (n / 8).
     /// </summary>
-    BitString = 5
+    BitString = 5,
+
+    /// <summary>
+    /// Floating-point binary (IEEE 754) data. Corresponds to format codes <c>b4x</c> and
+    /// <c>b5x</c> where x is the byte width (4 for single precision, 8 for double precision).
+    /// Used, for example, by the S-100 DSSI origin-shift subfields (<c>b48</c>).
+    /// </summary>
+    FloatingPoint = 6
 }
