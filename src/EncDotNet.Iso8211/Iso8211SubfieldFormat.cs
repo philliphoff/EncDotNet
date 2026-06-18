@@ -66,6 +66,7 @@ public readonly record struct Iso8211SubfieldFormat
     {
         Iso8211SubfieldFormatType.UnsignedInteger => Width,
         Iso8211SubfieldFormatType.SignedInteger => Width,
+        Iso8211SubfieldFormatType.FloatingPoint => Width,
         Iso8211SubfieldFormatType.BitString => Width,
         _ => Width
     };
@@ -78,6 +79,7 @@ public readonly record struct Iso8211SubfieldFormat
         Iso8211SubfieldFormatType.Real => Width > 0 ? $"R({Width})" : "R",
         Iso8211SubfieldFormatType.UnsignedInteger => $"b1{Width}",
         Iso8211SubfieldFormatType.SignedInteger => $"b2{Width}",
+        Iso8211SubfieldFormatType.FloatingPoint => $"b4{Width}",
         Iso8211SubfieldFormatType.BitString => $"B({Width * 8})",
         _ => $"?({Width})"
     };

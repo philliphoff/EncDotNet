@@ -521,6 +521,7 @@ public sealed class Iso8211FieldReader
             Iso8211SubfieldFormatType.Real => ConvertAsciiReal<T>(span),
             Iso8211SubfieldFormatType.UnsignedInteger => ConvertUnsignedBinary<T>(span, format.Width),
             Iso8211SubfieldFormatType.SignedInteger => ConvertSignedBinary<T>(span, format.Width),
+            Iso8211SubfieldFormatType.FloatingPoint => ConvertFloatingBinary<T>(span, format.Width),
             Iso8211SubfieldFormatType.BitString => ConvertBitString<T>(span),
             _ => throw new InvalidOperationException($"Unknown format type: {format.FormatType}")
         };
@@ -808,6 +809,49 @@ public sealed class Iso8211FieldReader
         }
 
         throw new InvalidOperationException($"Cannot convert signed binary to type {typeof(T).Name}.");
+    }
+
+    /// <summary>
+    /// Converts floating-point binary data (ISO 8211 <c>b4x</c>/<c>b5x</c>, IEEE 754) to the requested type.
+    /// </summary>
+    private static object ConvertFloatingBinary<T>(ReadOnlySpan<byte> data, int width)
+    {
+        int actualWidth = Math.Min(width, data.Length);
+
+        double value = actualWidth switch
+        {
+            4 => BinaryPrimitives.ReadSingleLittleEndian(data),
+            8 => BinaryPrimitives.ReadDoubleLittleEndian(data),
+            _ => throw new InvalidOperationException(
+                $"Unsupported floating-point binary width: {actualWidth} byte(s).")
+        };
+
+        if (typeof(T) == typeof(double))
+        {
+            return value;
+        }
+        if (typeof(T) == typeof(float))
+        {
+            return (float)value;
+        }
+        if (typeof(T) == typeof(decimal))
+        {
+            return (decimal)value;
+        }
+        if (typeof(T) == typeof(int))
+        {
+            return (int)value;
+        }
+        if (typeof(T) == typeof(long))
+        {
+            return (long)value;
+        }
+        if (typeof(T) == typeof(string))
+        {
+            return value.ToString(CultureInfo.InvariantCulture);
+        }
+
+        throw new InvalidOperationException($"Cannot convert floating-point binary to type {typeof(T).Name}.");
     }
 
     /// <summary>

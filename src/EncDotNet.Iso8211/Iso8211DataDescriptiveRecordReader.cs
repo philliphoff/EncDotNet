@@ -697,8 +697,15 @@ public static class Iso8211DataDescriptiveRecordReader
     }
 
     /// <summary>
-    /// Parses a binary format like <c>b11</c>, <c>b12</c>, <c>b14</c>, <c>b21</c>, <c>b22</c>, <c>b24</c>.
+    /// Parses a binary format like <c>b11</c>, <c>b12</c>, <c>b14</c>, <c>b21</c>, <c>b22</c>, <c>b24</c>,
+    /// or <c>b48</c>.
     /// </summary>
+    /// <remarks>
+    /// The binary format is <c>b</c> followed by two digits: the first digit is the data type
+    /// (<c>1</c> unsigned integer, <c>2</c> signed integer, <c>4</c>/<c>5</c> floating-point real) and
+    /// the second digit is the width in bytes. The width is honored as written so that, for example,
+    /// the 8-byte <c>b48</c> control is read as 8 bytes rather than being truncated or dropped.
+    /// </remarks>
     private static Iso8211SubfieldFormat? ParseBinaryFormat(string format, int pos)
     {
         pos++; // Skip 'b'
@@ -708,8 +715,8 @@ public static class Iso8211DataDescriptiveRecordReader
             return null;
         }
 
-        // Parse sign indicator: 1 = unsigned, 2 = signed
-        var signIndicator = format[pos] - '0';
+        // Parse data type indicator: 1 = unsigned, 2 = signed, 4/5 = floating-point.
+        var typeIndicator = format[pos] - '0';
         pos++;
 
         if (pos >= format.Length)
@@ -717,7 +724,7 @@ public static class Iso8211DataDescriptiveRecordReader
             return null;
         }
 
-        // Parse byte width
+        // Parse byte width (the remaining digit(s), e.g. the '8' in 'b48').
         int width = 0;
         while (pos < format.Length && char.IsDigit(format[pos]))
         {
@@ -726,13 +733,17 @@ public static class Iso8211DataDescriptiveRecordReader
         }
 
         Iso8211SubfieldFormatType formatType;
-        switch (signIndicator)
+        switch (typeIndicator)
         {
             case 1:
                 formatType = Iso8211SubfieldFormatType.UnsignedInteger;
                 break;
             case 2:
                 formatType = Iso8211SubfieldFormatType.SignedInteger;
+                break;
+            case 4:
+            case 5:
+                formatType = Iso8211SubfieldFormatType.FloatingPoint;
                 break;
             default:
                 return null;
