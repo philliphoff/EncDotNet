@@ -9,6 +9,8 @@ A .NET 10 parser for the **ISO/IEC 8211** binary container format — the underl
 - Parse any ISO 8211 file (not limited to S-57 charts)
 - Read the Data Descriptive Record (DDR) to discover field tags, subfield names, and data types
 - Decode data records and iterate their fields and subfield values
+- **Write ISO 8211 files** — serialize an `Iso8211Document` back to bytes (round-trippable, byte-identical for canonical sources)
+- **Build records from scratch** with fluent builders and a DDR encoder
 - Low-allocation `ref struct` reader for streaming large files
 - Immutable record types for parsed data (thread-safe, LINQ-friendly)
 
@@ -54,6 +56,48 @@ foreach (var record in document.DataRecords)
 }
 ```
 
+## Writing ISO 8211
+
+Serialize an existing `Iso8211Document` back to bytes (the symmetric inverse of the
+reader — round-trippable, and byte-identical for canonically-encoded sources):
+
+```csharp
+using EncDotNet.Iso8211;
+
+var document = Iso8211DocumentReader.ReadFromFile("chart.000");
+
+// Round-trip: write the document back out.
+byte[] bytes = Iso8211DocumentWriter.Write(document);
+Iso8211DocumentWriter.WriteToFile("chart-copy.000", document);
+```
+
+To construct records from scratch, use the fluent builders and the DDR encoder:
+
+```csharp
+using System.Collections.Immutable;
+using EncDotNet.Iso8211;
+
+// Describe the field's subfields: a 2-char code and a variable-length name.
+var formats = ImmutableArray.Create(
+    new Iso8211SubfieldFormat { FormatType = Iso8211SubfieldFormatType.CharacterData, Width = 2 },
+    new Iso8211SubfieldFormat { FormatType = Iso8211SubfieldFormatType.CharacterData, Width = 0 });
+
+var field = new Iso8211FieldBuilder("EXMP", formats)
+    .AddSubfield("US")
+    .AddSubfield("EXAMPLE")
+    .Build();
+
+var record = new Iso8211RecordBuilder()
+    .AddField(field)
+    .Build();
+
+var document = new Iso8211DocumentBuilder()
+    .AddRecord(record)
+    .Build();
+
+byte[] bytes = Iso8211DocumentWriter.Write(document);
+```
+
 ## Key Types
 
 | Type | Description |
@@ -63,6 +107,11 @@ foreach (var record in document.DataRecords)
 | `Iso8211DataDescriptiveRecord` | The parsed DDR — field definitions and subfield schemas |
 | `Iso8211DataDescriptiveRecordReader` | Parses the raw DDR record into a typed representation |
 | `Iso8211FieldReader` | Decodes subfield values from a field's binary data using the DDR schema |
+| `Iso8211DocumentWriter` | Serializes an `Iso8211Document` back to ISO 8211 bytes (round-trip) |
+| `Iso8211DocumentBuilder` | Fluently assembles records into a document for writing |
+| `Iso8211RecordBuilder` | Builds a single record (leader flags, fields, recomputed directory) |
+| `Iso8211FieldBuilder` | Builds a field's data by appending typed subfield values |
+| `Iso8211DataDescriptiveRecordWriter` | Encodes field definitions into a DDR record |
 | `Iso8211Reader` | Low-level streaming `ref struct` reader for incremental parsing |
 | `Iso8211Record` | A single data record with its leader, directory entries, and fields |
 | `Iso8211FieldDefinition` | Defines a field's tag, structure code, data type, and subfield layout |
