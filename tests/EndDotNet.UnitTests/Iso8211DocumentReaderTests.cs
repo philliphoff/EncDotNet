@@ -1,4 +1,3 @@
-using System.Collections.Immutable;
 using System.Text;
 using EncDotNet.Iso8211;
 
@@ -82,7 +81,7 @@ public class Iso8211DocumentReaderTests
     private static byte[] CreateMultiFieldRecord(bool isDataDescriptiveRecord = false)
     {
         var leaderIdentifier = isDataDescriptiveRecord ? 'L' : 'D';
-        
+
         // Fields: 0001 -> "HELLO", 0002 -> "WORLD"
         var field1Tag = "0001";
         var field1Data = "HELLO"u8.ToArray();

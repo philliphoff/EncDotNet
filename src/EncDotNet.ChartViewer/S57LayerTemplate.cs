@@ -1,8 +1,6 @@
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using EncDotNet.S57.Charts;
 using EncDotNet.ChartViewer.Models;
+using EncDotNet.S57.Charts;
 using Mapsui;
 using Mapsui.Nts;
 using Mapsui.Projections;

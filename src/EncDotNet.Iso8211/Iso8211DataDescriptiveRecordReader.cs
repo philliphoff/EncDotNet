@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
-using System.Text;
 
 namespace EncDotNet.Iso8211;
 
@@ -40,7 +39,7 @@ public static class Iso8211DataDescriptiveRecordReader
     /// Since every DDR field shares the same internal layout for a given field control length,
     /// we avoid repeated allocations by caching the definition.
     /// </summary>
-    private static readonly ConcurrentDictionary<int, Iso8211FieldDefinition> s_ddrFieldDefinitionCache = new();
+    private static readonly ConcurrentDictionary<int, Iso8211FieldDefinition> DdrFieldDefinitionCache = new();
 
     /// <summary>
     /// Parses an <see cref="Iso8211Record"/> that represents a DDR and returns a
@@ -108,7 +107,7 @@ public static class Iso8211DataDescriptiveRecordReader
     /// <returns>An <see cref="Iso8211FieldDefinition"/> describing the DDR's own field structure.</returns>
     public static Iso8211FieldDefinition GetDdrFieldDefinition(int fieldControlLength)
     {
-        return s_ddrFieldDefinitionCache.GetOrAdd(fieldControlLength, static fcl =>
+        return DdrFieldDefinitionCache.GetOrAdd(fieldControlLength, static fcl =>
         {
             var subfieldDefinitions = CreateDdrSubfieldDefinitions(fcl);
 

@@ -20,27 +20,27 @@ public class S57DocumentReaderTests
     {
         // Create DDR (Data Descriptive Record) with proper S-57 field definitions
         var ddr = CreateS57Ddr();
-        
+
         // Calculate total size
         var totalSize = ddr.Length;
         foreach (var record in dataRecords)
         {
             totalSize += record.Length;
         }
-        
+
         // Combine all records
         var result = new byte[totalSize];
         var offset = 0;
-        
+
         Array.Copy(ddr, 0, result, offset, ddr.Length);
         offset += ddr.Length;
-        
+
         foreach (var record in dataRecords)
         {
             Array.Copy(record, 0, result, offset, record.Length);
             offset += record.Length;
         }
-        
+
         return result;
     }
 
@@ -206,10 +206,10 @@ public class S57DocumentReaderTests
         ms.WriteByte((byte)('0' + dataType));
 
         // Field name and subfield descriptors
-        var descriptors = string.IsNullOrEmpty(fieldName) 
-            ? subfieldDescriptors 
+        var descriptors = string.IsNullOrEmpty(fieldName)
+            ? subfieldDescriptors
             : (string.IsNullOrEmpty(subfieldDescriptors) ? fieldName : $"{fieldName}!{subfieldDescriptors}");
-        
+
         if (!string.IsNullOrEmpty(descriptors))
         {
             ms.Write(Encoding.ASCII.GetBytes(descriptors));
@@ -231,48 +231,48 @@ public class S57DocumentReaderTests
         // Calculate directory entries
         var directoryEntries = new List<byte[]>();
         var currentPosition = 0;
-        
+
         foreach (var (tag, data) in fields)
         {
             var entry = Encoding.ASCII.GetBytes($"{tag}{data.Length:D3}{currentPosition:D3}");
             directoryEntries.Add(entry);
             currentPosition += data.Length;
         }
-        
+
         var directorySize = directoryEntries.Sum(e => e.Length);
         var baseAddress = 24 + directorySize + 1;
         var totalFieldSize = fields.Sum(f => f.data.Length);
         var recordLength = baseAddress + totalFieldSize;
-        
+
         // DDR leader: 'L' for leader identifier, field control length = 2
         var leader = Encoding.ASCII.GetBytes(
             $"{recordLength:D5}3LE1 02{baseAddress:D5}   3304"
         );
-        
+
         var record = new byte[recordLength];
         var offset = 0;
-        
+
         // Copy leader
         Array.Copy(leader, 0, record, offset, leader.Length);
         offset += leader.Length;
-        
+
         // Copy directory entries
         foreach (var entry in directoryEntries)
         {
             Array.Copy(entry, 0, record, offset, entry.Length);
             offset += entry.Length;
         }
-        
+
         // Directory terminator
         record[offset++] = FieldTerminator;
-        
+
         // Copy field data
         foreach (var (_, data) in fields)
         {
             Array.Copy(data, 0, record, offset, data.Length);
             offset += data.Length;
         }
-        
+
         return record;
     }
 
@@ -294,7 +294,7 @@ public class S57DocumentReaderTests
         // Build DSID field data
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms);
-        
+
         writer.Write(rcnm);           // RCNM
         writer.Write(rcid);           // RCID
         writer.Write((byte)1);        // EXPP
@@ -312,9 +312,9 @@ public class S57DocumentReaderTests
         writer.Write(agen);           // AGEN
         WriteString(writer, "");      // COMT
         writer.Write((byte)0x1E);     // Field terminator
-        
+
         var dsidData = ms.ToArray();
-        
+
         return CreateDataRecord("DSID", dsidData);
     }
 
@@ -337,7 +337,7 @@ public class S57DocumentReaderTests
     {
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms);
-        
+
         writer.Write(rcnm);           // RCNM
         writer.Write(rcid);           // RCID
         writer.Write(hdat);           // HDAT
@@ -352,9 +352,9 @@ public class S57DocumentReaderTests
         writer.Write(somf);           // SOMF
         WriteString(writer, "");      // COMT
         writer.Write((byte)0x1E);     // Field terminator
-        
+
         var dspmData = ms.ToArray();
-        
+
         return CreateDataRecord("DSPM", dspmData);
     }
 
@@ -377,7 +377,7 @@ public class S57DocumentReaderTests
     {
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms);
-        
+
         // FRID field
         writer.Write(rcnm);           // RCNM
         writer.Write(rcid);           // RCID
@@ -387,42 +387,42 @@ public class S57DocumentReaderTests
         writer.Write(rver);           // RVER
         writer.Write(ruin);           // RUIN
         writer.Write((byte)0x1E);     // Field terminator
-        
+
         var fridData = ms.ToArray();
-        
+
         // Build fields dictionary
         var fields = new List<(string tag, byte[] data)>
         {
             ("FRID", fridData)
         };
-        
+
         // Add ATTF field if attributes provided
         if (attributes != null && attributes.Length > 0)
         {
             using var attfMs = new MemoryStream();
             using var attfWriter = new BinaryWriter(attfMs);
-            
+
             foreach (var attr in attributes)
             {
                 attfWriter.Write((ushort)attr.AttributeCode);
                 WriteString(attfWriter, attr.Value);
             }
             attfWriter.Write((byte)0x1E);
-            
+
             fields.Add(("ATTF", attfMs.ToArray()));
         }
-        
+
         // Add FSPC field if spatial pointer control provided
         if (spatialPointerControl.HasValue)
         {
             using var fspcMs = new MemoryStream();
             using var fspcWriter = new BinaryWriter(fspcMs);
-            
+
             fspcWriter.Write((byte)spatialPointerControl.Value.UpdateInstruction);
             fspcWriter.Write((ushort)spatialPointerControl.Value.Index);
             fspcWriter.Write((ushort)spatialPointerControl.Value.Count);
             fspcWriter.Write((byte)0x1E);
-            
+
             fields.Add(("FSPC", fspcMs.ToArray()));
         }
 
@@ -431,7 +431,7 @@ public class S57DocumentReaderTests
         {
             using var fsptMs = new MemoryStream();
             using var fsptWriter = new BinaryWriter(fsptMs);
-            
+
             foreach (var ptr in spatialPointers)
             {
                 fsptWriter.Write((byte)ptr.Name.RecordNameCode);
@@ -441,7 +441,7 @@ public class S57DocumentReaderTests
                 fsptWriter.Write((byte)ptr.Mask);
             }
             fsptWriter.Write((byte)0x1E);
-            
+
             fields.Add(("FSPT", fsptMs.ToArray()));
         }
 
@@ -450,12 +450,12 @@ public class S57DocumentReaderTests
         {
             using var ffpcMs = new MemoryStream();
             using var ffpcWriter = new BinaryWriter(ffpcMs);
-            
+
             ffpcWriter.Write((byte)featurePointerControl.Value.UpdateInstruction);
             ffpcWriter.Write((ushort)featurePointerControl.Value.Index);
             ffpcWriter.Write((ushort)featurePointerControl.Value.Count);
             ffpcWriter.Write((byte)0x1E);
-            
+
             fields.Add(("FFPC", ffpcMs.ToArray()));
         }
 
@@ -464,7 +464,7 @@ public class S57DocumentReaderTests
         {
             using var ffptMs = new MemoryStream();
             using var ffptWriter = new BinaryWriter(ffptMs);
-            
+
             foreach (var ptr in featurePointers)
             {
                 // LNAM: AGEN(2) + FIDN(4) + FIDS(2)
@@ -475,10 +475,10 @@ public class S57DocumentReaderTests
                 WriteString(ffptWriter, ptr.Comment);
             }
             ffptWriter.Write((byte)0x1E);
-            
+
             fields.Add(("FFPT", ffptMs.ToArray()));
         }
-        
+
         return CreateDataRecordMultiField(fields.ToArray());
     }
 
@@ -498,33 +498,33 @@ public class S57DocumentReaderTests
     {
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms);
-        
+
         // VRID field
         writer.Write(rcnm);           // RCNM
         writer.Write(rcid);           // RCID
         writer.Write(rver);           // RVER
         writer.Write(ruin);           // RUIN
         writer.Write((byte)0x1E);     // Field terminator
-        
+
         var vridData = ms.ToArray();
-        
+
         // Build fields dictionary
         var fields = new List<(string tag, byte[] data)>
         {
             ("VRID", vridData)
         };
-        
+
         // Add VRPC field if vector pointer control provided
         if (vectorPointerControl.HasValue)
         {
             using var vrpcMs = new MemoryStream();
             using var vrpcWriter = new BinaryWriter(vrpcMs);
-            
+
             vrpcWriter.Write((byte)vectorPointerControl.Value.UpdateInstruction);
             vrpcWriter.Write((ushort)vectorPointerControl.Value.Index);
             vrpcWriter.Write((ushort)vectorPointerControl.Value.Count);
             vrpcWriter.Write((byte)0x1E);
-            
+
             fields.Add(("VRPC", vrpcMs.ToArray()));
         }
 
@@ -533,7 +533,7 @@ public class S57DocumentReaderTests
         {
             using var vrptMs = new MemoryStream();
             using var vrptWriter = new BinaryWriter(vrptMs);
-            
+
             foreach (var ptr in vectorPointers)
             {
                 vrptWriter.Write((byte)ptr.Name.RecordNameCode);
@@ -544,7 +544,7 @@ public class S57DocumentReaderTests
                 vrptWriter.Write((byte)ptr.Mask);
             }
             vrptWriter.Write((byte)0x1E);
-            
+
             fields.Add(("VRPT", vrptMs.ToArray()));
         }
 
@@ -553,12 +553,12 @@ public class S57DocumentReaderTests
         {
             using var sgccMs = new MemoryStream();
             using var sgccWriter = new BinaryWriter(sgccMs);
-            
+
             sgccWriter.Write((byte)coordinateControl.Value.UpdateInstruction);
             sgccWriter.Write((ushort)coordinateControl.Value.Index);
             sgccWriter.Write((ushort)coordinateControl.Value.Count);
             sgccWriter.Write((byte)0x1E);
-            
+
             fields.Add(("SGCC", sgccMs.ToArray()));
         }
 
@@ -567,23 +567,23 @@ public class S57DocumentReaderTests
         {
             using var sg2dMs = new MemoryStream();
             using var sg2dWriter = new BinaryWriter(sg2dMs);
-            
+
             foreach (var coord in coordinates)
             {
                 sg2dWriter.Write(coord.Y);
                 sg2dWriter.Write(coord.X);
             }
             sg2dWriter.Write((byte)0x1E);
-            
+
             fields.Add(("SG2D", sg2dMs.ToArray()));
         }
-        
+
         // Add SG3D field if soundings provided
         if (soundings != null && soundings.Length > 0)
         {
             using var sg3dMs = new MemoryStream();
             using var sg3dWriter = new BinaryWriter(sg3dMs);
-            
+
             foreach (var snd in soundings)
             {
                 sg3dWriter.Write(snd.Y);
@@ -591,10 +591,10 @@ public class S57DocumentReaderTests
                 sg3dWriter.Write(snd.Depth);
             }
             sg3dWriter.Write((byte)0x1E);
-            
+
             fields.Add(("SG3D", sg3dMs.ToArray()));
         }
-        
+
         return CreateDataRecordMultiField(fields.ToArray());
     }
 
@@ -612,51 +612,51 @@ public class S57DocumentReaderTests
     private static byte[] CreateDataRecordMultiField(params (string tag, byte[] data)[] fields)
     {
         var fieldTerminator = (byte)0x1E;
-        
+
         // Calculate directory entries
         var directoryEntries = new List<byte[]>();
         var currentPosition = 0;
-        
+
         foreach (var (tag, data) in fields)
         {
             var entry = Encoding.ASCII.GetBytes($"{tag}{data.Length:D3}{currentPosition:D3}");
             directoryEntries.Add(entry);
             currentPosition += data.Length;
         }
-        
+
         var directorySize = directoryEntries.Sum(e => e.Length);
         var baseAddress = 24 + directorySize + 1; // +1 for directory terminator
         var totalFieldSize = fields.Sum(f => f.data.Length);
         var recordLength = baseAddress + totalFieldSize;
-        
+
         var leader = Encoding.ASCII.GetBytes(
             $"{recordLength:D5}3DE1 00{baseAddress:D5}   3304"
         );
-        
+
         var record = new byte[recordLength];
         var offset = 0;
-        
+
         // Copy leader
         Array.Copy(leader, 0, record, offset, leader.Length);
         offset += leader.Length;
-        
+
         // Copy directory entries
         foreach (var entry in directoryEntries)
         {
             Array.Copy(entry, 0, record, offset, entry.Length);
             offset += entry.Length;
         }
-        
+
         // Directory terminator
         record[offset++] = fieldTerminator;
-        
+
         // Copy field data
         foreach (var (_, data) in fields)
         {
             Array.Copy(data, 0, record, offset, data.Length);
             offset += data.Length;
         }
-        
+
         return record;
     }
 
@@ -678,10 +678,10 @@ public class S57DocumentReaderTests
     {
         // Arrange
         var data = CreateS57Document();
-        
+
         // Act
         var document = S57DocumentReader.Read(data);
-        
+
         // Assert
         Assert.NotNull(document);
         Assert.Null(document.DataSetIdentification);
@@ -707,10 +707,10 @@ public class S57DocumentReaderTests
             agen: 540
         );
         var data = CreateS57Document(dsidRecord);
-        
+
         // Act
         var document = S57DocumentReader.Read(data);
-        
+
         // Assert
         Assert.NotNull(document.DataSetIdentification);
         Assert.Equal(10, document.DataSetIdentification.RecordName.RecordNameCode);
@@ -744,10 +744,10 @@ public class S57DocumentReaderTests
             somf: 10
         );
         var data = CreateS57Document(dspmRecord);
-        
+
         // Act
         var document = S57DocumentReader.Read(data);
-        
+
         // Assert
         Assert.NotNull(document.DataSetParameters);
         Assert.Equal(20, document.DataSetParameters.RecordName.RecordNameCode);
@@ -778,10 +778,10 @@ public class S57DocumentReaderTests
             ruin: (byte)S57UpdateInstruction.Insert
         );
         var data = CreateS57Document(featureRecord);
-        
+
         // Act
         var document = S57DocumentReader.Read(data);
-        
+
         // Assert
         Assert.Single(document.FeatureRecords);
         var feature = document.FeatureRecords[0];
@@ -815,10 +815,10 @@ public class S57DocumentReaderTests
             attributes: attributes
         );
         var data = CreateS57Document(featureRecord);
-        
+
         // Act
         var document = S57DocumentReader.Read(data);
-        
+
         // Assert
         Assert.Single(document.FeatureRecords);
         var feature = document.FeatureRecords[0];
@@ -842,10 +842,10 @@ public class S57DocumentReaderTests
             ruin: (byte)S57UpdateInstruction.Insert
         );
         var data = CreateS57Document(vectorRecord);
-        
+
         // Act
         var document = S57DocumentReader.Read(data);
-        
+
         // Assert
         Assert.Single(document.VectorRecords);
         var vector = document.VectorRecords[0];
@@ -872,10 +872,10 @@ public class S57DocumentReaderTests
             coordinates: coordinates
         );
         var data = CreateS57Document(vectorRecord);
-        
+
         // Act
         var document = S57DocumentReader.Read(data);
-        
+
         // Assert
         Assert.Single(document.VectorRecords);
         var vector = document.VectorRecords[0];
@@ -903,10 +903,10 @@ public class S57DocumentReaderTests
             soundings: soundings
         );
         var data = CreateS57Document(vectorRecord);
-        
+
         // Act
         var document = S57DocumentReader.Read(data);
-        
+
         // Assert
         Assert.Single(document.VectorRecords);
         var vector = document.VectorRecords[0];
@@ -929,16 +929,16 @@ public class S57DocumentReaderTests
         var featureRecord2 = CreateFeatureRecord(rcid: 2, objl: 159);
         var vectorRecord1 = CreateVectorRecord(rcnm: S57RecordNameCodes.IsolatedNode, rcid: 1);
         var vectorRecord2 = CreateVectorRecord(rcnm: S57RecordNameCodes.Edge, rcid: 2);
-        
+
         var data = CreateS57Document(
-            dsidRecord, dspmRecord, 
+            dsidRecord, dspmRecord,
             featureRecord1, featureRecord2,
             vectorRecord1, vectorRecord2
         );
-        
+
         // Act
         var document = S57DocumentReader.Read(data);
-        
+
         // Assert
         Assert.NotNull(document.DataSetIdentification);
         Assert.Equal("TESTDATA", document.DataSetIdentification.DataSetName);
@@ -960,11 +960,11 @@ public class S57DocumentReaderTests
         var featureRecord2 = CreateFeatureRecord(rcnm: 100, rcid: 2, objl: 159);
         var data = CreateS57Document(featureRecord1, featureRecord2);
         var document = S57DocumentReader.Read(data);
-        
+
         // Act
         var targetName = S57RecordName.FromRcnmRcid(100, 2);
         var result = document.GetFeatureRecord(targetName);
-        
+
         // Assert
         Assert.NotNull(result);
         Assert.Equal(2, result.RecordName.RecordId);
@@ -978,11 +978,11 @@ public class S57DocumentReaderTests
         var featureRecord = CreateFeatureRecord(rcnm: 100, rcid: 1, objl: 75);
         var data = CreateS57Document(featureRecord);
         var document = S57DocumentReader.Read(data);
-        
+
         // Act
         var targetName = S57RecordName.FromRcnmRcid(100, 999);
         var result = document.GetFeatureRecord(targetName);
-        
+
         // Assert
         Assert.Null(result);
     }
@@ -995,11 +995,11 @@ public class S57DocumentReaderTests
         var vectorRecord2 = CreateVectorRecord(rcnm: S57RecordNameCodes.Edge, rcid: 2);
         var data = CreateS57Document(vectorRecord1, vectorRecord2);
         var document = S57DocumentReader.Read(data);
-        
+
         // Act
         var targetName = S57RecordName.FromRcnmRcid(S57RecordNameCodes.Edge, 2);
         var result = document.GetVectorRecord(targetName);
-        
+
         // Assert
         Assert.NotNull(result);
         Assert.Equal(S57RecordNameCodes.Edge, result.RecordName.RecordNameCode);
@@ -1015,10 +1015,10 @@ public class S57DocumentReaderTests
         var featureRecord3 = CreateFeatureRecord(rcnm: 100, rcid: 3, objl: 75);
         var data = CreateS57Document(featureRecord1, featureRecord2, featureRecord3);
         var document = S57DocumentReader.Read(data);
-        
+
         // Act
         var results = document.GetFeaturesByObjectCode(S57ObjectCode.LIGHTS).ToArray();
-        
+
         // Assert
         Assert.Equal(2, results.Length);
         Assert.All(results, r => Assert.Equal(S57ObjectCode.LIGHTS, r.ObjectCode));
@@ -1031,10 +1031,10 @@ public class S57DocumentReaderTests
         var dspmRecord = CreateDspmRecord(comf: 10000000);
         var data = CreateS57Document(dspmRecord);
         var document = S57DocumentReader.Read(data);
-        
+
         // Act
         var result = document.CoordinateMultiplicationFactor;
-        
+
         // Assert
         Assert.Equal(10000000, result);
     }
@@ -1045,10 +1045,10 @@ public class S57DocumentReaderTests
         // Arrange
         var data = CreateS57Document();
         var document = S57DocumentReader.Read(data);
-        
+
         // Act
         var result = document.CoordinateMultiplicationFactor;
-        
+
         // Assert
         Assert.Equal(10000000, result); // Default value
     }
@@ -1060,10 +1060,10 @@ public class S57DocumentReaderTests
         var dspmRecord = CreateDspmRecord(somf: 100);
         var data = CreateS57Document(dspmRecord);
         var document = S57DocumentReader.Read(data);
-        
+
         // Act
         var result = document.SoundingMultiplicationFactor;
-        
+
         // Assert
         Assert.Equal(100, result);
     }
@@ -1074,10 +1074,10 @@ public class S57DocumentReaderTests
         // Arrange
         var data = CreateS57Document();
         var document = S57DocumentReader.Read(data);
-        
+
         // Act
         var result = document.SoundingMultiplicationFactor;
-        
+
         // Assert
         Assert.Equal(10, result); // Default value
     }
@@ -1091,7 +1091,7 @@ public class S57DocumentReaderTests
     {
         // Act
         var name = S57RecordName.FromRcnmRcid(100, 42);
-        
+
         // Assert
         Assert.Equal(100, name.RecordNameCode);
         Assert.Equal(42, name.RecordId);
@@ -1105,7 +1105,7 @@ public class S57DocumentReaderTests
     {
         // Act
         var name = S57RecordName.FromLongName(540, 12345, 1);
-        
+
         // Assert
         Assert.Equal(540, name.AgencyCode);
         Assert.Equal(12345, name.FeatureId);
@@ -1118,7 +1118,7 @@ public class S57DocumentReaderTests
         // Arrange
         var name1 = S57RecordName.FromRcnmRcid(100, 42);
         var name2 = S57RecordName.FromRcnmRcid(100, 42);
-        
+
         // Assert
         Assert.Equal(name1, name2);
         Assert.True(name1 == name2);
@@ -1131,7 +1131,7 @@ public class S57DocumentReaderTests
         // Arrange
         var name1 = S57RecordName.FromRcnmRcid(100, 42);
         var name2 = S57RecordName.FromRcnmRcid(100, 43);
-        
+
         // Assert
         Assert.NotEqual(name1, name2);
         Assert.False(name1 == name2);
@@ -1144,7 +1144,7 @@ public class S57DocumentReaderTests
         // Arrange
         var name1 = S57RecordName.FromRcnmRcid(100, 42);
         var name2 = S57RecordName.FromRcnmRcid(100, 42);
-        
+
         // Assert
         Assert.Equal(name1.GetHashCode(), name2.GetHashCode());
     }
@@ -1154,10 +1154,10 @@ public class S57DocumentReaderTests
     {
         // Arrange
         var name = S57RecordName.FromRcnmRcid(100, 42);
-        
+
         // Act
         var result = name.ToString();
-        
+
         // Assert
         Assert.Equal("RCNM=100, RCID=42", result);
     }
@@ -1171,7 +1171,7 @@ public class S57DocumentReaderTests
     {
         // Act
         var attr = new S57AttributeValue(116, "RED");
-        
+
         // Assert
         Assert.Equal(116, attr.AttributeCode);
         Assert.Equal("RED", attr.Value);
@@ -1182,10 +1182,10 @@ public class S57DocumentReaderTests
     {
         // Arrange
         var attr = new S57AttributeValue(116, "RED");
-        
+
         // Act
         var result = attr.ToString();
-        
+
         // Assert
         Assert.Equal("ATTL=116, ATVL=RED", result);
     }
@@ -1200,10 +1200,10 @@ public class S57DocumentReaderTests
         // Arrange
         var coord = new S57Coordinate2D { X = -1225000000, Y = 475000000 };
         var multiplicationFactor = 10000000;
-        
+
         // Act
         var (longitude, latitude) = coord.ToDecimalDegrees(multiplicationFactor);
-        
+
         // Assert
         Assert.Equal(-122.5, longitude, 6);
         Assert.Equal(47.5, latitude, 6);
@@ -1220,10 +1220,10 @@ public class S57DocumentReaderTests
         var sounding = new S57Sounding { X = -1225000000, Y = 475000000, Depth = 150 };
         var coordFactor = 10000000;
         var soundingFactor = 10;
-        
+
         // Act
         var (longitude, latitude, depth) = sounding.ToDecimalValues(coordFactor, soundingFactor);
-        
+
         // Assert
         Assert.Equal(-122.5, longitude, 6);
         Assert.Equal(47.5, latitude, 6);
@@ -1281,10 +1281,10 @@ public class S57DocumentReaderTests
         // Arrange
         var dsidRecord = CreateDsidRecord(dsnm: "BYTEARRAY");
         var data = CreateS57Document(dsidRecord);
-        
+
         // Act
         var document = S57DocumentReader.Read(data);
-        
+
         // Assert
         Assert.NotNull(document.DataSetIdentification);
         Assert.Equal("BYTEARRAY", document.DataSetIdentification.DataSetName);
@@ -1296,10 +1296,10 @@ public class S57DocumentReaderTests
         // Arrange
         var dsidRecord = CreateDsidRecord(dsnm: "SPANTEST");
         var data = CreateS57Document(dsidRecord);
-        
+
         // Act
         var document = S57DocumentReader.Read(data.AsSpan());
-        
+
         // Assert
         Assert.NotNull(document.DataSetIdentification);
         Assert.Equal("SPANTEST", document.DataSetIdentification.DataSetName);
@@ -1311,14 +1311,14 @@ public class S57DocumentReaderTests
         // Arrange
         var dsidRecord = CreateDsidRecord(dsnm: "STREAMTEST");
         var data = CreateS57Document(dsidRecord);
-        
+
         // Act
         S57Document document;
         using (var stream = new MemoryStream(data))
         {
             document = S57DocumentReader.Read(stream);
         }
-        
+
         // Assert
         Assert.NotNull(document.DataSetIdentification);
         Assert.Equal("STREAMTEST", document.DataSetIdentification.DataSetName);
@@ -1330,14 +1330,14 @@ public class S57DocumentReaderTests
         // Arrange
         var dsidRecord = CreateDsidRecord(dsnm: "ASYNCSTREAM");
         var data = CreateS57Document(dsidRecord);
-        
+
         // Act
         S57Document document;
         using (var stream = new MemoryStream(data))
         {
             document = await S57DocumentReader.ReadAsync(stream);
         }
-        
+
         // Assert
         Assert.NotNull(document.DataSetIdentification);
         Assert.Equal("ASYNCSTREAM", document.DataSetIdentification.DataSetName);
@@ -1350,14 +1350,14 @@ public class S57DocumentReaderTests
         var dsidRecord = CreateDsidRecord(dsnm: "FILETEST");
         var data = CreateS57Document(dsidRecord);
         var tempFile = Path.GetTempFileName();
-        
+
         try
         {
             File.WriteAllBytes(tempFile, data);
-            
+
             // Act
             var document = S57DocumentReader.ReadFromFile(tempFile);
-            
+
             // Assert
             Assert.NotNull(document.DataSetIdentification);
             Assert.Equal("FILETEST", document.DataSetIdentification.DataSetName);
@@ -1375,14 +1375,14 @@ public class S57DocumentReaderTests
         var dsidRecord = CreateDsidRecord(dsnm: "ASYNCFILE");
         var data = CreateS57Document(dsidRecord);
         var tempFile = Path.GetTempFileName();
-        
+
         try
         {
             await File.WriteAllBytesAsync(tempFile, data);
-            
+
             // Act
             var document = await S57DocumentReader.ReadFromFileAsync(tempFile);
-            
+
             // Assert
             Assert.NotNull(document.DataSetIdentification);
             Assert.Equal("ASYNCFILE", document.DataSetIdentification.DataSetName);
@@ -1759,10 +1759,10 @@ public class S57DocumentReaderTests
             attributes: null
         );
         var data = CreateS57Document(featureRecord);
-        
+
         // Act
         var document = S57DocumentReader.Read(data);
-        
+
         // Assert
         Assert.Single(document.FeatureRecords);
         Assert.Empty(document.FeatureRecords[0].Attributes);
@@ -1778,10 +1778,10 @@ public class S57DocumentReaderTests
             coordinates: null
         );
         var data = CreateS57Document(vectorRecord);
-        
+
         // Act
         var document = S57DocumentReader.Read(data);
-        
+
         // Assert
         Assert.Single(document.VectorRecords);
         Assert.Empty(document.VectorRecords[0].Coordinates2D);
@@ -1796,10 +1796,10 @@ public class S57DocumentReaderTests
         var featureRecord2 = CreateFeatureRecord(rcnm: 100, rcid: 2, objl: 20);
         var featureRecord3 = CreateFeatureRecord(rcnm: 100, rcid: 3, objl: 30);
         var data = CreateS57Document(featureRecord1, featureRecord2, featureRecord3);
-        
+
         // Act - Call S57Reader.Read FIRST
         var document = S57DocumentReader.Read(data);
-        
+
         // Assert
         Assert.Equal(3, document.FeatureRecords.Count);
         Assert.Equal(1, document.FeatureRecords[0].RecordName.RecordId);
@@ -1816,10 +1816,10 @@ public class S57DocumentReaderTests
         var edge = CreateVectorRecord(rcnm: S57RecordNameCodes.Edge, rcid: 3);
         var face = CreateVectorRecord(rcnm: S57RecordNameCodes.Face, rcid: 4);
         var data = CreateS57Document(isolatedNode, connectedNode, edge, face);
-        
+
         // Act
         var document = S57DocumentReader.Read(data);
-        
+
         // Assert
         Assert.Equal(4, document.VectorRecords.Count);
         Assert.Equal(S57RecordNameCodes.IsolatedNode, document.VectorRecords[0].RecordName.RecordNameCode);

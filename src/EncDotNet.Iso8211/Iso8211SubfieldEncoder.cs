@@ -151,17 +151,17 @@ internal static class Iso8211SubfieldEncoder
         switch (width)
         {
             case 4:
-            {
-                var bytes = new byte[4];
-                BinaryPrimitives.WriteSingleLittleEndian(bytes, (float)d);
-                return bytes;
-            }
+                {
+                    var bytes = new byte[4];
+                    BinaryPrimitives.WriteSingleLittleEndian(bytes, (float)d);
+                    return bytes;
+                }
             case 8:
-            {
-                var bytes = new byte[8];
-                BinaryPrimitives.WriteDoubleLittleEndian(bytes, d);
-                return bytes;
-            }
+                {
+                    var bytes = new byte[8];
+                    BinaryPrimitives.WriteDoubleLittleEndian(bytes, d);
+                    return bytes;
+                }
             default:
                 throw new InvalidOperationException($"Unsupported floating-point binary width: {width} byte(s).");
         }
@@ -178,10 +178,10 @@ internal static class Iso8211SubfieldEncoder
                 }
                 return FitToWidth(raw, width, 0);
             case string hex:
-            {
-                var raw = Convert.FromHexString(hex);
-                return width <= 0 ? raw : FitToWidth(raw, width, 0);
-            }
+                {
+                    var raw = Convert.FromHexString(hex);
+                    return width <= 0 ? raw : FitToWidth(raw, width, 0);
+                }
             case null:
                 return width <= 0 ? Array.Empty<byte>() : new byte[width];
             default:

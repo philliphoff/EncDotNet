@@ -7,3 +7,5 @@
       href: architecture.md
     - name: S-57 Glossary
       href: glossary.md
+    - name: C# Coding Style
+      href: coding-style.md

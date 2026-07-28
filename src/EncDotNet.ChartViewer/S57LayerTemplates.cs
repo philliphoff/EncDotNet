@@ -1,9 +1,8 @@
 using System.Collections.Frozen;
-using System.Collections.Generic;
 using System.Globalization;
+using EncDotNet.ChartViewer.Models;
 using EncDotNet.S57;
 using EncDotNet.S57.Charts;
-using EncDotNet.ChartViewer.Models;
 using Mapsui;
 using Mapsui.Nts;
 using Mapsui.Projections;
@@ -423,9 +422,9 @@ internal static class S57LayerTemplates
     // Default depth zone boundaries (metres). S-52 allows the mariner to
     // adjust these; the values below are the S-52 recommended defaults.
     private const double DepthDryingLine = 0.0;   // boundary between DEPIT and DEPVS
-    private const double DepthShallow    = 2.0;   // boundary between DEPVS and DEPMS
-    private const double DepthSafety     = 5.0;   // boundary between DEPMS and DEPMD (default safety contour)
-    private const double DepthDeep       = 30.0;  // boundary between DEPMD and DEPDW
+    private const double DepthShallow = 2.0;   // boundary between DEPVS and DEPMS
+    private const double DepthSafety = 5.0;   // boundary between DEPMS and DEPMD (default safety contour)
+    private const double DepthDeep = 30.0;  // boundary between DEPMD and DEPDW
 
     /// <summary>
     /// Returns the colour and line width for a depth contour feature.
@@ -560,11 +559,11 @@ internal static class S57LayerTemplates
         int fathoms = wholeFeet / 6;
         int remainingFeet = wholeFeet % 6;
 
-        const string subscriptDigits = "₀₁₂₃₄₅";
+        const string SubscriptDigits = "₀₁₂₃₄₅";
 
         return remainingFeet == 0
             ? fathoms.ToString()
-            : $"{fathoms}{subscriptDigits[remainingFeet]}";
+            : $"{fathoms}{SubscriptDigits[remainingFeet]}";
     }
 
     // --- Buoy icon selection ---

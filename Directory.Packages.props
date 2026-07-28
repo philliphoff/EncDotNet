@@ -3,23 +3,23 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>
-    <PackageVersion Include="Avalonia" Version="11.3.11" />
-    <PackageVersion Include="Avalonia.Desktop" Version="11.3.11" />
-    <PackageVersion Include="Avalonia.Diagnostics" Version="11.3.11" />
-    <PackageVersion Include="Avalonia.Fonts.Inter" Version="11.3.11" />
+    <PackageVersion Include="Avalonia" Version="11.3.18" />
+    <PackageVersion Include="Avalonia.Desktop" Version="11.3.18" />
+    <PackageVersion Include="Avalonia.Diagnostics" Version="11.3.18" />
+    <PackageVersion Include="Avalonia.Fonts.Inter" Version="11.3.18" />
     <PackageVersion Include="Avalonia.Svg.Skia" Version="11.3.0" />
-    <PackageVersion Include="Avalonia.Themes.Fluent" Version="11.3.11" />
+    <PackageVersion Include="Avalonia.Themes.Fluent" Version="11.3.18" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.14.0" />
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />
     <PackageVersion Include="Mapsui.Avalonia" Version="5.0.2" />
     <PackageVersion Include="Mapsui.Nts" Version="5.0.2" />
-    <PackageVersion Include="MessagePack" Version="3.1.4" />
+    <PackageVersion Include="MessagePack" Version="3.1.8" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.3" />
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.3" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
-    <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="1.15.0" />
-    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.0" />
-    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.15.0" />
+    <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.17.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageVersion Include="ReactiveUI.Avalonia" Version="11.3.8" />
     <PackageVersion Include="xunit" Version="2.9.3" />

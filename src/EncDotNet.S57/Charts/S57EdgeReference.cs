@@ -37,6 +37,6 @@ public readonly record struct S57EdgeReference
     }
 
     /// <inheritdoc/>
-    public override string ToString() => 
+    public override string ToString() =>
         $"Edge {EdgeName}, Orientation={Orientation}, Usage={Usage}";
 }

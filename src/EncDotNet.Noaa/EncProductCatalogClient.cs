@@ -45,8 +45,8 @@ public class EncProductCatalogClient : IDisposable
     /// <returns>The deserialized <see cref="EncProductCatalog"/>.</returns>
     public async Task<EncProductCatalog> GetNoaaCatalogAsync(CancellationToken cancellationToken = default)
     {
-        const string noaaUrl = "https://www.charts.noaa.gov/ENCs/ENCProdCat.xml";
-        return await GetCatalogAsync(noaaUrl, cancellationToken);
+        const string NoaaUrl = "https://www.charts.noaa.gov/ENCs/ENCProdCat.xml";
+        return await GetCatalogAsync(NoaaUrl, cancellationToken);
     }
 
     /// <inheritdoc />

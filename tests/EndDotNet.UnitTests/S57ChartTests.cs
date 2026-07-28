@@ -43,8 +43,8 @@ public class S57ChartTests
             RecordName = S57RecordName.FromRcnmRcid(S57RecordNameCodes.IsolatedNode, rcid),
             RecordVersion = 1,
             UpdateInstruction = S57UpdateInstruction.Insert,
-            Coordinates2D = position.HasValue 
-                ? ImmutableArray.Create(position.Value) 
+            Coordinates2D = position.HasValue
+                ? ImmutableArray.Create(position.Value)
                 : ImmutableArray<S57Coordinate2D>.Empty,
             Soundings = soundings?.ToImmutableArray() ?? ImmutableArray<S57Sounding>.Empty,
             Attributes = attributes?.ToImmutableArray() ?? ImmutableArray<S57AttributeValue>.Empty,
@@ -481,7 +481,7 @@ public class S57ChartTests
 
         // Assert
         Assert.Equal(3, chart.ConnectedNodes.Count);
-        
+
         var retrieved1 = chart.GetConnectedNode(S57RecordName.FromRcnmRcid(S57RecordNameCodes.ConnectedNode, 1));
         Assert.NotNull(retrieved1);
         Assert.Equal(100, retrieved1.Position.X);
@@ -600,10 +600,10 @@ public class S57ChartTests
         var face = chart.Faces.Values.First();
         Assert.True(face.HasExteriorBoundary);
         Assert.Equal(3, face.ExteriorBoundary.Count);
-        
+
         Assert.Equal(1, face.ExteriorBoundary[0].EdgeName.RecordId);
         Assert.Equal(S57Orientation.Forward, face.ExteriorBoundary[0].Orientation);
-        
+
         Assert.Equal(2, face.ExteriorBoundary[1].EdgeName.RecordId);
         Assert.Equal(S57Orientation.Reverse, face.ExteriorBoundary[1].Orientation);
     }
@@ -735,12 +735,12 @@ public class S57ChartTests
         var pointFeature = chart.PointFeatures[0];
         Assert.True(pointFeature.HasAttributes);
         Assert.Equal(3, pointFeature.Attributes.Count);
-        
+
         // Single value lookup
         Assert.Equal("RED", pointFeature.GetAttributeValue(116));
         Assert.Equal("1", pointFeature.GetAttributeValue(117));
         Assert.Null(pointFeature.GetAttributeValue(999));
-        
+
         // Multiple value lookup
         var values = pointFeature.GetAttributeValues(116).ToList();
         Assert.Equal(2, values.Count);

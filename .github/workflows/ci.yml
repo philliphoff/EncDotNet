@@ -14,7 +14,7 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -49,6 +49,32 @@ jobs:
           name: nupkgs
           path: nupkgs/*.nupkg
 
+  format:
+    name: Format check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Verify formatting (whitespace)
+        # Fix locally with: dotnet format whitespace EncDotNet.slnx
+        run: dotnet format whitespace EncDotNet.slnx --no-restore --verify-no-changes
+
+      - name: Verify usings (ordering + unused)
+        # Fix locally with:
+        #   dotnet format style EncDotNet.slnx --diagnostics IDE0005
+        run: dotnet format style EncDotNet.slnx --diagnostics IDE0005 --severity warn --no-restore --verify-no-changes
+
   publish:
     needs: build
     strategy:
@@ -74,7 +100,7 @@ jobs:
       MACOS_SIGNING_ENABLED: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12 != '' && github.event_name != 'pull_request' }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4

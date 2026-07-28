@@ -351,7 +351,7 @@ public class Iso8211FieldReaderTests
         var fieldDef = CreateFieldDefinition("TEST",
             ("DSNM", Iso8211SubfieldFormatType.CharacterData, 0, false),
             ("EDTN", Iso8211SubfieldFormatType.CharacterData, 0, false));
-        
+
         // Use \u001F instead of \x1F to avoid hex digit consumption (\x1FE would be wrong)
         var data = Encoding.ASCII.GetBytes("FILE1\u001FEDITION1\u001E");
         var reader = new Iso8211FieldReader(fieldDef, data);

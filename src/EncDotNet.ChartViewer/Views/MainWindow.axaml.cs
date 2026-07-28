@@ -1,11 +1,6 @@
-using System;
-using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Diagnostics;
-using System.IO;
-using System.Linq;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
@@ -17,18 +12,17 @@ using EncDotNet.ChartViewer.Models;
 using EncDotNet.ChartViewer.ViewModels;
 using EncDotNet.S57;
 using Mapsui;
-using Microsoft.Extensions.DependencyInjection;
 using Mapsui.Extensions;
 using Mapsui.Layers;
-using System.Collections.Immutable;
 using Mapsui.Manipulations;
 using Mapsui.Nts;
 using Mapsui.Projections;
 using Mapsui.Styles;
 using Mapsui.Styles.Thematics;
 using Mapsui.Tiling;
-using NetTopologySuite.Geometries;
 using Mapsui.Widgets.ScaleBar;
+using Microsoft.Extensions.DependencyInjection;
+using NetTopologySuite.Geometries;
 
 namespace EncDotNet.ChartViewer.Views;
 

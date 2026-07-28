@@ -1,5 +1,3 @@
-using System.Text;
-
 namespace EncDotNet.Iso8211;
 
 /// <summary>

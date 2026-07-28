@@ -370,7 +370,7 @@ public sealed class Iso8211FieldReader
             {
                 break;
             }
-            
+
             // For fixed-width subfields in repeating groups, check if we've hit the end:
             // If the remaining data is just the field terminator, we're done.
             if (format.IsFixedWidth && _fieldDefinition.HasRepeatingGroup)
@@ -688,7 +688,7 @@ public sealed class Iso8211FieldReader
     {
         // Use actual data length if shorter than expected width
         int actualWidth = Math.Min(width, data.Length);
-        
+
         ulong value = actualWidth switch
         {
             1 => data[0],
@@ -753,7 +753,7 @@ public sealed class Iso8211FieldReader
     {
         // Use actual data length if shorter than expected width
         int actualWidth = Math.Min(width, data.Length);
-        
+
         long value = actualWidth switch
         {
             1 => (sbyte)data[0],
@@ -896,7 +896,7 @@ public sealed class Iso8211FieldReader
     private static long ReadSignedLittleEndian(ReadOnlySpan<byte> data, int width)
     {
         var unsigned = ReadUnsignedLittleEndian(data, width);
-        
+
         // Sign extend if the high bit is set
         var signBit = 1UL << (width * 8 - 1);
         if ((unsigned & signBit) != 0)

@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using EncDotNet.S57.Charts;
 using NetTopologySuite.Geometries;
 using NetTopologySuite.Geometries.Prepared;

@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-using System.Threading;
 using EncDotNet.ChartViewer.Models;
 
 namespace EncDotNet.ChartViewer.Charts;
