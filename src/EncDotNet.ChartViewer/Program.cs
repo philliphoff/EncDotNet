@@ -1,10 +1,9 @@
-﻿using Avalonia;
+using Avalonia;
 using ReactiveUI.Avalonia;
-using System;
 
 namespace EncDotNet.ChartViewer;
 
-sealed class Program
+internal sealed class Program
 {
     [STAThread]
     public static void Main(string[] args)

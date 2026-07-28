@@ -1,11 +1,7 @@
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
-using System.Threading;
-using System.Threading.Tasks;
 using EncDotNet.ChartViewer.Baking;
 using EncDotNet.ChartViewer.Models;
 using EncDotNet.S57.Charts;

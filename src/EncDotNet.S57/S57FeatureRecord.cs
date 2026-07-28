@@ -1,5 +1,3 @@
-using System.Collections.Immutable;
-
 namespace EncDotNet.S57;
 
 /// <summary>

@@ -1,17 +1,10 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
 using System.IO.Compression;
-using System.Linq;
-using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
-using System.Threading;
-using System.Threading.Tasks;
 using EncDotNet.ChartViewer.Models;
-using EncDotNet.S57.ExchangeSets;
 using EncDotNet.Noaa;
+using EncDotNet.S57.ExchangeSets;
 
 namespace EncDotNet.ChartViewer.Charts;
 

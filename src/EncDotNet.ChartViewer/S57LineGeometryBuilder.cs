@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-using System.Linq;
 using EncDotNet.S57;
 using EncDotNet.S57.Charts;
 using NetTopologySuite.Geometries;

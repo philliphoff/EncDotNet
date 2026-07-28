@@ -456,7 +456,7 @@ public static class S57DocumentReader
     {
         var attributes = ImmutableArray.CreateBuilder<S57AttributeValue>();
         var fieldDef = ddr?.GetFieldDefinition(fieldTag);
-        
+
         foreach (var field in record.GetFieldsByTag(fieldTag))
         {
             if (fieldDef == null || !fieldDef.HasRepeatingGroup)
@@ -466,7 +466,7 @@ public static class S57DocumentReader
 
             // Use DDR-based field reader with repeating groups
             var reader = new Iso8211FieldReader(fieldDef, field.Data, lexicalLevel);
-            
+
             foreach (var group in reader.GetSubfieldGroups())
             {
                 try
@@ -495,7 +495,7 @@ public static class S57DocumentReader
     {
         var pointers = ImmutableArray.CreateBuilder<S57SpatialPointer>();
         var fieldDef = ddr?.GetFieldDefinition(S57FieldTags.FSPT);
-        
+
         foreach (var field in record.GetFieldsByTag(S57FieldTags.FSPT))
         {
             if (fieldDef == null || !fieldDef.HasRepeatingGroup)
@@ -505,7 +505,7 @@ public static class S57DocumentReader
 
             // Use DDR-based field reader with repeating groups
             var reader = new Iso8211FieldReader(fieldDef, field.Data);
-            
+
             foreach (var group in reader.GetSubfieldGroups())
             {
                 try
@@ -514,7 +514,7 @@ public static class S57DocumentReader
                     // Read it as raw bytes and decompose
                     var nameBytes = group.GetSubfieldBytes(S57SubfieldNames.NAME);
                     var name = DecomposeNameField(nameBytes);
-                    
+
                     var ornt = group.GetSubfield<byte>(S57SubfieldNames.ORNT);
                     var usag = group.GetSubfield<byte>(S57SubfieldNames.USAG);
                     var mask = group.GetSubfield<byte>(S57SubfieldNames.MASK);
@@ -545,7 +545,7 @@ public static class S57DocumentReader
     {
         var pointers = ImmutableArray.CreateBuilder<S57FeaturePointer>();
         var fieldDef = ddr?.GetFieldDefinition(S57FieldTags.FFPT);
-        
+
         foreach (var field in record.GetFieldsByTag(S57FieldTags.FFPT))
         {
             if (fieldDef == null || !fieldDef.HasRepeatingGroup)
@@ -555,7 +555,7 @@ public static class S57DocumentReader
 
             // Use DDR-based field reader with repeating groups
             var reader = new Iso8211FieldReader(fieldDef, field.Data);
-            
+
             foreach (var group in reader.GetSubfieldGroups())
             {
                 try
@@ -563,7 +563,7 @@ public static class S57DocumentReader
                     // LNAM is a composite subfield (8 bytes: AGEN(2) + FIDN(4) + FIDS(2))
                     var lnamBytes = group.GetSubfieldBytes(S57SubfieldNames.LNAM);
                     var lnam = DecomposeLongNameField(lnamBytes);
-                    
+
                     var rind = group.GetSubfield<byte>(S57SubfieldNames.RIND);
                     var comt = group.GetSubfield<string>(S57SubfieldNames.COMT);
 
@@ -592,7 +592,7 @@ public static class S57DocumentReader
     {
         var pointers = ImmutableArray.CreateBuilder<S57VectorPointer>();
         var fieldDef = ddr?.GetFieldDefinition(S57FieldTags.VRPT);
-        
+
         foreach (var field in record.GetFieldsByTag(S57FieldTags.VRPT))
         {
             if (fieldDef == null || !fieldDef.HasRepeatingGroup)
@@ -602,7 +602,7 @@ public static class S57DocumentReader
 
             // Use DDR-based field reader with repeating groups
             var reader = new Iso8211FieldReader(fieldDef, field.Data);
-            
+
             foreach (var group in reader.GetSubfieldGroups())
             {
                 try
@@ -610,7 +610,7 @@ public static class S57DocumentReader
                     // NAME is a composite subfield (5 bytes: RCNM(1) + RCID(4))
                     var nameBytes = group.GetSubfieldBytes(S57SubfieldNames.NAME);
                     var name = DecomposeNameField(nameBytes);
-                    
+
                     var ornt = group.GetSubfield<byte>(S57SubfieldNames.ORNT);
                     var usag = group.GetSubfield<byte>(S57SubfieldNames.USAG);
                     var topi = group.GetSubfield<byte>(S57SubfieldNames.TOPI);
@@ -643,7 +643,7 @@ public static class S57DocumentReader
     {
         var coordinates = ImmutableArray.CreateBuilder<S57Coordinate2D>();
         var fieldDef = ddr?.GetFieldDefinition(S57FieldTags.SG2D);
-        
+
         foreach (var field in record.GetFieldsByTag(S57FieldTags.SG2D))
         {
             if (fieldDef == null || !fieldDef.HasRepeatingGroup)
@@ -653,7 +653,7 @@ public static class S57DocumentReader
 
             // Use DDR-based field reader with repeating groups
             var reader = new Iso8211FieldReader(fieldDef, field.Data);
-            
+
             foreach (var group in reader.GetSubfieldGroups())
             {
                 try
@@ -685,7 +685,7 @@ public static class S57DocumentReader
     {
         var soundings = ImmutableArray.CreateBuilder<S57Sounding>();
         var fieldDef = ddr?.GetFieldDefinition(S57FieldTags.SG3D);
-        
+
         foreach (var field in record.GetFieldsByTag(S57FieldTags.SG3D))
         {
             if (fieldDef == null || !fieldDef.HasRepeatingGroup)
@@ -695,7 +695,7 @@ public static class S57DocumentReader
 
             // Use DDR-based field reader with repeating groups
             var reader = new Iso8211FieldReader(fieldDef, field.Data);
-            
+
             foreach (var group in reader.GetSubfieldGroups())
             {
                 try
@@ -731,7 +731,7 @@ public static class S57DocumentReader
         {
             return default;
         }
-        
+
         var rcnm = data[0];
         var rcid = BinaryPrimitives.ReadUInt32LittleEndian(data.Slice(1, 4));
         return S57RecordName.FromRcnmRcid(rcnm, (int)rcid);
@@ -746,7 +746,7 @@ public static class S57DocumentReader
         {
             return default;
         }
-        
+
         var agen = BinaryPrimitives.ReadUInt16LittleEndian(data.Slice(0, 2));
         var fidn = BinaryPrimitives.ReadUInt32LittleEndian(data.Slice(2, 4));
         var fids = BinaryPrimitives.ReadUInt16LittleEndian(data.Slice(6, 2));

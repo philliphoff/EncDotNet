@@ -358,7 +358,7 @@ public ref struct Iso8211Reader
 
         // Move past the current record
         var recordEnd = _fieldAreaOffset + (_leader.RecordLength - _leader.BaseAddressOfFieldArea);
-        
+
         // Check if we have enough data
         if (recordEnd > _buffer.Length)
         {
@@ -370,7 +370,7 @@ public ref struct Iso8211Reader
             // Need more data
             return false;
         }
-        
+
         var bytesToSkip = recordEnd - _consumed;
         if (bytesToSkip > 0)
         {
@@ -498,7 +498,7 @@ public ref struct Iso8211Reader
 
         // Parse leader
         var recordLength = ParseNumeric(leaderSpan, 0, 5);
-        
+
         // Check if we have the entire record
         if (_buffer.Length - _consumed < recordLength)
         {

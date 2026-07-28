@@ -1,14 +1,9 @@
-﻿using System;
 using System.Collections.ObjectModel;
-using System.Reactive;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Windows.Input;
 using EncDotNet.ChartViewer.Charts;
 using EncDotNet.ChartViewer.Models;
 using EncDotNet.S57.Charts;
 using ReactiveUI;
-using System.Linq;
 
 namespace EncDotNet.ChartViewer.ViewModels;
 

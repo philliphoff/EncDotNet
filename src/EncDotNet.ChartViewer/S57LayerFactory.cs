@@ -1,12 +1,9 @@
-using System;
-using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
-using System.Diagnostics.Metrics;
-using EncDotNet.S57;
-using EncDotNet.S57.Charts;
 using EncDotNet.ChartViewer.Models;
 using EncDotNet.ChartViewer.ViewModels;
+using EncDotNet.S57;
+using EncDotNet.S57.Charts;
 using Mapsui;
 using Mapsui.Layers;
 
@@ -195,14 +192,14 @@ public static class S57LayerFactory
         // simplified geometry could cause visual artifacts. Three levels balances coverage
         // completeness against overscale artifact risk; fewer levels can leave gaps where
         // no chart covers the viewport.
-        const int overlapLevels = 3;
+        const int OverlapLevels = 3;
         var scales = new List<KeyValuePair<int, double>>(scaleMaxVisible);
         var scaleMinVisible = new Dictionary<int, double>();
         for (int i = 0; i < scales.Count; i++)
         {
-            // The finest N scales (i < overlapLevels) keep MinVisible = 0.
+            // The finest N scales (i < OverlapLevels) keep MinVisible = 0.
             // Coarser scales reference the chart N levels finer.
-            double minVis = i >= overlapLevels ? scales[i - overlapLevels].Value : 0;
+            double minVis = i >= OverlapLevels ? scales[i - OverlapLevels].Value : 0;
             scaleMinVisible[scales[i].Key] = minVis;
         }
 

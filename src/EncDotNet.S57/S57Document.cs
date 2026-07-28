@@ -186,8 +186,8 @@ public sealed record S57Document
             UpdateInstruction = updateRecord.UpdateInstruction,
             Attributes = MergeAttributes(baseRecord.Attributes, updateRecord.Attributes),
             NationalAttributes = MergeAttributes(baseRecord.NationalAttributes, updateRecord.NationalAttributes),
-            SpatialPointers = ApplyArrayUpdate([..baseRecord.SpatialPointers], [..updateRecord.SpatialPointers], updateRecord.SpatialPointerControl),
-            FeaturePointers = ApplyArrayUpdate([..baseRecord.FeaturePointers], [..updateRecord.FeaturePointers], updateRecord.FeaturePointerControl),
+            SpatialPointers = ApplyArrayUpdate([.. baseRecord.SpatialPointers], [.. updateRecord.SpatialPointers], updateRecord.SpatialPointerControl),
+            FeaturePointers = ApplyArrayUpdate([.. baseRecord.FeaturePointers], [.. updateRecord.FeaturePointers], updateRecord.FeaturePointerControl),
         };
     }
 
@@ -199,9 +199,9 @@ public sealed record S57Document
             RecordVersion = updateRecord.RecordVersion,
             UpdateInstruction = updateRecord.UpdateInstruction,
             Attributes = MergeAttributes(baseRecord.Attributes, updateRecord.Attributes),
-            VectorPointers = ApplyArrayUpdate([..baseRecord.VectorPointers], [..updateRecord.VectorPointers], updateRecord.VectorPointerControl),
-            Coordinates2D = ApplyArrayUpdate([..baseRecord.Coordinates2D], [..updateRecord.Coordinates2D], updateRecord.CoordinateControl),
-            Soundings = ApplyArrayUpdate([..baseRecord.Soundings], [..updateRecord.Soundings], updateRecord.CoordinateControl),
+            VectorPointers = ApplyArrayUpdate([.. baseRecord.VectorPointers], [.. updateRecord.VectorPointers], updateRecord.VectorPointerControl),
+            Coordinates2D = ApplyArrayUpdate([.. baseRecord.Coordinates2D], [.. updateRecord.Coordinates2D], updateRecord.CoordinateControl),
+            Soundings = ApplyArrayUpdate([.. baseRecord.Soundings], [.. updateRecord.Soundings], updateRecord.CoordinateControl),
         };
     }
 

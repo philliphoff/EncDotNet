@@ -6,6 +6,11 @@
         <Nullable>enable</Nullable>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <IncludeSourceRevisionInInformationalVersion>true</IncludeSourceRevisionInInformationalVersion>
+        <!-- Keep the build warning-free: compiler, analyzer, and NuGet audit
+             warnings fail the build rather than quietly accumulating. -->
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <NuGetAudit>true</NuGetAudit>
+        <NuGetAuditMode>all</NuGetAuditMode>
     </PropertyGroup>
 
 </Project>

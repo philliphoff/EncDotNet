@@ -1,4 +1,3 @@
-using System;
 using EncDotNet.S57;
 using ReactiveUI;
 

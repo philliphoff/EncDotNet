@@ -105,6 +105,12 @@ S-57 uses **chain-node topology**:
 
 ## Coding Conventions
 
+- The normative C# rules are in [`docs/coding-style.md`](../docs/coding-style.md)
+  and encoded in [`.editorconfig`](../.editorconfig). Follow both when changing
+  code.
+- Before finishing, run `dotnet format whitespace EncDotNet.slnx` and
+  `dotnet format style EncDotNet.slnx --diagnostics IDE0005`; CI verifies both
+  with `--verify-no-changes`.
 - Target framework: **.NET 10** with nullable reference types and implicit usings enabled.
 - Use `ReadOnlySpan<byte>` for parsing hot paths where possible.
 - Use `ImmutableArray<T>` and `ImmutableDictionary<K,V>` for parsed record data — records are immutable after construction.

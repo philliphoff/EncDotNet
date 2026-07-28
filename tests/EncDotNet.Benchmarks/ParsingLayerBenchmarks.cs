@@ -1,6 +1,6 @@
 using BenchmarkDotNet.Attributes;
-using EncDotNet.S57;
 using EncDotNet.Iso8211;
+using EncDotNet.S57;
 
 namespace EncDotNet.Benchmarks;
 

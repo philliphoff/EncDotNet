@@ -73,12 +73,12 @@ public class S57AreaGeometryBuilderTests
         int edgeId,
         S57Orientation orientation,
         S57UsageIndicator usage) => new()
-    {
-        Name = EdgeName(edgeId),
-        Orientation = orientation,
-        Usage = usage,
-        Mask = S57MaskingIndicator.Show
-    };
+        {
+            Name = EdgeName(edgeId),
+            Orientation = orientation,
+            Usage = usage,
+            Mask = S57MaskingIndicator.Show
+        };
 
     private static S57SpatialPointer ExteriorEdgeRef(int edgeId, S57Orientation orientation = S57Orientation.Forward) => new()
     {

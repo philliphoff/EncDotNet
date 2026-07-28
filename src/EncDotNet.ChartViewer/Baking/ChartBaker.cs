@@ -1,7 +1,4 @@
 using System.Diagnostics;
-using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
 using EncDotNet.S57;
 using MessagePack;
 using MessagePack.Resolvers;

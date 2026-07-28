@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using EncDotNet.S57;
 using EncDotNet.S57.Charts;

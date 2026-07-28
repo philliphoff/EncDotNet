@@ -1,7 +1,6 @@
 using System.Collections.Immutable;
 using System.Text;
 using EncDotNet.S57;
-using EncDotNet.S57.Charts;
 using EncDotNet.S57.ExchangeSets;
 
 namespace EndDotNet.UnitTests;

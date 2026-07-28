@@ -1,4 +1,3 @@
-using System;
 using Avalonia.Controls;
 using EncDotNet.ChartViewer.ViewModels;
 

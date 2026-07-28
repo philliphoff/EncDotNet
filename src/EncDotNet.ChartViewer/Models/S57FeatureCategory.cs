@@ -21,7 +21,7 @@ public sealed class S57FeatureCategory
     {
         Name = name;
         DefaultEnabled = defaultEnabled;
-        ObjectCodes = [..objectCodes];
+        ObjectCodes = [.. objectCodes];
     }
 
     // S-57 object class codes
