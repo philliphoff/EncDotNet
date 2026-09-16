@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using EncDotNet.S57;
 
@@ -609,28 +610,41 @@ public class S57DocumentReaderTests
     /// <summary>
     /// Creates a data record with multiple fields.
     /// </summary>
+    /// <remarks>
+    /// Directory entries use three-digit lengths and positions unless a field needs more. A
+    /// record longer than 99 999 bytes declares its length as "00000", as producers do.
+    /// </remarks>
     private static byte[] CreateDataRecordMultiField(params (string tag, byte[] data)[] fields)
     {
         var fieldTerminator = (byte)0x1E;
 
+        var positions = new int[fields.Length];
+        var totalFieldSize = 0;
+        for (int i = 0; i < fields.Length; i++)
+        {
+            positions[i] = totalFieldSize;
+            totalFieldSize += fields[i].data.Length;
+        }
+
+        var lengthSize = Math.Max(3, fields.Select(f => f.data.Length.ToString(CultureInfo.InvariantCulture).Length).DefaultIfEmpty(0).Max());
+        var positionSize = Math.Max(3, positions.Select(p => p.ToString(CultureInfo.InvariantCulture).Length).DefaultIfEmpty(0).Max());
+
         // Calculate directory entries
         var directoryEntries = new List<byte[]>();
-        var currentPosition = 0;
-
-        foreach (var (tag, data) in fields)
+        for (int i = 0; i < fields.Length; i++)
         {
-            var entry = Encoding.ASCII.GetBytes($"{tag}{data.Length:D3}{currentPosition:D3}");
-            directoryEntries.Add(entry);
-            currentPosition += data.Length;
+            var length = fields[i].data.Length.ToString(CultureInfo.InvariantCulture).PadLeft(lengthSize, '0');
+            var position = positions[i].ToString(CultureInfo.InvariantCulture).PadLeft(positionSize, '0');
+            directoryEntries.Add(Encoding.ASCII.GetBytes($"{fields[i].tag}{length}{position}"));
         }
 
         var directorySize = directoryEntries.Sum(e => e.Length);
         var baseAddress = 24 + directorySize + 1; // +1 for directory terminator
-        var totalFieldSize = fields.Sum(f => f.data.Length);
         var recordLength = baseAddress + totalFieldSize;
+        var leaderRecordLength = recordLength > 99_999 ? 0 : recordLength;
 
         var leader = Encoding.ASCII.GetBytes(
-            $"{recordLength:D5}3DE1 00{baseAddress:D5}   3304"
+            $"{leaderRecordLength:D5}3DE1 00{baseAddress:D5}   {lengthSize}{positionSize}04"
         );
 
         var record = new byte[recordLength];
@@ -917,6 +931,64 @@ public class S57DocumentReaderTests
         Assert.Equal(-1225100000, vector.Soundings[1].X);
         Assert.Equal(475100000, vector.Soundings[1].Y);
         Assert.Equal(200, vector.Soundings[1].Depth);
+    }
+
+    [Fact]
+    public void Read_DocumentWithOversizedVectorRecord_ParsesRecordsAndGeometry()
+    {
+        // Arrange - an edge whose 15 000-point SG2D field makes the record 120 KB, too long
+        // for the leader's five-digit record length, followed by further records.
+        var coordinates = new S57Coordinate2D[15_000];
+        for (int i = 0; i < coordinates.Length; i++)
+        {
+            coordinates[i] = new S57Coordinate2D { X = -900000000 + i, Y = 380000000 - i };
+        }
+
+        var oversizedEdge = CreateVectorRecord(
+            rcnm: S57RecordNameCodes.Edge,
+            rcid: 7,
+            coordinates: coordinates);
+        Assert.True(oversizedEdge.Length > 99_999);
+        Assert.Equal("00000", Encoding.ASCII.GetString(oversizedEdge, 0, 5));
+
+        var edgeName = S57RecordName.FromRcnmRcid(S57RecordNameCodes.Edge, 7);
+        var data = CreateS57Document(
+            CreateDsidRecord(dsnm: "OVERSIZE"),
+            CreateVectorRecord(rcnm: S57RecordNameCodes.ConnectedNode, rcid: 1),
+            oversizedEdge,
+            CreateVectorRecord(rcnm: S57RecordNameCodes.ConnectedNode, rcid: 2),
+            CreateFeatureRecord(
+                rcid: 3,
+                prim: 2,
+                spatialPointers:
+                [
+                    new S57SpatialPointer
+                    {
+                        Name = edgeName,
+                        Orientation = S57Orientation.Forward,
+                        Usage = S57UsageIndicator.Exterior,
+                        Mask = S57MaskingIndicator.Show
+                    }
+                ]));
+
+        // Act
+        var document = S57DocumentReader.Read(data);
+
+        // Assert
+        Assert.NotNull(document.DataSetIdentification);
+        Assert.Equal("OVERSIZE", document.DataSetIdentification.DataSetName);
+        Assert.Equal(
+            [(S57RecordNameCodes.ConnectedNode, 1), (S57RecordNameCodes.Edge, 7), (S57RecordNameCodes.ConnectedNode, 2)],
+            document.VectorRecords.Select(v => (v.RecordName.RecordNameCode, v.RecordName.RecordId)));
+
+        var edge = document.GetVectorRecord(edgeName);
+        Assert.NotNull(edge);
+        Assert.Equal(coordinates, edge.Coordinates2D);
+
+        var feature = Assert.Single(document.FeatureRecords);
+        var pointer = Assert.Single(feature.SpatialPointers);
+        Assert.Equal(edgeName, pointer.Name);
+        Assert.Same(edge, document.GetVectorRecord(pointer.Name));
     }
 
     [Fact]

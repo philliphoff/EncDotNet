@@ -959,4 +959,50 @@ public class Iso8211DocumentReaderTests
     }
 
     #endregion
+
+    #region Unspecified Record Length Tests
+
+    [Fact]
+    public void Read_OversizedRecordBetweenNormalRecords_ReadsAllRecordsInOrder()
+    {
+        // Arrange - a 120 KB record, whose leader must declare its length as "00000",
+        // between two ordinary records.
+        var payload = new byte[120_000];
+        for (int i = 0; i < payload.Length; i++)
+        {
+            payload[i] = (byte)(i % 251);
+        }
+
+        var oversizedDocument = new Iso8211DocumentBuilder()
+            .AddRecord(new Iso8211RecordBuilder()
+                .AddField("0001", "BIG"u8.ToArray())
+                .AddField("SG2D", payload))
+            .Build();
+        var oversized = Iso8211DocumentWriter.Write(oversizedDocument);
+        Assert.Equal("00000", Encoding.ASCII.GetString(oversized, 0, 5));
+
+        var ddr = CreateMinimalRecord(isDataDescriptiveRecord: true);
+        var trailing = CreateMultiFieldRecord(isDataDescriptiveRecord: false);
+        var data = ddr.Concat(oversized).Concat(trailing).ToArray();
+
+        // Act
+        var document = Iso8211DocumentReader.Read(data);
+
+        // Assert
+        Assert.Equal(3, document.Records.Count);
+        Assert.Equal(['L', 'D', 'D'], document.Records.Select(r => r.Leader.LeaderIdentifier));
+        Assert.Equal([ddr.Length, oversized.Length, trailing.Length], document.Records.Select(r => r.Leader.RecordLength));
+
+        Assert.Equal("TEST", document.Records[0].Fields[0].GetDataString());
+
+        var oversizedRecord = document.Records[1];
+        Assert.Equal(["0001", "SG2D"], oversizedRecord.Fields.Select(f => f.Tag));
+        Assert.Equal("BIG", oversizedRecord.Fields[0].GetDataString());
+        Assert.Equal(payload, oversizedRecord.Fields[1].Data);
+
+        Assert.Equal(["0001", "0002"], document.Records[2].Fields.Select(f => f.Tag));
+        Assert.Equal(2, document.DataRecords.Count());
+    }
+
+    #endregion
 }

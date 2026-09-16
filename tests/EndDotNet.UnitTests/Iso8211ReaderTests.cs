@@ -212,6 +212,19 @@ public class Iso8211ReaderTests
         return combined;
     }
 
+    /// <summary>
+    /// Creates a record whose leader declares no record length ("00000"), as a
+    /// producer must when the record exceeds the five-digit numeric maximum of
+    /// 99 999 bytes. The record is otherwise well formed, so its true length is
+    /// recoverable from the directory.
+    /// </summary>
+    private static byte[] CreateRecordWithUnspecifiedLength(bool isDataDescriptiveRecord = true)
+    {
+        var record = CreateMinimalRecord(isDataDescriptiveRecord);
+        "00000"u8.CopyTo(record.AsSpan(0, 5));
+        return record;
+    }
+
     #endregion
 
     #region Constructor Tests
@@ -1062,6 +1075,162 @@ public class Iso8211ReaderTests
 
         // Assert
         Assert.Equal(0, result);
+    }
+
+    #endregion
+
+    #region Unspecified Record Length Tests
+
+    [Fact]
+    public void Read_WithUnspecifiedRecordLength_DerivesLengthFromDirectory()
+    {
+        // Arrange
+        var expectedLength = CreateMinimalRecord().Length;
+        var data = CreateRecordWithUnspecifiedLength();
+        var parser = new Iso8211Reader(data);
+
+        // Act
+        var result = parser.Read();
+
+        // Assert
+        Assert.True(result);
+        Assert.Equal(Iso8211TokenType.StartRecord, parser.TokenType);
+        Assert.Equal(expectedLength, parser.CurrentLeader.RecordLength);
+    }
+
+    [Fact]
+    public void Read_WithUnspecifiedRecordLength_ReadsFieldData()
+    {
+        // Arrange
+        var data = CreateRecordWithUnspecifiedLength();
+        var parser = new Iso8211Reader(data);
+
+        // Act
+        parser.Read(); // StartRecord
+        parser.Read(); // DirectoryEntry
+        parser.Read(); // Field
+
+        // Assert
+        Assert.Equal(Iso8211TokenType.Field, parser.TokenType);
+        Assert.Equal("TEST", parser.GetValueString());
+    }
+
+    [Fact]
+    public void Read_WithUnspecifiedRecordLength_AdvancesToNextRecord()
+    {
+        // Arrange - two such records back to back. A reader that cannot derive
+        // the length would rewind to the first record's start and re-read it
+        // without bound rather than reaching the second.
+        var first = CreateRecordWithUnspecifiedLength(isDataDescriptiveRecord: true);
+        var second = CreateRecordWithUnspecifiedLength(isDataDescriptiveRecord: false);
+        var data = new byte[first.Length + second.Length];
+        first.CopyTo(data, 0);
+        second.CopyTo(data, first.Length);
+
+        var parser = new Iso8211Reader(data);
+        var leaderIdentifiers = new List<char>();
+
+        // Act
+        while (parser.Read())
+        {
+            if (parser.TokenType == Iso8211TokenType.StartRecord)
+            {
+                leaderIdentifiers.Add(parser.CurrentLeader.LeaderIdentifier);
+            }
+        }
+
+        // Assert
+        Assert.Equal(['L', 'D'], leaderIdentifiers);
+    }
+
+    [Fact]
+    public void Read_WithUnspecifiedRecordLengthAndUnusableDirectory_ReportsError()
+    {
+        // Arrange - no length in the leader and a field area base address that
+        // leaves no directory to derive one from.
+        var data = CreateRecordWithUnspecifiedLength();
+        "00024"u8.CopyTo(data.AsSpan(12, 5));
+        var parser = new Iso8211Reader(data);
+
+        // Act
+        var result = parser.Read();
+
+        // Assert
+        Assert.False(result);
+        Assert.Equal(Iso8211ReaderState.Error, parser.CurrentState);
+    }
+
+    [Fact]
+    public void Read_WithUnspecifiedRecordLengthAndTruncatedDirectory_ReportsError()
+    {
+        // Arrange - the directory the length must be derived from is not all here.
+        var data = CreateRecordWithUnspecifiedLength().AsSpan(0, 30).ToArray();
+        var parser = new Iso8211Reader(data);
+
+        // Act
+        var result = parser.Read();
+
+        // Assert
+        Assert.False(result);
+        Assert.Equal(Iso8211ReaderState.Error, parser.CurrentState);
+    }
+
+    [Theory]
+    [InlineData(24)] // Leader only.
+    [InlineData(30)] // Part-way through the directory entry.
+    [InlineData(34)] // Directory entry without its terminator.
+    [InlineData(35)] // Directory complete, field area not yet started.
+    [InlineData(38)] // Part-way through the field area.
+    public void Read_WithUnspecifiedRecordLengthAndPartialRecord_NotFinalBlock_WaitsForMoreData(int availableBytes)
+    {
+        // Arrange
+        var data = CreateRecordWithUnspecifiedLength();
+        var expectedLength = data.Length;
+        var parser = new Iso8211Reader(data.AsSpan(0, availableBytes), isFinalBlock: false);
+
+        // Act
+        var result = parser.Read();
+        var state = parser.GetCurrentState();
+
+        // Assert - the reader asks for more data rather than failing.
+        Assert.False(result);
+        Assert.Equal(Iso8211ReaderState.None, parser.CurrentState);
+        Assert.Equal(Iso8211TokenType.None, parser.TokenType);
+        Assert.Equal(0, state.BytesConsumed);
+
+        // Act - resume once the rest of the record has arrived.
+        var resumed = new Iso8211Reader(data.AsSpan((int)state.BytesConsumed), isFinalBlock: true, state);
+
+        // Assert
+        Assert.True(resumed.Read());
+        Assert.Equal(Iso8211TokenType.StartRecord, resumed.TokenType);
+        Assert.Equal(expectedLength, resumed.CurrentLeader.RecordLength);
+        Assert.True(resumed.Read());
+        Assert.Equal(Iso8211TokenType.DirectoryEntry, resumed.TokenType);
+        Assert.True(resumed.Read());
+        Assert.Equal(Iso8211TokenType.Field, resumed.TokenType);
+        Assert.Equal("TEST", resumed.GetValueString());
+        Assert.True(resumed.Read());
+        Assert.Equal(Iso8211TokenType.EndRecord, resumed.TokenType);
+        Assert.Equal(expectedLength, resumed.BytesConsumed);
+        Assert.False(resumed.Read());
+        Assert.Equal(Iso8211TokenType.EndOfData, resumed.TokenType);
+    }
+
+    [Fact]
+    public void Read_WithRecordLengthShorterThanLeader_ReportsError()
+    {
+        // Arrange
+        var data = CreateMinimalRecord();
+        "00020"u8.CopyTo(data.AsSpan(0, 5));
+        var parser = new Iso8211Reader(data);
+
+        // Act
+        var result = parser.Read();
+
+        // Assert
+        Assert.False(result);
+        Assert.Equal(Iso8211ReaderState.Error, parser.CurrentState);
     }
 
     #endregion
