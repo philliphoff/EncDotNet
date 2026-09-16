@@ -1175,6 +1175,48 @@ public class Iso8211ReaderTests
         Assert.Equal(Iso8211ReaderState.Error, parser.CurrentState);
     }
 
+    [Theory]
+    [InlineData(24)] // Leader only.
+    [InlineData(30)] // Part-way through the directory entry.
+    [InlineData(34)] // Directory entry without its terminator.
+    [InlineData(35)] // Directory complete, field area not yet started.
+    [InlineData(38)] // Part-way through the field area.
+    public void Read_WithUnspecifiedRecordLengthAndPartialRecord_NotFinalBlock_WaitsForMoreData(int availableBytes)
+    {
+        // Arrange
+        var data = CreateRecordWithUnspecifiedLength();
+        var expectedLength = data.Length;
+        var parser = new Iso8211Reader(data.AsSpan(0, availableBytes), isFinalBlock: false);
+
+        // Act
+        var result = parser.Read();
+        var state = parser.GetCurrentState();
+
+        // Assert - the reader asks for more data rather than failing.
+        Assert.False(result);
+        Assert.Equal(Iso8211ReaderState.None, parser.CurrentState);
+        Assert.Equal(Iso8211TokenType.None, parser.TokenType);
+        Assert.Equal(0, state.BytesConsumed);
+
+        // Act - resume once the rest of the record has arrived.
+        var resumed = new Iso8211Reader(data.AsSpan((int)state.BytesConsumed), isFinalBlock: true, state);
+
+        // Assert
+        Assert.True(resumed.Read());
+        Assert.Equal(Iso8211TokenType.StartRecord, resumed.TokenType);
+        Assert.Equal(expectedLength, resumed.CurrentLeader.RecordLength);
+        Assert.True(resumed.Read());
+        Assert.Equal(Iso8211TokenType.DirectoryEntry, resumed.TokenType);
+        Assert.True(resumed.Read());
+        Assert.Equal(Iso8211TokenType.Field, resumed.TokenType);
+        Assert.Equal("TEST", resumed.GetValueString());
+        Assert.True(resumed.Read());
+        Assert.Equal(Iso8211TokenType.EndRecord, resumed.TokenType);
+        Assert.Equal(expectedLength, resumed.BytesConsumed);
+        Assert.False(resumed.Read());
+        Assert.Equal(Iso8211TokenType.EndOfData, resumed.TokenType);
+    }
+
     [Fact]
     public void Read_WithRecordLengthShorterThanLeader_ReportsError()
     {
