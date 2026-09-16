@@ -176,6 +176,79 @@ public class Iso8211DocumentWriterTests
 
     #endregion
 
+    #region Records longer than 99 999 bytes
+
+    [Fact]
+    public void Write_RecordLongerThanLeaderMaximum_RoundTripsWithUnspecifiedLength()
+    {
+        // A binary payload of 150 KB, including terminator bytes as ordinary data.
+        var payload = new byte[150_000];
+        for (int i = 0; i < payload.Length; i++)
+        {
+            payload[i] = (byte)(i * 31);
+        }
+
+        var record = new Iso8211RecordBuilder()
+            .AddField("VRID", new byte[] { 130, 1, 0, 0, 0, 1, 0, 1 })
+            .AddField("SG2D", payload)
+            .Build();
+        var document = new Iso8211DocumentBuilder().AddRecord(record).Build();
+
+        var bytes = Iso8211DocumentWriter.Write(document);
+
+        Assert.Equal(record.Leader.RecordLength, bytes.Length);
+        Assert.Equal("00000", Encoding.ASCII.GetString(bytes, 0, 5));
+
+        var reparsed = Iso8211DocumentReader.Read(bytes);
+
+        var reparsedRecord = Assert.Single(reparsed.Records);
+        Assert.Equal(bytes.Length, reparsedRecord.Leader.RecordLength);
+        Assert.Equal(record.Leader.BaseAddressOfFieldArea, reparsedRecord.Leader.BaseAddressOfFieldArea);
+        Assert.Equal(2, reparsedRecord.Fields.Count);
+        Assert.Equal("VRID", reparsedRecord.Fields[0].Tag);
+        Assert.Equal(record.Fields[0].Data, reparsedRecord.Fields[0].Data);
+        Assert.Equal("SG2D", reparsedRecord.Fields[1].Tag);
+        Assert.Equal(payload, reparsedRecord.Fields[1].Data);
+
+        Assert.Equal(bytes, Iso8211DocumentWriter.Write(reparsed));
+    }
+
+    [Theory]
+    [InlineData(99_963, 99_999, "99999")]
+    [InlineData(99_964, 100_000, "00000")]
+    public void Write_RecordAtLeaderMaximum_WritesLengthOnlyWhenItFits(int payloadLength, int expectedRecordLength, string expectedLeaderLength)
+    {
+        var record = new Iso8211RecordBuilder()
+            .AddField("0001", new byte[payloadLength])
+            .Build();
+        var document = new Iso8211DocumentBuilder().AddRecord(record).Build();
+
+        var bytes = Iso8211DocumentWriter.Write(document);
+
+        Assert.Equal(expectedRecordLength, bytes.Length);
+        Assert.Equal(expectedLeaderLength, Encoding.ASCII.GetString(bytes, 0, 5));
+
+        var reparsedRecord = Assert.Single(Iso8211DocumentReader.Read(bytes).Records);
+        Assert.Equal(expectedRecordLength, reparsedRecord.Leader.RecordLength);
+    }
+
+    [Fact]
+    public void Build_WithFieldAreaBeyondLeaderMaximum_Throws()
+    {
+        // 12 000 empty fields need a 120 KB directory, which puts the field area's base
+        // address past what the leader's five digits can express.
+        var builder = new Iso8211RecordBuilder();
+        for (int i = 0; i < 12_000; i++)
+        {
+            builder.AddField("0001", Array.Empty<byte>());
+        }
+
+        var exception = Assert.Throws<InvalidOperationException>(() => builder.Build());
+        Assert.Contains("99999", exception.Message);
+    }
+
+    #endregion
+
     #region Stream / file overloads
 
     [Fact]

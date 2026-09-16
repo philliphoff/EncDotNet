@@ -20,11 +20,21 @@ namespace EncDotNet.Iso8211;
 /// entry-map sizes are taken from <see cref="Iso8211Record.Leader"/>. This yields byte-identical
 /// output for canonically-encoded sources read by <see cref="Iso8211DocumentReader"/>.
 /// </para>
+/// <para>
+/// The leader holds the record length and the base address of the field area in five numeric
+/// characters each (S-57 Part 3 Annex A.3), so neither can exceed 99 999. A record longer than
+/// that is written with a record length of <c>00000</c>, as producers of such records do; the
+/// reader re-derives the true length from the directory. A base address above 99 999 cannot be
+/// written that way, because the reader needs it to locate the directory at all, so encoding
+/// such a record throws <see cref="InvalidOperationException"/>.
+/// </para>
 /// </remarks>
 internal static class Iso8211RecordWriter
 {
     private const int LeaderLength = 24;
     private const byte FieldTerminator = 0x1E;
+    private const int MaxLeaderNumericValue = 99_999;
+    private const int UnspecifiedRecordLength = 0;
 
     /// <summary>
     /// Encodes the specified record and appends the resulting bytes to <paramref name="output"/>.
@@ -68,6 +78,9 @@ internal static class Iso8211RecordWriter
     /// <param name="fields">The record's fields.</param>
     /// <param name="options">The writer options.</param>
     /// <returns>The computed record layout.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when the base address of the field area exceeds the leader's five-digit maximum.
+    /// </exception>
     public static Iso8211RecordLayout ComputeLayout(
         Iso8211RecordLeader leader,
         IReadOnlyList<Iso8211Field> fields,
@@ -93,6 +106,12 @@ internal static class Iso8211RecordWriter
         var entrySize = tagSize + lengthSize + positionSize;
         var directoryBytes = entrySize * fieldCount;
         var baseAddress = LeaderLength + directoryBytes + 1; // +1 for the directory field terminator
+        if (baseAddress > MaxLeaderNumericValue)
+        {
+            throw new InvalidOperationException(
+                $"The record's directory places its field area at offset {baseAddress}, which exceeds the leader's five-digit maximum of {MaxLeaderNumericValue}.");
+        }
+
         var recordLength = baseAddress + fieldAreaLength;
 
         return new Iso8211RecordLayout(fieldLengths, fieldPositions, tagSize, lengthSize, positionSize, baseAddress, recordLength);
@@ -108,7 +127,10 @@ internal static class Iso8211RecordWriter
         int tagSize)
     {
         var sb = new StringBuilder(LeaderLength);
-        sb.Append(recordLength.ToString("D5", CultureInfo.InvariantCulture));
+        // A record length beyond five digits is written as "00000"; the reader recovers it
+        // from the directory.
+        var leaderRecordLength = recordLength > MaxLeaderNumericValue ? UnspecifiedRecordLength : recordLength;
+        sb.Append(leaderRecordLength.ToString("D5", CultureInfo.InvariantCulture));
         sb.Append(OrDefault(leader.InterchangeLevel, '3'));
         sb.Append(OrDefault(leader.LeaderIdentifier, 'D'));
         sb.Append(OrDefault(leader.InlineCodeExtensionIndicator, 'E'));

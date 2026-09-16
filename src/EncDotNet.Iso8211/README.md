@@ -134,6 +134,13 @@ the length from the record's own directory (the field area base address plus the
 sum of the directory's field lengths), so such records are read normally and
 `Iso8211Leader.RecordLength` reports the real length.
 
+`Iso8211DocumentWriter` does the same in reverse: a record longer than 99 999
+bytes is written with `00000` as its length, so such files round-trip byte for
+byte. The field area base address has the same five-digit limit but cannot be
+left unspecified, because the reader needs it to find the directory. Building or
+writing a record whose directory pushes the base address past 99 999 therefore
+throws `InvalidOperationException`.
+
 ## Related Packages
 
 - [EncDotNet.S57](https://www.nuget.org/packages/EncDotNet.S57) — S-57 domain model built on top of this parser
