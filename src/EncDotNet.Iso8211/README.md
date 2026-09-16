@@ -12,6 +12,7 @@ A .NET 10 parser for the **ISO/IEC 8211** binary container format — the underl
 - **Write ISO 8211 files** — serialize an `Iso8211Document` back to bytes (round-trippable, byte-identical for canonical sources)
 - **Build records from scratch** with fluent builders and a DDR encoder
 - Low-allocation `ref struct` reader for streaming large files
+- Recovers records larger than the leader's five-digit length field can express
 - Immutable record types for parsed data (thread-safe, LINQ-friendly)
 
 ## Installation
@@ -122,6 +123,16 @@ byte[] bytes = Iso8211DocumentWriter.Write(document);
 [ISO/IEC 8211](https://www.iso.org/standard/7688.html) is a general-purpose binary format for encoding structured data into self-describing files. Each file begins with a **Data Descriptive Record** (DDR) that defines the schema, followed by one or more **data records** conforming to that schema.
 
 The format is used by IHO S-57 for encoding electronic navigational charts, but it is not specific to maritime data — any domain that needs a compact, self-describing binary container can use ISO 8211.
+
+### Records longer than 99 999 bytes
+
+A record leader carries its record's length in five numeric characters, so it
+cannot express a record of 100 000 bytes or more. Producers that emit one — a
+dense inland ENC cell whose `SG2D` coordinate field runs to six figures, for
+example — write `00000` there instead. The reader recognises that and re-derives
+the length from the record's own directory (the field area base address plus the
+sum of the directory's field lengths), so such records are read normally and
+`Iso8211Leader.RecordLength` reports the real length.
 
 ## Related Packages
 

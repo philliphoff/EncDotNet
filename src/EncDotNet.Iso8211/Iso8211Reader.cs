@@ -498,6 +498,48 @@ public ref struct Iso8211Reader
 
         // Parse leader
         var recordLength = ParseNumeric(leaderSpan, 0, 5);
+        var baseAddressOfFieldArea = ParseNumeric(leaderSpan, 12, 5);
+        var sizeOfFieldLengthField = leaderSpan[20] - '0';
+        var sizeOfFieldPositionField = leaderSpan[21] - '0';
+        var sizeOfFieldTagField = leaderSpan[23] - '0';
+
+        if (recordLength == 0)
+        {
+            // S-57 Part 3 Annex A.3 requires the record length (LR RP 0) in the
+            // numeric five-digit form, which cannot express a record longer than
+            // 99 999 bytes. A producer that emits one anyway — a dense inland ENC
+            // cell whose SG2D coordinate field runs to six figures, for example —
+            // writes "00000" instead. The true length is still recoverable from
+            // the directory, which lies wholly within the leader-declared field
+            // area base address, so read that far and re-derive it.
+            if (_buffer.Length - _consumed < baseAddressOfFieldArea)
+            {
+                if (_isFinalBlock)
+                {
+                    _state = Iso8211ReaderState.Error;
+                    return false;
+                }
+                // Need more data
+                return false;
+            }
+
+            recordLength = DeriveRecordLength(
+                _buffer.Slice(_consumed, baseAddressOfFieldArea),
+                baseAddressOfFieldArea,
+                sizeOfFieldTagField,
+                sizeOfFieldLengthField,
+                sizeOfFieldPositionField);
+        }
+
+        // A record can never be shorter than its own leader. Accepting a length
+        // that small would leave the reader parked on the same record forever,
+        // because EndRecord rewinds _consumed to the record's own start — so the
+        // caller would loop, materialising the same record without bound.
+        if (recordLength <= LeaderLength)
+        {
+            _state = Iso8211ReaderState.Error;
+            return false;
+        }
 
         // Check if we have the entire record
         if (_buffer.Length - _consumed < recordLength)
@@ -520,14 +562,14 @@ public ref struct Iso8211Reader
             VersionNumber = (char)leaderSpan[8],
             ApplicationIndicator = (char)leaderSpan[9],
             FieldControlLength = ParseNumeric(leaderSpan, 10, 2),
-            BaseAddressOfFieldArea = ParseNumeric(leaderSpan, 12, 5),
+            BaseAddressOfFieldArea = baseAddressOfFieldArea,
             ExtendedCharacterSetIndicator0 = (char)leaderSpan[17],
             ExtendedCharacterSetIndicator1 = (char)leaderSpan[18],
             ExtendedCharacterSetIndicator2 = (char)leaderSpan[19],
-            SizeOfFieldLengthField = leaderSpan[20] - '0',
-            SizeOfFieldPositionField = leaderSpan[21] - '0',
+            SizeOfFieldLengthField = sizeOfFieldLengthField,
+            SizeOfFieldPositionField = sizeOfFieldPositionField,
             Reserved = leaderSpan[22] - '0',
-            SizeOfFieldTagField = leaderSpan[23] - '0'
+            SizeOfFieldTagField = sizeOfFieldTagField
         };
 
         // Calculate directory info
@@ -648,6 +690,44 @@ public ref struct Iso8211Reader
         _currentFieldIndex = 0;
 
         return true;
+    }
+
+    /// <summary>
+    /// Re-derives a record's length from its directory, for a record whose leader
+    /// declares no usable length. The directory's field lengths cover the whole
+    /// field area, so the record spans the field area base address plus their sum.
+    /// </summary>
+    /// <param name="recordStart">The record's bytes, from its leader through at least the end of its directory.</param>
+    /// <param name="baseAddressOfFieldArea">The field area base address from the leader.</param>
+    /// <param name="sizeOfFieldTagField">The directory entry tag size from the leader's entry map.</param>
+    /// <param name="sizeOfFieldLengthField">The directory entry field-length size from the leader's entry map.</param>
+    /// <param name="sizeOfFieldPositionField">The directory entry field-position size from the leader's entry map.</param>
+    /// <returns>The derived record length, or <c>0</c> when the directory cannot yield one.</returns>
+    private static int DeriveRecordLength(
+        ReadOnlySpan<byte> recordStart,
+        int baseAddressOfFieldArea,
+        int sizeOfFieldTagField,
+        int sizeOfFieldLengthField,
+        int sizeOfFieldPositionField)
+    {
+        var entrySize = sizeOfFieldTagField + sizeOfFieldLengthField + sizeOfFieldPositionField;
+        if (entrySize <= 0 || baseAddressOfFieldArea <= LeaderLength)
+        {
+            return 0;
+        }
+
+        var directoryLength = baseAddressOfFieldArea - LeaderLength - 1; // -1 for field terminator
+        var entryCount = directoryLength / entrySize;
+
+        long fieldAreaLength = 0;
+        for (int i = 0; i < entryCount; i++)
+        {
+            var entryOffset = LeaderLength + (i * entrySize);
+            fieldAreaLength += ParseNumeric(recordStart, entryOffset + sizeOfFieldTagField, sizeOfFieldLengthField);
+        }
+
+        var recordLength = baseAddressOfFieldArea + fieldAreaLength;
+        return recordLength <= int.MaxValue ? (int)recordLength : 0;
     }
 
     private static int ParseNumeric(ReadOnlySpan<byte> data, int offset, int length)
