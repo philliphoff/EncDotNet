@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Collections.Immutable;
+using System.Globalization;
 using EncDotNet.Iso8211;
 using Microsoft.Extensions.Logging;
 
@@ -186,6 +187,8 @@ public static class S57DocumentReader
         string dsnm, edtn, updn, uadt, isdt, sted;
         ushort agen = 0;
         string comt = "";
+        int prsp = 0, prof = 0;
+        string psdn = "", pred = "";
 
         var fieldDef = ddr?.GetFieldDefinition(S57FieldTags.DSID)
             ?? throw new InvalidOperationException("DDR is required but not available. DSID field definition not found.");
@@ -204,6 +207,24 @@ public static class S57DocumentReader
         isdt = reader.GetSubfield<string>(S57SubfieldNames.ISDT);
         sted = reader.GetSubfield<string>(S57SubfieldNames.STED);
 
+        // PRSP and PROF are b11 in the binary form but mnemonics (A(3) / A(2)) in the ASCII form,
+        // so read them as strings (binary values convert to their decimal text) and map to codes.
+        if (reader.TryGetSubfield<string>(S57SubfieldNames.PRSP, out var prspValue))
+        {
+            prsp = ParseCodedSubfield(prspValue, ProductSpecificationMnemonics);
+        }
+        if (reader.TryGetSubfield<string>(S57SubfieldNames.PSDN, out var psdnValue))
+        {
+            psdn = psdnValue;
+        }
+        if (reader.TryGetSubfield<string>(S57SubfieldNames.PRED, out var predValue))
+        {
+            pred = predValue;
+        }
+        if (reader.TryGetSubfield<string>(S57SubfieldNames.PROF, out var profValue))
+        {
+            prof = ParseCodedSubfield(profValue, ApplicationProfileMnemonics);
+        }
         if (reader.TryGetSubfield<ushort>(S57SubfieldNames.AGEN, out var agenValue))
         {
             agen = agenValue;
@@ -240,8 +261,33 @@ public static class S57DocumentReader
             DataStructure = dstr,
             AttfLexicalLevel = aall,
             NatfLexicalLevel = nall,
-            Comment = comt
+            Comment = comt,
+            ProductSpecification = prsp,
+            ProductSpecificationDescription = psdn,
+            ProductSpecificationEdition = pred,
+            ApplicationProfile = prof
         };
+    }
+
+    private static readonly string[] ProductSpecificationMnemonics = ["ENC", "ODD"];
+
+    private static readonly string[] ApplicationProfileMnemonics = ["EN", "ER", "DD"];
+
+    /// <summary>
+    /// Converts a coded DSID subfield value to its numeric code. Accepts either the decimal text of
+    /// a binary value or an ASCII mnemonic (whose 1-based position in <paramref name="mnemonics"/>
+    /// is its code). Returns 0 for empty or unrecognized values.
+    /// </summary>
+    private static int ParseCodedSubfield(string value, string[] mnemonics)
+    {
+        var trimmed = value.Trim();
+        if (int.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out var code))
+        {
+            return code;
+        }
+
+        var index = Array.IndexOf(mnemonics, trimmed.ToUpperInvariant());
+        return index >= 0 ? index + 1 : 0;
     }
 
     /// <summary>

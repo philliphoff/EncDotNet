@@ -48,7 +48,7 @@ public class S57DocumentReaderTests
     /// <summary>
     /// Creates an S-57 Data Descriptive Record (DDR) with all required field definitions.
     /// </summary>
-    private static byte[] CreateS57Ddr()
+    private static byte[] CreateS57Ddr(string? dsidDescriptors = null, string? dsidFormats = null)
     {
         // Build all field definitions for DDR
         var fields = new List<(string tag, byte[] data)>();
@@ -60,8 +60,8 @@ public class S57DocumentReaderTests
         // Format: RCNM(b11), RCID(b14), EXPP(b11), INTU(b11), DSNM(A), EDTN(A), UPDN(A), UADT(A), ISDT(A), STED(A), PRSP(b11), PSDN(A), PRED(A), PROF(b11), AGEN(b12), COMT(A)
         fields.Add(("DSID", CreateDdrFieldData(
             "DSID",
-            "RCNM!RCID!EXPP!INTU!DSNM!EDTN!UPDN!UADT!ISDT!STED!PRSP!PSDN!PRED!PROF!AGEN!COMT",
-            "(b11,b14,b11,b11,A,A,A,A,A,A,b11,A,A,b11,b12,A)")));
+            dsidDescriptors ?? "RCNM!RCID!EXPP!INTU!DSNM!EDTN!UPDN!UADT!ISDT!STED!PRSP!PSDN!PRED!PROF!AGEN!COMT",
+            dsidFormats ?? "(b11,b14,b11,b11,A,A,A,A,A,A,b11,A,A,b11,b12,A)")));
 
         // DSSI - Data Set Structure Information Field
         // Format: DSTR(b11), AALL(b11), NALL(b11), NOMR(b14), NOCR(b14), NOGR(b14), NOLR(b14), NOIN(b14), NOCN(b14), NOED(b14), NOFA(b14)
@@ -290,7 +290,11 @@ public class S57DocumentReaderTests
         string uadt = "20250101",
         string isdt = "20250101",
         string sted = "03.1",
-        ushort agen = 540)
+        ushort agen = 540,
+        byte prsp = 1,
+        string psdn = "",
+        string pred = "",
+        byte prof = 1)
     {
         // Build DSID field data
         using var ms = new MemoryStream();
@@ -306,10 +310,10 @@ public class S57DocumentReaderTests
         WriteString(writer, uadt);    // UADT
         WriteString(writer, isdt);    // ISDT
         WriteString(writer, sted);    // STED
-        writer.Write((byte)1);        // PRSP
-        WriteString(writer, "");      // PSDN
-        WriteString(writer, "");      // PRED
-        writer.Write((byte)1);        // PROF
+        writer.Write(prsp);           // PRSP
+        WriteString(writer, psdn);    // PSDN
+        WriteString(writer, pred);    // PRED
+        writer.Write(prof);           // PROF
         writer.Write(agen);           // AGEN
         WriteString(writer, "");      // COMT
         writer.Write((byte)0x1E);     // Field terminator
@@ -736,6 +740,106 @@ public class S57DocumentReaderTests
         Assert.Equal("20250115", document.DataSetIdentification.UpdateApplicationDate);
         Assert.Equal("20250101", document.DataSetIdentification.IssueDate);
         Assert.Equal("03.1", document.DataSetIdentification.S57EditionNumber);
+        Assert.Equal(540, document.DataSetIdentification.ProducingAgency);
+    }
+
+    [Theory]
+    [InlineData(1, "", "2.0", 1)]
+    [InlineData(10, "Inland ENC", "2.4", 2)]
+    public void Read_DocumentWithDsid_ParsesProductSpecification(byte prsp, string psdn, string pred, byte prof)
+    {
+        // Arrange
+        var dsidRecord = CreateDsidRecord(prsp: prsp, psdn: psdn, pred: pred, prof: prof);
+        var data = CreateS57Document(dsidRecord);
+
+        // Act
+        var document = S57DocumentReader.Read(data);
+
+        // Assert
+        Assert.NotNull(document.DataSetIdentification);
+        Assert.Equal(prsp, document.DataSetIdentification.ProductSpecification);
+        Assert.Equal(psdn, document.DataSetIdentification.ProductSpecificationDescription);
+        Assert.Equal(pred, document.DataSetIdentification.ProductSpecificationEdition);
+        Assert.Equal(prof, document.DataSetIdentification.ApplicationProfile);
+        Assert.Equal(540, document.DataSetIdentification.ProducingAgency);
+    }
+
+    [Theory]
+    [InlineData("ENC", "EN", 1, 1)]
+    [InlineData("ODD", "DD", 2, 3)]
+    [InlineData("10", "ER", 10, 2)]
+    public void Read_DocumentWithAsciiDsid_MapsProductSpecificationMnemonics(string prsp, string prof, int expectedPrsp, int expectedProf)
+    {
+        // Arrange: PRSP and PROF use their ASCII (A) form instead of b11
+        var ddr = CreateS57Ddr(dsidFormats: "(b11,b14,b11,b11,A,A,A,A,A,A,A,A,A,A,b12,A)");
+
+        using var ms = new MemoryStream();
+        using var writer = new BinaryWriter(ms);
+        writer.Write((byte)10);       // RCNM
+        writer.Write(1u);             // RCID
+        writer.Write((byte)1);        // EXPP
+        writer.Write((byte)5);        // INTU
+        WriteString(writer, "TEST");  // DSNM
+        WriteString(writer, "1");     // EDTN
+        WriteString(writer, "0");     // UPDN
+        WriteString(writer, "");      // UADT
+        WriteString(writer, "");      // ISDT
+        WriteString(writer, "03.1");  // STED
+        WriteString(writer, prsp);    // PRSP
+        WriteString(writer, "");      // PSDN
+        WriteString(writer, "2.4");   // PRED
+        WriteString(writer, prof);    // PROF
+        writer.Write((ushort)540);    // AGEN
+        WriteString(writer, "");      // COMT
+        writer.Write((byte)0x1E);     // Field terminator
+
+        var data = ddr.Concat(CreateDataRecord("DSID", ms.ToArray())).ToArray();
+
+        // Act
+        var document = S57DocumentReader.Read(data);
+
+        // Assert
+        Assert.NotNull(document.DataSetIdentification);
+        Assert.Equal(expectedPrsp, document.DataSetIdentification.ProductSpecification);
+        Assert.Equal("2.4", document.DataSetIdentification.ProductSpecificationEdition);
+        Assert.Equal(expectedProf, document.DataSetIdentification.ApplicationProfile);
+    }
+
+    [Fact]
+    public void Read_DocumentWithDsidWithoutProductSpecification_DefaultsToEmpty()
+    {
+        // Arrange: DSID definition omits PRSP, PSDN, PRED and PROF
+        var ddr = CreateS57Ddr(
+            dsidDescriptors: "RCNM!RCID!EXPP!INTU!DSNM!EDTN!UPDN!UADT!ISDT!STED!AGEN!COMT",
+            dsidFormats: "(b11,b14,b11,b11,A,A,A,A,A,A,b12,A)");
+
+        using var ms = new MemoryStream();
+        using var writer = new BinaryWriter(ms);
+        writer.Write((byte)10);       // RCNM
+        writer.Write(1u);             // RCID
+        writer.Write((byte)1);        // EXPP
+        writer.Write((byte)5);        // INTU
+        WriteString(writer, "TEST");  // DSNM
+        WriteString(writer, "1");     // EDTN
+        WriteString(writer, "0");     // UPDN
+        WriteString(writer, "");      // UADT
+        WriteString(writer, "");      // ISDT
+        WriteString(writer, "03.1");  // STED
+        writer.Write((ushort)540);    // AGEN
+        WriteString(writer, "");      // COMT
+        writer.Write((byte)0x1E);     // Field terminator
+
+        var data = ddr.Concat(CreateDataRecord("DSID", ms.ToArray())).ToArray();
+
+        // Act
+        var document = S57DocumentReader.Read(data);
+
+        // Assert
+        Assert.NotNull(document.DataSetIdentification);
+        Assert.Equal(0, document.DataSetIdentification.ProductSpecification);
+        Assert.Equal(string.Empty, document.DataSetIdentification.ProductSpecificationDescription);
+        Assert.Equal(string.Empty, document.DataSetIdentification.ProductSpecificationEdition);
+        Assert.Equal(0, document.DataSetIdentification.ApplicationProfile);
         Assert.Equal(540, document.DataSetIdentification.ProducingAgency);
     }
 
