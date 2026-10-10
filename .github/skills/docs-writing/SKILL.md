@@ -34,7 +34,6 @@ When unsure, match them.
    stale.
    - API names and signatures: the source under `src/`, and a test that calls
      them (`tests/`) or a script (`scripts/`).
-   - Viewer UI labels: the views in `src/EncDotNet.ChartViewer/Views/`.
    - Standard terms and section numbers: `standards/md/`.
 3. **Check inbound links before renaming or removing anything.** Search the
    repository for the file name and `#anchor`, including `README.md`,

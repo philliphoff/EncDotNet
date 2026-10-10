@@ -34,7 +34,7 @@ Each layer builds on the one below it, and the EncDotNet libraries follow the sa
 |----------|---------|--------------|
 | **ISO/IEC 8211** | `EncDotNet.Iso8211` | Reads the binary container format — records, fields, and raw byte data |
 | **IHO S-57** | `EncDotNet.S57` | Interprets the data model — features, vectors, attributes, and topology |
-| **IHO S-52** | *(chart viewer)* | The chart viewer approximates S-52 symbology and display rules. Full S-52-grade portrayal is in [EncDotNet.S100](https://github.com/philliphoff/EncDotNet.S100), which translates S-57 to S-101 |
+| **IHO S-52** | *(none)* | Display is out of scope for these libraries. [EncDotNet.S100](https://github.com/philliphoff/EncDotNet.S100) translates S-57 to S-101 and portrays it |
 | **NOAA Products** | `EncDotNet.Noaa` | Accesses the NOAA ENC product catalog for chart discovery and download |
 
 ### ISO/IEC 8211: the container format

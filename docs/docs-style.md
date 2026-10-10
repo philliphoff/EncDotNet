@@ -133,7 +133,6 @@ readme on nuget.org.
 | EncDotNet (this project and its S-57 and ISO 8211 libraries) | ENC.NET, EncDotNet.S100 |
 | EncDotNet.S100 (the S-100 project built on these libraries) | EncDotNet |
 | `EncDotNet.S57`, `EncDotNet.Iso8211`, `EncDotNet.Noaa` (packages, in code style) | the S57 library, the parser |
-| the chart viewer (`EncDotNet.ChartViewer`) | the app, ChartViewer app |
 | S-57, S-52, S-101, ISO/IEC 8211 (ISO 8211 after first use) | S57, S 57, ISO8211 |
 | cell, base cell, update cell, exchange set | chart file, delta, exchangeset |
 | feature record, vector record, object class, attribute | object record, feature type |
@@ -162,13 +161,6 @@ Define an S-57 acronym on first use on a page, or link it to the
   twice in one block.
 - Don't show APIs that aren't public, or that need setup the page doesn't
   explain.
-
-## UI text
-
-- Bold UI labels and copy them exactly from the chart viewer's views in
-  `src/EncDotNet.ChartViewer/Views/`, including ellipses.
-- Write menu paths as **File** > **Open...**.
-- Describe the action, not the widget.
 
 ## Links
 

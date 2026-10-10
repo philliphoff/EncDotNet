@@ -11,9 +11,8 @@ description: |
   S57Chart and the typed chart model, ApplyChanges, S57CatalogReader,
   S57ExchangeSetReader, S57ExchangeSetVerifier, S57ObjectCode, attribute
   handling, topology and geometry questions, and S-57 encoding questions.
-  DO NOT USE FOR: byte-level ISO 8211 parsing (use iso8211); symbology,
-  colours and display categories (use s52-presentation); Mapsui layers
-  (use chart-viewer).
+  DO NOT USE FOR: byte-level ISO 8211 parsing (use iso8211); chart
+  display and symbology (that work is in EncDotNet.S100).
 ---
 
 # S-57 ENC expert
@@ -28,8 +27,8 @@ description: |
 
 ## Downstream consumers
 
-`EncDotNet.S57` is a published NuGet package. Besides the chart viewer in
-this repository, [EncDotNet.S100](https://github.com/philliphoff/EncDotNet.S100)
+`EncDotNet.S57` is a published NuGet package, and its main consumer is
+[EncDotNet.S100](https://github.com/philliphoff/EncDotNet.S100)
 uses it in `EncDotNet.S100.Datasets.S57` to translate S-57 cells to S-101
 (`S57ToS101Translator`) and to apply update cells (`S57Document.ApplyChanges`).
 Treat every public type and member as a compatibility commitment, and call

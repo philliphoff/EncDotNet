@@ -3,7 +3,7 @@
 [![CI](https://github.com/philliphoff/EncDotNet/actions/workflows/ci.yml/badge.svg)](https://github.com/philliphoff/EncDotNet/actions/workflows/ci.yml)
 [![Discord](https://img.shields.io/discord/1516327073663156294?label=Discord&logo=discord&logoColor=white)](https://discord.gg/kf6B9EZqqB)
 
-EncDotNet is a set of .NET libraries and a desktop chart viewer for
+EncDotNet is a set of .NET libraries for
 [IHO S-57](https://iho.int/en/s-57-unc) Electronic Navigational Charts (ENCs)
 and the [ISO/IEC 8211](https://www.iso.org/standard/7688.html) files they're
 encoded in. The libraries read and write ISO 8211, read S-57 cells, apply
@@ -21,10 +21,8 @@ these libraries to read S-101 and to translate S-57 cells to S-101.
 | [`EncDotNet.S57`](src/EncDotNet.S57/README.md) | Reads S-57 cells into records and a typed chart model; applies updates; reads and verifies exchange sets |
 | [`EncDotNet.Noaa`](src/EncDotNet.Noaa/README.md) | Finds and downloads U.S. cells from the NOAA ENC product catalog |
 
-```text
-Iso8211 → S57 → ChartViewer
-          Noaa ↗
-```
+`EncDotNet.S57` depends on `EncDotNet.Iso8211`; `EncDotNet.Noaa` is
+independent.
 
 ## Use the libraries
 
@@ -51,26 +49,13 @@ The [documentation](docs/index.md) has a
 
 ## Chart viewer
 
-The chart viewer (`EncDotNet.ChartViewer`) is an [Avalonia](https://avaloniaui.net/)
-desktop app that draws S-57 cells on a [Mapsui](https://mapsui.com/) map. Its
-window is titled Sound Charts.
-
-![The chart viewer showing a NOAA cell with depth areas, soundings and aids to navigation](docs/images/sound-charts.png)
-
-- Browse and download NOAA ENC cells.
-- Turn chart layers on and off: coastline, depth areas, depth contours,
-  soundings, sea and land areas, buoys, lights and more.
-- Show depths in fathoms, metres or feet.
-- Display several cells at once, ordered by compilation scale.
-
-Run it from a clone of the repository:
+The repository also has a legacy desktop viewer, `EncDotNet.ChartViewer`, which
+draws S-57 cells on a map. It's kept building but isn't being developed;
+chart display work happens in EncDotNet.S100. To run it from a clone:
 
 ```bash
 dotnet run --project src/EncDotNet.ChartViewer
 ```
-
-Each [release](https://github.com/philliphoff/EncDotNet/releases) also has
-builds for macOS (arm64), Windows (x64) and Linux (x64).
 
 ## Build from source
 

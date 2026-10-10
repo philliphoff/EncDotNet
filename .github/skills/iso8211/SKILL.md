@@ -11,8 +11,7 @@ description: |
   (Iso8211DocumentWriter, Iso8211DocumentBuilder, Iso8211SubfieldEncoder),
   format-control parsing bugs, binary subfield decoding, and reviewing any
   public API change in the package. DO NOT USE FOR: S-57 meaning of fields
-  and subfields such as DSID, FRID or VRPT (use s57-enc); chart display
-  (use s52-presentation or chart-viewer).
+  and subfields such as DSID, FRID or VRPT (use s57-enc).
 ---
 
 # ISO/IEC 8211 expert
