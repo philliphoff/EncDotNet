@@ -1,120 +1,149 @@
-# EncDotNet — Copilot Instructions
+# Copilot Instructions for EncDotNet
 
-## Domain Context
+## Project overview
 
-This project is a .NET 10 library suite and Avalonia desktop application for reading, parsing, and rendering **IHO S-57 Electronic Navigational Charts (ENCs)**. It implements:
+EncDotNet is a set of .NET libraries and a cross-platform desktop viewer
+(Sound Charts) for reading, parsing, writing and rendering **IHO S-57
+Electronic Navigational Charts (ENCs)** and the **ISO/IEC 8211** container
+format they use. The libraries target `net8.0;net10.0`; the viewer and tests
+target `net10.0`. `<Nullable>enable</Nullable>` and
+`<ImplicitUsings>enable</ImplicitUsings>` apply throughout.
 
-- **ISO/IEC 8211** — the binary container format used by S-57 for data encoding
-- **IHO S-57** — the International Hydrographic Organization's transfer standard for digital hydrographic data
-- **IHO S-52** — specifications for chart content and display aspects of ECDIS (symbolization, colours, display categories, and the Presentation Library)
-- **Nautical chart visualization** — rendering ENC data on a Mapsui-based map with Avalonia UI
+`EncDotNet.Iso8211` and `EncDotNet.S57` are published NuGet packages and are
+the foundation of
+[EncDotNet.S100](https://github.com/philliphoff/EncDotNet.S100), which uses
+them to read S-101 and S-401 datasets and to translate S-57 cells to S-101.
+Their public APIs are compatibility commitments: call out any breaking change
+in the PR description, with its EncDotNet.S100 impact.
 
-### Key Standards References
+## Relevant standards
 
-- **IHO S-57 Edition 3.1** — Transfer Standard for Digital Hydrographic Data
-- **IHO S-57 Appendix A** — Object Catalogue (defines OBJL codes: DEPARE, SOUNDG, LIGHTS, BOYLAT, etc.)
-- **IHO S-57 Appendix B** — Attribute Catalogue (defines ATTL codes and their value domains)
-- **ISO/IEC 8211** — Specification for a data descriptive file (the binary container format)
-- **IHO S-52** — Chart Content and Display Aspects of ECDIS (display/symbology rules; not yet fully implemented)
-
-### Standards Reference Documents
-
-The `standards/md/` directory contains Markdown versions of the key IHO standards. When working on S-57 parsing, field definitions, object codes, attribute handling, topology, or chart display/symbology, read the relevant document(s) for authoritative reference:
-
-| File | Contents |
+| Standard | Role in this codebase |
 |---|---|
-| `standards/md/S57v31.md` | S-57 Edition 3.1 main document — Parts 1–3 (general introduction, theoretical data model, data structure including ISO 8211 field/subfield tables and updating rules) |
-| `standards/md/S57v31AppendixACh1.md` | Appendix A Chapter 1 — Object Classes (defines every S-57 object class: acronym, code, definition, geometric primitives, and allowed attributes) |
-| `standards/md/S57v31AppendixACh2.md` | Appendix A Chapter 2 — Attributes (defines every S-57 attribute: acronym, code, definition, and value domain) |
-| `standards/md/S57v31AppendixB1AnnexA.md` | Appendix B.1 Annex A — ENC Product Specification (encoding rules, cell structure, mandatory/optional objects and attributes for ENC) |
-| `standards/md/S57v31AppendixB1AnnexD.md` | Appendix B.1 Annex D — ENC Encoding Guide (additional encoding guidance and examples) |
-| `standards/md/S52v611.md` | S-52 Edition 6.1.1 — Specifications for Chart Content and Display Aspects of ECDIS (display organization, symbology of areas/lines/points, colour specifications, display screen requirements) |
-| `standards/md/S52AnnexA.md` | S-52 Annex A — IHO ECDIS Presentation Library Edition 4.0.3 (symbol catalogue with paper-based symbol descriptions for ECDIS) |
+| **ISO/IEC 8211** | Binary container format: leaders, directories, DDR, subfield formats. Read and written by `EncDotNet.Iso8211` |
+| **IHO S-57 Edition 3.1** | Transfer standard: data model, feature and vector records, chain-node topology, updating. Modelled by `EncDotNet.S57` |
+| **S-57 Appendix A** | Object catalogue (OBJL codes such as DEPARE, SOUNDG, LIGHTS) and attribute catalogue (ATTL codes and value domains) |
+| **S-57 Appendix B.1** | ENC Product Specification (Annex A) and encoding guide (Annex D) |
+| **IHO S-52 Edition 6.1.1** | Display rules for ECDIS: categories, priorities, colours, symbols. The viewer approximates it; it is not fully implemented |
 
-## Project Architecture
+Markdown versions of these documents are in `standards/md/` (PDFs in
+`standards/pdf/`). Read the relevant one before changing spec-driven code,
+and cite its section.
 
-| Project | Purpose |
-|---|---|
-| `EncDotNet.Iso8211` | Low-level ISO 8211 binary format parser (DDR, field definitions, subfield readers) |
-| `EncDotNet.Enc` | S-57 domain model (documents, features, vectors, catalogs, charts, topology) |
-| `EncDotNet.Noaa` | NOAA ENC product catalog integration (downloading/managing chart data) |
-| `EncDotNet.ChartViewer` | Avalonia/Mapsui desktop viewer for rendering charts on an interactive map |
-| `EncDotNet.Console` | CLI tools for inspecting and dumping chart data |
-| `EndDotNet.UnitTests` | xUnit tests for the parsing and domain libraries |
+## Repository layout
 
-### Library Dependency Chain
-
-```
-Iso8211  →  Enc  →  ChartViewer
-                 →  Noaa
-                 →  Console
+```text
+src/
+  EncDotNet.Iso8211/      # ISO 8211 reader, writer and builders (NuGet)
+  EncDotNet.S57/          # S-57 document, chart model, updates, exchange sets (NuGet)
+  EncDotNet.Noaa/         # NOAA ENC product catalog client (NuGet)
+  EncDotNet.ChartViewer/  # Sound Charts: Avalonia + Mapsui desktop viewer
+tests/
+  EndDotNet.UnitTests/    # xUnit tests for the libraries and viewer geometry builders
+  EncDotNet.Benchmarks/   # BenchmarkDotNet parsing benchmarks
+scripts/                  # File-based C# scripts (`dotnet run scripts/X.cs`)
+standards/                # IHO and ISO reference documents (md + pdf)
+docs/                     # DocFX conceptual docs
 ```
 
-## S-57 / ISO 8211 Terminology
+Dependency chain: `Iso8211 → S57 → ChartViewer`, with `Noaa` standalone and
+used by the viewer.
 
-These abbreviations appear throughout the codebase as type names, field tags, and subfield names:
+## Technology stack
 
-### File & Record Structure
-- **DDR** — Data Descriptive Record (ISO 8211 schema record at the start of each file)
-- **CATALOG.031** — The S-57 exchange set catalog file listing all chart files
-- **CATD** — Catalogue Directory record within CATALOG.031
+| Concern | Library / tool |
+|---|---|
+| Language / platform | C#, .NET 10 (libraries also target .NET 8) |
+| UI framework | Avalonia 11 + ReactiveUI |
+| Map rendering | Mapsui 5 + NetTopologySuite |
+| Viewer cache | MessagePack |
+| Observability | Microsoft.Extensions.Logging, OpenTelemetry |
+| Testing | xUnit, coverlet; BenchmarkDotNet |
+| Package management | Central Package Management via `Directory.Packages.props` |
+| Documentation | DocFX (`docfx.json`) |
+| CI/CD | GitHub Actions (`.github/workflows/ci.yml`, `release.yml`, `docs.yml`) |
 
-### Data Set Fields
-- **DSID** — Data Set Identification field (dataset metadata: name, edition, agency)
-- **DSSI** — Data Set Structure Information
-- **DSPM** — Data Set Parameters field (coordinate systems, scales, multiplication factors)
-- **COMF** — Coordinate Multiplication Factor (divide raw integer coordinates by this to get decimal degrees)
-- **SOMF** — Sounding Multiplication Factor (divide raw integer depths by this)
-- **CSCL** — Compilation Scale (e.g., 22000 for a 1:22,000 chart)
+## Terminology
 
-### Feature Records
-- **FRID** — Feature Record Identifier (contains PRIM, GRUP, OBJL)
-- **FOID** — Feature Object Identifier (contains FIDN, FIDS)
-- **OBJL** — Object Label/Code (the `S57ObjectCode` enum value, e.g., DEPARE=42, SOUNDG=129)
-- **PRIM** — Geometric Primitive (Point=1, Line=2, Area=3, None=255)
-- **ATTF/NATF** — Feature Record Attribute Field / National Attribute Field
-- **ATTL/ATVL** — Attribute Label (numeric code) / Attribute Value (string)
-- **FSPT** — Feature-to-Spatial Record Pointer (links features to vector geometry)
-- **FFPT** — Feature-to-Feature Pointer (links related features)
+S-57 and ISO 8211 abbreviations (DDR, DSID, DSPM, COMF, SOMF, FRID, OBJL,
+FSPT, VRID, RCNM, SG2D, VRPT, ORNT, USAG, MASK, TOPI and others) are used
+directly as type, constant and member names. They are defined in
+[`docs/glossary.md`](../docs/glossary.md); the `s57-enc` and `iso8211`
+skills explain how the code models them.
 
-### Vector/Spatial Records
-- **VRID** — Vector Record Identifier
-- **RCNM** — Record Name Code (110=Isolated Node, 120=Connected Node, 130=Edge, 140=Face)
-- **RCID** — Record Identification Number
-- **SG2D** — 2-D Coordinate field (lat/lon as integers)
-- **SG3D** — 3-D Coordinate (Sounding) field (lat/lon/depth as integers)
-- **VRPT** — Vector Record Pointer (edge-to-node topology)
-- **ORNT** — Orientation (Forward=1, Reverse=2)
-- **USAG** — Usage Indicator (Exterior=1, Interior=2)
-- **MASK** — Masking Indicator (Mask=1, Show=2)
-- **TOPI** — Topology Indicator (Beginning=1, End=2, LeftFace=3, RightFace=4)
+## Requirements for changes
 
-### Topology Model
-S-57 uses **chain-node topology**:
-- **Features** reference spatial records via FSPT pointers
-- **Area features** reference **Faces**, which are bounded by **Edges**
-- **Edges** are polylines connecting two **Connected Nodes**
-- **Isolated Nodes** represent standalone points (or sounding clusters)
-- Edge orientation and usage indicators determine interior vs. exterior boundaries
+### Tests
 
-## Coordinate Handling
+- Every new public API or bug fix needs an xUnit test under `tests/`.
+- Build test input in memory (for example with `Iso8211DocumentBuilder`).
+  Never commit real ENC cells or NOAA downloads.
+- Run tests with `dotnet test --configuration Release`.
 
-- Raw coordinates in S-57 files are **integers**; divide by **COMF** (typically 10,000,000) to get lat/lon in decimal degrees.
-- Soundings are stored in SG3D fields; divide depth by **SOMF** (typically 10).
-- The chart viewer projects to **Spherical Mercator (EPSG:3857)** via `Mapsui.Projections.SphericalMercator`.
+### Documentation
 
-## Coding Conventions
+- Each package has a `README.md` in `src/<project>/`, shipped as its NuGet
+  readme. Update it when adding types, removing APIs or changing behaviour.
+- Conceptual guides live under `docs/`. Add or update pages there for
+  user-facing features.
 
-- The normative C# rules are in [`docs/coding-style.md`](../docs/coding-style.md)
-  and encoded in [`.editorconfig`](../.editorconfig). Follow both when changing
-  code.
+### Naming and style
+
+- **The normative C# style guide is [`docs/coding-style.md`](../docs/coding-style.md);
+  make generated code comply.** It is encoded in
+  [`.editorconfig`](../.editorconfig). `EnforceCodeStyleInBuild` is off, so a
+  plain `dotnet build` does not flag most style rules; apply the guide
+  yourself rather than relying on the build.
+- Key rules: `PascalCase` for types, methods and properties; `camelCase` for
+  locals and parameters; `_camelCase` for private fields; file-scoped
+  namespaces; four-space indents; Allman braces; `System.*` usings first with
+  no unused usings.
+- S-57 field tags are constants in `S57FieldTags`, subfield names in
+  `S57SubfieldNames`, and object codes in the `S57ObjectCode` enum (numbered
+  as in Appendix A).
+- Parsed data is immutable: `ImmutableArray<T>`, `ImmutableDictionary<K,V>`,
+  records. Use `ReadOnlySpan<byte>` on parsing hot paths.
+- Avoid `!` null suppression; prefer null checks or
+  `ArgumentNullException.ThrowIfNull`.
+- All public APIs carry XML doc comments. `GenerateDocumentationFile` and
+  `TreatWarningsAsErrors` are on, so a missing comment fails the build.
 - Before finishing, run `dotnet format whitespace EncDotNet.slnx` and
-  `dotnet format style EncDotNet.slnx --diagnostics IDE0005`; CI verifies both
-  with `--verify-no-changes`.
-- Target framework: **.NET 10** with nullable reference types and implicit usings enabled.
-- Use `ReadOnlySpan<byte>` for parsing hot paths where possible.
-- Use `ImmutableArray<T>` and `ImmutableDictionary<K,V>` for parsed record data — records are immutable after construction.
-- Field tags are string constants in `S57FieldTags`; subfield names are string constants in `S57SubfieldNames`.
-- Object codes use the `S57ObjectCode` enum with values matching IHO S-57 Appendix A numbering.
-- The chart viewer uses **Avalonia 11** with **ReactiveUI** for MVVM and **Mapsui 5** for map rendering.
-- Chart layers in the viewer are ordered by **compilation scale** (CSCL) — higher scale (less detail) behind lower scale (more detail).
+  `dotnet format style EncDotNet.slnx --diagnostics IDE0005`. CI verifies
+  both with `--verify-no-changes`.
+
+### Package dependencies
+
+- All NuGet versions are managed in `Directory.Packages.props`. Do not add
+  `Version` attributes in `.csproj` files.
+- Run `gh-advisory-database` security checks before introducing a
+  dependency. NuGet audit runs on every build and fails it on advisories.
+- Keep the published libraries' dependency footprint small:
+  `EncDotNet.S57` depends only on `EncDotNet.Iso8211` and
+  `Microsoft.Extensions.Logging.Abstractions`.
+
+### Build
+
+- Build with `dotnet build`. CI builds and tests on Ubuntu and publishes the
+  viewer for macOS (arm64), Windows (x64) and Linux (x64); avoid
+  platform-specific APIs unless gated to a RID.
+
+## Expertise routing
+
+Per-area **skills** live in `.github/skills/<name>/SKILL.md`, and matching
+**instructions files** in `.github/instructions/` apply automatically to the
+files they cover. Before designing or implementing a non-trivial change,
+load the matching skill(s):
+
+| Signal in task or files touched | Load skill |
+|---|---|
+| ISO 8211 leaders, DDR, field controls, subfield formats, reader/writer; `src/EncDotNet.Iso8211/**` | `iso8211` |
+| S-57 records, fields, object or attribute codes, topology, updates, exchange sets, CATALOG.031; `src/EncDotNet.S57/**` | `s57-enc` |
+| How or when a chart object should be drawn: display categories, priorities, colours, symbols, SCAMIN | `s52-presentation` |
+| Mapsui layers, styles, geometry builders, projection, viewer UI; `src/EncDotNet.ChartViewer/**` | `chart-viewer` |
+
+- For changes that cross layers (for example a new S-57 attribute that the
+  viewer then styles), load every affected skill and reconcile them first.
+  The `new-feature-spec-check` prompt in `.github/prompts/` walks through
+  that review.
+- Cite the standard's section number in PR descriptions and in XML doc
+  comments for spec-derived constants, enums and members.
