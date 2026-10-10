@@ -1,11 +1,22 @@
 - name: Documentation
   href: index.md
+- name: Getting started
+  href: getting-started.md
+- name: Guides
   items:
-    - name: Getting Started
-      href: getting-started.md
+    - name: Reading S-57 charts
+      href: reading-s57-charts.md
+    - name: Reading and writing ISO 8211
+      href: reading-iso8211.md
+    - name: Download NOAA ENC cells
+      href: download-noaa-charts.md
     - name: Architecture
       href: architecture.md
-    - name: S-57 Glossary
-      href: glossary.md
-    - name: C# Coding Style
+- name: S-57 glossary
+  href: glossary.md
+- name: Contributing
+  items:
+    - name: C# coding style
       href: coding-style.md
+    - name: Documentation style
+      href: docs-style.md

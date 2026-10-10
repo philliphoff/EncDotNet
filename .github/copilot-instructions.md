@@ -86,6 +86,8 @@ skills explain how the code models them.
   readme. Update it when adding types, removing APIs or changing behaviour.
 - Conceptual guides live under `docs/`. Add or update pages there for
   user-facing features.
+- Follow [`docs/docs-style.md`](../docs/docs-style.md) and build with
+  `docfx docfx.json --warningsAsErrors` before finishing; CI does the same.
 
 ### Naming and style
 
@@ -140,6 +142,7 @@ load the matching skill(s):
 | S-57 records, fields, object or attribute codes, topology, updates, exchange sets, CATALOG.031; `src/EncDotNet.S57/**` | `s57-enc` |
 | How or when a chart object should be drawn: display categories, priorities, colours, symbols, SCAMIN | `s52-presentation` |
 | Mapsui layers, styles, geometry builders, projection, viewer UI; `src/EncDotNet.ChartViewer/**` | `chart-viewer` |
+| Adding, rewriting or reviewing developer docs: `docs/**`, `src/*/README.md`, `README.md` (page types, section structure, tone, compiling examples, DocFX build) | `docs-writing` |
 
 - For changes that cross layers (for example a new S-57 attribute that the
   viewer then styles), load every affected skill and reconcile them first.

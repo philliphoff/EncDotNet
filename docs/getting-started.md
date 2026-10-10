@@ -1,241 +1,110 @@
-# Getting Started
+# Getting started
 
-This guide shows how to install the EncDotNet libraries and use them to read ENC chart data at various levels of abstraction.
+In this quickstart you add `EncDotNet.S57` to a console app, read an S-57 cell,
+and list its depth areas with their depth ranges and positions.
 
-## Installation
+## Prerequisites
 
-Install the packages you need from NuGet:
+- The [.NET SDK](https://dotnet.microsoft.com/download) 8 or later. The
+  packages target .NET 8 and .NET 10.
+- An S-57 base cell (a `.000` file). NOAA publishes U.S. cells for free; see
+  [Download NOAA ENC cells](download-noaa-charts.md), or download one from the
+  [NOAA ENC page](https://charts.noaa.gov/ENCs/ENCs.shtml).
+
+## Create a project
 
 ```bash
-# For ISO 8211 binary format parsing only
-dotnet add package EncDotNet.Iso8211
-
-# For S-57 chart parsing (includes EncDotNet.Iso8211 as a dependency)
+dotnet new console -o EncQuickstart
+cd EncQuickstart
 dotnet add package EncDotNet.S57
-
-# For downloading NOAA ENC product catalogs
-dotnet add package EncDotNet.Noaa
 ```
 
-## Library Overview
+`EncDotNet.S57` brings in `EncDotNet.Iso8211`, which decodes the ISO/IEC 8211
+container that S-57 cells use.
 
-EncDotNet provides three layers of abstraction for working with ENC data:
+## Read a cell
 
-| Layer | Package | Use When |
-|-------|---------|----------|
-| **Low-level tokens** | `EncDotNet.Iso8211` | You need maximum performance with minimal allocations, or want to process only specific fields |
-| **Object model** | `EncDotNet.Iso8211` | You want a complete in-memory representation of the ISO 8211 structure |
-| **S-57 domain model** | `EncDotNet.S57` | You want to work with nautical chart features, geometry, and topology |
-| **NOAA catalog** | `EncDotNet.Noaa` | You need to discover and download NOAA ENC charts |
-
-## Reading S-57 Charts (Recommended)
-
-For most use cases, start with the S-57 layer. `S57DocumentReader` parses an ENC file into a strongly-typed domain model:
+Replace the contents of `Program.cs`:
 
 ```csharp
 using EncDotNet.S57;
 
-// Read from a file
-S57Document document = S57DocumentReader.ReadFromFile("US5VA51M.000");
+S57Document document = S57DocumentReader.ReadFromFile("path/to/cell.000");
 
-// Or read asynchronously
-S57Document document = await S57DocumentReader.ReadFromFileAsync("US5VA51M.000");
-
-// Inspect dataset metadata
-Console.WriteLine($"Dataset: {document.DataSetIdentification?.DataSetName}");
-Console.WriteLine($"Scale: 1:{document.DataSetParameters?.CompilationScale}");
-
-// Access features and vectors
-Console.WriteLine($"Features: {document.FeatureRecords.Count}");
-Console.WriteLine($"Vectors: {document.VectorRecords.Count}");
+Console.WriteLine($"Cell:    {document.DataSetIdentification?.DataSetName}");
+Console.WriteLine($"Edition: {document.DataSetIdentification?.EditionNumber}");
+Console.WriteLine($"Scale:   1:{document.DataSetParameters?.CompilationScale}");
+Console.WriteLine($"{document.FeatureRecords.Count} feature records, {document.VectorRecords.Count} vector records");
 ```
 
-### Querying Features
+Run it:
 
-Features are the primary objects on a chart — depth areas, buoys, lights, soundings, etc. Each feature has an `ObjectCode` identifying its type:
+```bash
+dotnet run
+```
+
+You see the cell name from its `DSID` field, the edition, the compilation
+scale from `DSPM`, and the record counts.
+
+## List the depth areas
+
+Each feature record has an object class (`OBJL`), such as `DEPARE` for a depth
+area, and a list of attributes. Attributes are identified by their numeric
+code from the S-57 attribute catalogue: `DRVAL1` (87) and `DRVAL2` (88) hold the
+shallow and deep limits of a depth area.
+
+Add this to the end of `Program.cs`:
 
 ```csharp
-using EncDotNet.S57;
+const int Drval1 = 87;
+const int Drval2 = 88;
 
-var document = S57DocumentReader.ReadFromFile("US5VA51M.000");
-
-// Find all depth area features
-var depthAreas = document.GetFeaturesByObjectCode(S57ObjectCode.DEPARE);
-
-foreach (var feature in depthAreas)
+foreach (S57FeatureRecord feature in document.GetFeaturesByObjectCode(S57ObjectCode.DEPARE))
 {
-    Console.WriteLine($"Depth Area: OBJL={feature.ObjectCode}, Primitive={feature.Primitive}");
+    string? shallow = feature.Attributes.FirstOrDefault(a => a.AttributeCode == Drval1).Value;
+    string? deep = feature.Attributes.FirstOrDefault(a => a.AttributeCode == Drval2).Value;
 
-    // Read attributes (e.g., DRVAL1 = minimum depth, DRVAL2 = maximum depth)
-    foreach (var attr in feature.Attributes)
-    {
-        Console.WriteLine($"  Attribute {attr.Code}: {attr.Value}");
-    }
+    Console.WriteLine($"{feature.RecordName}: {shallow} to {deep}");
 }
-
-// Find all soundings
-var soundings = document.GetFeaturesByObjectCode(S57ObjectCode.SOUNDG);
-Console.WriteLine($"Sounding clusters: {soundings.Count()}");
 ```
 
-### Working with Coordinates
+Run it again. Each line names a depth area record and its depth range, in the
+units the cell declares in `DSPM` (usually metres).
 
-Raw coordinates in S-57 are integers. Use the multiplication factors from the document to convert them:
+## Get positions
+
+Coordinates are stored as integers. Divide them by the coordinate
+multiplication factor (`COMF`), or let `ToDecimalDegrees` do it. A feature
+points to its geometry through spatial pointers (`FSPT`). This prints the
+first stored coordinate of each vector record the first five depth areas point
+to:
 
 ```csharp
-using EncDotNet.S57;
+int comf = document.CoordinateMultiplicationFactor;
 
-var document = S57DocumentReader.ReadFromFile("US5VA51M.000");
-int comf = document.CoordinateMultiplicationFactor; // typically 10,000,000
-int somf = document.SoundingMultiplicationFactor;   // typically 10
-
-// Read 2D coordinates from a vector record
-foreach (var vector in document.VectorRecords)
+foreach (S57FeatureRecord feature in document.GetFeaturesByObjectCode(S57ObjectCode.DEPARE).Take(5))
 {
-    foreach (var coord in vector.Coordinates2D)
+    foreach (S57SpatialPointer pointer in feature.SpatialPointers)
     {
-        var (lon, lat) = coord.ToDecimalDegrees(comf);
-        Console.WriteLine($"  ({lat:F6}, {lon:F6})");
-    }
+        S57VectorRecord? vector = document.GetVectorRecord(pointer.Name);
+        if (vector is null || vector.Coordinates2D.Count == 0)
+        {
+            continue;
+        }
 
-    // Read 3D sounding coordinates
-    foreach (var sounding in vector.Soundings)
-    {
-        var (lon, lat, depth) = sounding.ToDecimalValues(comf, somf);
-        Console.WriteLine($"  ({lat:F6}, {lon:F6}) depth={depth:F1}m");
+        var (longitude, latitude) = vector.Coordinates2D[0].ToDecimalDegrees(comf);
+        Console.WriteLine($"{feature.RecordName} -> {pointer.Name}: {latitude:F6}, {longitude:F6}");
     }
 }
 ```
 
-## Using the Strongly-Typed Chart Model
+## Next steps
 
-`S57Chart` provides a higher-level view that categorizes features by geometry type and indexes spatial records:
-
-```csharp
-using EncDotNet.S57.Charts;
-
-// Load directly from a file
-var chart = S57Chart.FromFile("US5VA51M.000");
-
-// Or from an existing document
-var document = S57DocumentReader.ReadFromFile("US5VA51M.000");
-var chart = S57Chart.FromDocument(document);
-
-Console.WriteLine($"Scale: 1:{chart.CompilationScale}");
-Console.WriteLine($"Point features: {chart.PointFeatures.Count}");
-Console.WriteLine($"Line features: {chart.LineFeatures.Count}");
-Console.WriteLine($"Area features: {chart.AreaFeatures.Count}");
-Console.WriteLine($"Edges: {chart.Edges.Count}");
-Console.WriteLine($"Isolated nodes: {chart.IsolatedNodes.Count}");
-Console.WriteLine($"Connected nodes: {chart.ConnectedNodes.Count}");
-```
-
-## Reading ISO 8211 Data Directly
-
-### Document Reader (Object Model)
-
-If you need to inspect the raw ISO 8211 structure without S-57 interpretation, use `Iso8211DocumentReader`:
-
-```csharp
-using EncDotNet.Iso8211;
-
-var document = Iso8211DocumentReader.ReadFromFile("US5VA51M.000");
-
-Console.WriteLine($"Records: {document.Records.Length}");
-
-foreach (var record in document.Records)
-{
-    Console.WriteLine($"Record: {record.Fields.Length} fields");
-
-    foreach (var field in record.Fields)
-    {
-        Console.WriteLine($"  Tag: {field.Tag}, Data: {field.Data.Length} bytes");
-    }
-}
-```
-
-### Token Reader (High Performance)
-
-For maximum throughput with minimal allocations, use `Iso8211Reader` — a forward-only, `ref struct` reader modeled after `System.Text.Json.Utf8JsonReader`:
-
-```csharp
-using EncDotNet.Iso8211;
-
-byte[] data = File.ReadAllBytes("US5VA51M.000");
-var reader = new Iso8211Reader(data);
-
-while (reader.Read())
-{
-    switch (reader.TokenType)
-    {
-        case Iso8211TokenType.StartRecord:
-            Console.WriteLine($"Record start ({reader.DirectoryEntryCount} fields)");
-            reader.SkipDirectory(); // skip directory entries, go straight to fields
-            break;
-
-        case Iso8211TokenType.Field:
-            if (reader.TryGetTagString(out string tag))
-            {
-                Console.WriteLine($"  Field: {tag} ({reader.CurrentLength} bytes)");
-            }
-            break;
-
-        case Iso8211TokenType.EndRecord:
-            Console.WriteLine("Record end");
-            break;
-    }
-}
-```
-
-The token reader also supports **streaming** for processing large files incrementally:
-
-```csharp
-using EncDotNet.Iso8211;
-
-using var stream = File.OpenRead("US5VA51M.000");
-var buffer = new byte[4096];
-var state = new Iso8211StreamingReaderState();
-int bytesRead;
-
-while ((bytesRead = stream.Read(buffer)) > 0)
-{
-    bool isFinalBlock = bytesRead < buffer.Length;
-    var reader = new Iso8211Reader(buffer.AsSpan(0, bytesRead), isFinalBlock, state);
-
-    while (reader.Read())
-    {
-        // Process tokens...
-    }
-
-    state = reader.GetStreamingState();
-}
-```
-
-## Downloading NOAA Charts
-
-Use `EncProductCatalogClient` to fetch the official NOAA ENC product catalog:
-
-```csharp
-using EncDotNet.Noaa;
-
-using var client = new EncProductCatalogClient();
-var catalog = await client.GetNoaaCatalogAsync();
-
-Console.WriteLine($"Catalog valid: {catalog.Header.DateValid}");
-Console.WriteLine($"Total cells: {catalog.Cells.Count}");
-
-// Find charts for a specific state
-var virginiaCharts = catalog.Cells
-    .Where(c => c.States.StateList.Contains("VA"));
-
-foreach (var cell in virginiaCharts)
-{
-    Console.WriteLine($"{cell.Name}: {cell.LongName} (1:{cell.ChartScale})");
-    Console.WriteLine($"  Download: {cell.ZipfileLocation}");
-}
-```
-
-## Next Steps
-
-- Browse the [API Reference](../api/index.md) for complete type documentation
-- See the [S-57 Glossary](glossary.md) for terminology used throughout the codebase
+- [Reading S-57 charts](reading-s57-charts.md): the typed chart model, update
+  cells, exchange sets and verification.
+- [Reading and writing ISO 8211](reading-iso8211.md): the container format
+  underneath, for S-57 and other ISO 8211 data.
+- [Download NOAA ENC cells](download-noaa-charts.md): find and download U.S.
+  cells from the NOAA product catalog.
+- [Architecture](architecture.md): how the packages map to the standards.
+- [S-57 glossary](glossary.md): the field and record acronyms used in the API.

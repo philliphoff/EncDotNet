@@ -486,6 +486,7 @@ $RECYCLE.BIN/
 .expanded/
 
 # DocFX output
-_site/
-api/
+/_site/
+/api/*
+!/api/index.md
 

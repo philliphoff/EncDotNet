@@ -1,150 +1,71 @@
 # EncDotNet.Iso8211
 
-[![NuGet](https://img.shields.io/nuget/v/EncDotNet.Iso8211)](https://www.nuget.org/packages/EncDotNet.Iso8211)
+`EncDotNet.Iso8211` reads and writes ISO/IEC 8211 files, the self-describing
+binary container used by IHO S-57 and S-101 charts and other data exchange
+standards. It decodes the Data Descriptive Record (DDR), data records, fields
+and subfield values, writes documents back out, and builds new ones. It has
+no knowledge of S-57; reference
+[`EncDotNet.S57`](https://www.nuget.org/packages/EncDotNet.S57) instead if
+you want chart features. The package targets .NET 8 and .NET 10.
 
-A .NET 10 parser for the **ISO/IEC 8211** binary container format — the underlying encoding used by IHO S-57 electronic navigational charts, as well as other geospatial and data exchange standards.
+## Install
 
-## Features
-
-- Parse any ISO 8211 file (not limited to S-57 charts)
-- Read the Data Descriptive Record (DDR) to discover field tags, subfield names, and data types
-- Decode data records and iterate their fields and subfield values
-- **Write ISO 8211 files** — serialize an `Iso8211Document` back to bytes (round-trippable, byte-identical for canonical sources)
-- **Build records from scratch** with fluent builders and a DDR encoder
-- Low-allocation `ref struct` reader for streaming large files
-- Recovers records larger than the leader's five-digit length field can express
-- Immutable record types for parsed data (thread-safe, LINQ-friendly)
-
-## Installation
-
-```shell
+```bash
 dotnet add package EncDotNet.Iso8211
 ```
 
-## Quick Start
+## Example: list the fields a file defines
 
 ```csharp
 using EncDotNet.Iso8211;
 
-// Parse a file into an in-memory document
-var document = Iso8211DocumentReader.ReadFromFile("chart.000");
+Iso8211Document document = Iso8211DocumentReader.ReadFromFile("path/to/file.000");
+Iso8211DataDescriptiveRecord ddr = Iso8211DataDescriptiveRecordReader.Read(document.DataDescriptiveRecord!);
 
-// Read the DDR (schema) — defines field tags, subfield names, and data types
-var ddr = Iso8211DataDescriptiveRecordReader.Read(document.DataDescriptiveRecord!);
-
-// Iterate data records
-foreach (var record in document.DataRecords)
+foreach (Iso8211FieldDefinition definition in ddr.FieldDefinitions)
 {
-    foreach (var field in record.Fields)
-    {
-        Console.WriteLine($"Field tag: {field.Tag}  ({field.Data.Length} bytes)");
-
-        // Use the DDR field definition to decode subfields
-        var fieldDef = ddr.GetFieldDefinition(field.Tag);
-        if (fieldDef is not null)
-        {
-            var reader = new Iso8211FieldReader(fieldDef, field.Data);
-
-            foreach (var subfieldDef in fieldDef.SubfieldDefinitions)
-            {
-                if (reader.TryGetSubfield<string>(subfieldDef.Name, out var value))
-                {
-                    Console.WriteLine($"  {subfieldDef.Name} = {value}");
-                }
-            }
-        }
-    }
+    Console.WriteLine($"{definition.Tag}: {definition.FieldName} {definition.FormatControls}");
 }
+
+Console.WriteLine($"{document.DataRecords.Count()} data records");
 ```
 
-## Writing ISO 8211
+## Main entry points
 
-Serialize an existing `Iso8211Document` back to bytes (the symmetric inverse of the
-reader — round-trippable, and byte-identical for canonically-encoded sources):
-
-```csharp
-using EncDotNet.Iso8211;
-
-var document = Iso8211DocumentReader.ReadFromFile("chart.000");
-
-// Round-trip: write the document back out.
-byte[] bytes = Iso8211DocumentWriter.Write(document);
-Iso8211DocumentWriter.WriteToFile("chart-copy.000", document);
-```
-
-To construct records from scratch, use the fluent builders and the DDR encoder:
-
-```csharp
-using System.Collections.Immutable;
-using EncDotNet.Iso8211;
-
-// Describe the field's subfields: a 2-char code and a variable-length name.
-var formats = ImmutableArray.Create(
-    new Iso8211SubfieldFormat { FormatType = Iso8211SubfieldFormatType.CharacterData, Width = 2 },
-    new Iso8211SubfieldFormat { FormatType = Iso8211SubfieldFormatType.CharacterData, Width = 0 });
-
-var field = new Iso8211FieldBuilder("EXMP", formats)
-    .AddSubfield("US")
-    .AddSubfield("EXAMPLE")
-    .Build();
-
-var record = new Iso8211RecordBuilder()
-    .AddField(field)
-    .Build();
-
-var document = new Iso8211DocumentBuilder()
-    .AddRecord(record)
-    .Build();
-
-byte[] bytes = Iso8211DocumentWriter.Write(document);
-```
-
-## Key Types
-
-| Type | Description |
+| Type | Use it to |
 |---|---|
-| `Iso8211Document` | An in-memory ISO 8211 document containing the DDR and all data records |
-| `Iso8211DocumentReader` | Reads an ISO 8211 file into an `Iso8211Document` |
-| `Iso8211DataDescriptiveRecord` | The parsed DDR — field definitions and subfield schemas |
-| `Iso8211DataDescriptiveRecordReader` | Parses the raw DDR record into a typed representation |
-| `Iso8211FieldReader` | Decodes subfield values from a field's binary data using the DDR schema |
-| `Iso8211DocumentWriter` | Serializes an `Iso8211Document` back to ISO 8211 bytes (round-trip) |
-| `Iso8211DocumentBuilder` | Fluently assembles records into a document for writing |
-| `Iso8211RecordBuilder` | Builds a single record (leader flags, fields, recomputed directory) |
-| `Iso8211FieldBuilder` | Builds a field's data by appending typed subfield values |
-| `Iso8211DataDescriptiveRecordWriter` | Encodes field definitions into a DDR record |
-| `Iso8211Reader` | Low-level streaming `ref struct` reader for incremental parsing |
-| `Iso8211Record` | A single data record with its leader, directory entries, and fields |
-| `Iso8211FieldDefinition` | Defines a field's tag, structure code, data type, and subfield layout |
-| `Iso8211SubfieldDefinition` | Defines a subfield's name and format (type, length) |
+| `Iso8211DocumentReader` | Read a whole file into an `Iso8211Document` of records and fields |
+| `Iso8211DataDescriptiveRecordReader` | Decode the DDR into field definitions |
+| `Iso8211FieldReader` | Decode subfield values from a field using its definition |
+| `Iso8211Reader` | Scan a file token by token without building records (`ref struct`) |
+| `Iso8211DocumentWriter` | Write a document to bytes, a stream or a file |
+| `Iso8211DocumentBuilder`, `Iso8211RecordBuilder`, `Iso8211FieldBuilder` | Build records and fields to write |
+| `Iso8211DataDescriptiveRecordWriter` | Encode field definitions into a DDR |
 
-## Background
+[Reading and writing ISO 8211](../../docs/reading-iso8211.md) covers each of
+these with examples.
 
-[ISO/IEC 8211](https://www.iso.org/standard/7688.html) is a general-purpose binary format for encoding structured data into self-describing files. Each file begins with a **Data Descriptive Record** (DDR) that defines the schema, followed by one or more **data records** conforming to that schema.
-
-The format is used by IHO S-57 for encoding electronic navigational charts, but it is not specific to maritime data — any domain that needs a compact, self-describing binary container can use ISO 8211.
-
-### Records longer than 99 999 bytes
+## Records longer than 99,999 bytes
 
 A record leader carries its record's length in five numeric characters, so it
-cannot express a record of 100 000 bytes or more. Producers that emit one — a
-dense inland ENC cell whose `SG2D` coordinate field runs to six figures, for
-example — write `00000` there instead. The reader recognises that and re-derives
-the length from the record's own directory (the field area base address plus the
-sum of the directory's field lengths), so such records are read normally and
-`Iso8211Leader.RecordLength` reports the real length.
+can't express a record of 100,000 bytes or more. Producers that emit one, such
+as a dense inland ENC cell whose `SG2D` coordinate field runs to six figures,
+write `00000` there instead. The reader recognizes that and derives the length
+from the record's directory (the field area base address plus the sum of the
+field lengths), so `Iso8211Leader.RecordLength` reports the real length.
 
-`Iso8211DocumentWriter` does the same in reverse: a record longer than 99 999
+`Iso8211DocumentWriter` does the same in reverse: a record longer than 99,999
 bytes is written with `00000` as its length, so such files round-trip byte for
-byte. The field area base address has the same five-digit limit but cannot be
-left unspecified, because the reader needs it to find the directory. Building or
-writing a record whose directory pushes the base address past 99 999 therefore
+byte. The field area base address has the same five-digit limit but can't be
+left unspecified, because the reader needs it to find the directory. Building
+or writing a record whose directory pushes the base address past 99,999
 throws `InvalidOperationException`.
 
-## Related Packages
+## Related packages
 
-- [EncDotNet.S57](https://www.nuget.org/packages/EncDotNet.S57) — S-57 domain model built on top of this parser
+- [`EncDotNet.S57`](https://www.nuget.org/packages/EncDotNet.S57): the S-57
+  chart model built on this package.
 
 ## License
 
-MIT — see [LICENSE](https://github.com/philliphoff/EncDotNet/blob/main/LICENSE) for details.
+MIT. See [LICENSE](https://github.com/philliphoff/EncDotNet/blob/main/LICENSE).

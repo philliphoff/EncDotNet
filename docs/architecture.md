@@ -1,10 +1,10 @@
-# Architecture: ENC Standards and API Layers
+# Architecture
 
 Electronic Navigational Charts (ENCs) are built on a stack of international standards. EncDotNet mirrors this layered architecture, with each library mapping to a specific standard layer.
 
-## Standards Stack
+## Standards stack
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                    S-52 (Display)                            │
 │         Chart symbology, colors, and display rules          │
@@ -28,16 +28,16 @@ Electronic Navigational Charts (ENCs) are built on a stack of international stan
 
 Each layer builds on the one below it, and the EncDotNet libraries follow the same pattern.
 
-## How the Libraries Map to Standards
+## How the packages map to the standards
 
 | Standard | Library | What It Does |
 |----------|---------|--------------|
 | **ISO/IEC 8211** | `EncDotNet.Iso8211` | Reads the binary container format — records, fields, and raw byte data |
 | **IHO S-57** | `EncDotNet.S57` | Interprets the data model — features, vectors, attributes, and topology |
-| **IHO S-52** | *(ChartViewer app)* | Renders charts with symbology and display rules (not a library) |
+| **IHO S-52** | *(chart viewer)* | The chart viewer approximates S-52 symbology and display rules. Full S-52-grade portrayal is in [EncDotNet.S100](https://github.com/philliphoff/EncDotNet.S100), which translates S-57 to S-101 |
 | **NOAA Products** | `EncDotNet.Noaa` | Accesses the NOAA ENC product catalog for chart discovery and download |
 
-### ISO/IEC 8211 — The Container Format
+### ISO/IEC 8211: the container format
 
 ISO 8211 is a general-purpose binary format for encoding structured data. It is not specific to nautical charts — it is used by several geospatial standards. An ISO 8211 file consists of:
 
@@ -46,12 +46,12 @@ ISO 8211 is a general-purpose binary format for encoding structured data. It is 
 
 `EncDotNet.Iso8211` provides two ways to read this format:
 
-- **`Iso8211Reader`** — a high-performance, forward-only token reader (`ref struct`) that emits tokens like `StartRecord`, `DirectoryEntry`, `Field`, and `EndRecord` with zero intermediate allocations. Supports streaming for large files.
+- **`Iso8211Reader`** — a forward-only token reader (`ref struct`) that returns tokens such as `StartRecord`, `DirectoryEntry`, `Field` and `EndRecord` without building records.
 - **`Iso8211DocumentReader`** — builds a complete in-memory `Iso8211Document` object model containing all records and fields.
 
 At this layer, you see raw tags like `"DSID"`, `"VRID"`, `"SG2D"` and byte arrays — the data has no nautical meaning yet.
 
-### IHO S-57 — The Nautical Data Model
+### IHO S-57: the nautical data model
 
 S-57 defines how nautical chart data is encoded *within* ISO 8211 files. It specifies:
 
@@ -66,17 +66,17 @@ S-57 defines how nautical chart data is encoded *within* ISO 8211 files. It spec
 - **`S57DocumentReader`** → **`S57Document`** — parses an ISO 8211 file into an S-57 domain model with typed feature records, vector records, dataset metadata, and coordinate conversion helpers
 - **`S57Chart`** — a higher-level model that categorizes features by geometry (point, line, area, meta) and indexes spatial records by type (isolated nodes, connected nodes, edges, faces), with lookup methods and reverse-pointer indexes
 
-### NOAA ENC Products
+### NOAA ENC products
 
 NOAA publishes an XML product catalog listing all available U.S. ENC cells with metadata like chart name, scale, coverage, and download URLs.
 
 `EncDotNet.Noaa` provides `EncProductCatalogClient` to download and deserialize this catalog into typed objects (`EncProductCatalog`, `Cell`, `Coverage`, etc.).
 
-## Data Flow
+## Data flow
 
 A typical workflow follows the standards stack from bottom to top:
 
-```
+```text
   .000 file on disk
         │
         ▼
@@ -113,12 +113,12 @@ Each step adds meaning to the raw bytes:
 2. **S57DocumentReader** turns fields into features, vectors, and metadata
 3. **S57Chart** organizes features and spatial records into a navigable, strongly-typed model
 
-## Choosing the Right Layer
+## Choose a layer
 
 | Goal | Use |
 |------|-----|
 | Parse non-S-57 ISO 8211 files | `Iso8211Reader` or `Iso8211DocumentReader` |
-| High-performance scanning of chart files | `Iso8211Reader` (token-level) |
+| Scan chart files without building records | `Iso8211Reader` (token-level) |
 | Read chart features and metadata | `S57DocumentReader` → `S57Document` |
 | Work with typed geometry and indexes | `S57Chart.FromFile()` |
 | Discover and download NOAA charts | `EncProductCatalogClient` |

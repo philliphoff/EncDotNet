@@ -5,9 +5,10 @@ EncDotNet. It makes the repository's style explicit rather than requiring
 contributors to infer it from surrounding code.
 
 > **Enforcement.** Mechanically checkable rules are encoded in
-> [`.editorconfig`](../.editorconfig). CI gates whitespace with `dotnet format
-> whitespace --verify-no-changes` and using directives with `dotnet format
-> style --diagnostics IDE0005 --verify-no-changes`. Broader style and naming
+> [`.editorconfig`](https://github.com/philliphoff/EncDotNet/blob/main/.editorconfig).
+> CI gates whitespace with `dotnet format whitespace --verify-no-changes` and
+> using directives with `dotnet format style --diagnostics IDE0005
+> --verify-no-changes`. Broader style and naming
 > rules remain hand-followed because `dotnet format` cannot safely Fix-All
 > naming. When this guide and `.editorconfig` disagree, `.editorconfig` wins.
 
