@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or discussion
+    url: https://discord.gg/kf6B9EZqqB
+    about: Ask "how do I...?" questions and share ideas on the project Discord.
+  - name: Security vulnerability
+    url: https://github.com/philliphoff/EncDotNet/security/advisories/new
+    about: Report security issues privately through GitHub Security Advisories, not as a public issue.
+  - name: Support
+    url: https://github.com/philliphoff/EncDotNet/blob/main/SUPPORT.md
+    about: Where to ask questions and where to file bugs.

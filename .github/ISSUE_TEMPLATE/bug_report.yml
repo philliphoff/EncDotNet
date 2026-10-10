@@ -1,0 +1,110 @@
+name: Bug report
+description: Report a defect in the EncDotNet libraries, the chart viewer or the scripts.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Fill in the sections below so it can be
+        reproduced and triaged.
+
+        **Don't attach real ENC cells.** Name a public NOAA cell, describe the
+        data, or attach a small synthetic file.
+
+        For security vulnerabilities, don't use this form; see
+        [SECURITY.md](https://github.com/philliphoff/EncDotNet/blob/main/SECURITY.md).
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What's wrong, in a sentence or two.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      description: Pick the closest match.
+      options:
+        - "ISO 8211 (EncDotNet.Iso8211)"
+        - "S-57 reading, updates, exchange sets (EncDotNet.S57)"
+        - "NOAA catalog (EncDotNet.Noaa)"
+        - "Chart viewer (EncDotNet.ChartViewer)"
+        - "Scripts (scripts/)"
+        - "Build / CI / packaging"
+        - "Docs"
+        - "Other / unsure"
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: The smallest steps or code that reproduce the problem.
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include exception messages, stack traces or screenshots.
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: NuGet package version, release tag or commit SHA.
+      placeholder: e.g. 0.7.0 or commit abc1234
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      multiple: true
+      options:
+        - macOS
+        - Windows
+        - Linux
+    validations:
+      required: true
+
+  - type: input
+    id: dotnet
+    attributes:
+      label: .NET version
+      description: Output of `dotnet --version`, or the runtime your app targets.
+      placeholder: e.g. 10.0.100
+
+  - type: textarea
+    id: data
+    attributes:
+      label: Cell or file (optional)
+      description: |
+        Which cell triggers the problem (for example a NOAA cell name and
+        edition), or a small synthetic file. Don't attach real ENC cells.
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Logs, related issues or anything else.

@@ -1,0 +1,18 @@
+# Normalize text files to LF in the repository; .editorconfig sets the same
+# line endings for the editor.
+* text=auto eol=lf
+
+# Windows scripts need CRLF.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Binary content.
+*.png binary
+*.ico binary
+*.pdf binary
+*.000 binary
+*.031 binary
+
+# The IHO reference documents are converted from PDFs; keep them out of
+# language statistics.
+standards/** linguist-documentation
