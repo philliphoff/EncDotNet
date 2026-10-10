@@ -11,12 +11,12 @@ any implementation work begins**.
 ## Steps
 
 1. **Identify affected areas.** From the feature description and any files
-   or paths mentioned, list every standard touched (ISO/IEC 8211, S-57,
-   S-52) and every package touched (`EncDotNet.Iso8211`, `EncDotNet.S57`,
-   `EncDotNet.Noaa`, `EncDotNet.ChartViewer`).
+   or paths mentioned, list every standard touched (ISO/IEC 8211, S-57)
+   and every package touched (`EncDotNet.Iso8211`, `EncDotNet.S57`,
+   `EncDotNet.Noaa`). Chart display features belong in EncDotNet.S100, not
+   in the legacy `EncDotNet.ChartViewer`.
 2. **Load the matching skills** from `.github/skills/<name>/SKILL.md`:
-   `iso8211`, `s57-enc`, `s52-presentation`, `chart-viewer`. For features
-   that cross layers, load all of them.
+   `iso8211` and `s57-enc`. For features that cross both, load both.
 3. **Read the standard.** Find the governing sections in `standards/md/`.
 4. For each standard, produce:
    - Section numbers that constrain the design.
@@ -29,8 +29,8 @@ any implementation work begins**.
      [EncDotNet.S100](https://github.com/philliphoff/EncDotNet.S100), which
      consumes `EncDotNet.Iso8211` and `EncDotNet.S57`.
 5. **Reconcile** conflicts between the standards and the existing model (for
-   example an S-52 display rule that needs data the S-57 model does not
-   expose yet).
+   example an S-57 rule that needs data the ISO 8211 layer doesn't expose
+   yet, or an EncDotNet.S100 need the S-57 model doesn't meet).
 6. Produce a **final implementation plan** with an ordered task list, and
    only then proceed (or hand off) to coding.
 

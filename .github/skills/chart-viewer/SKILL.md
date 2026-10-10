@@ -1,87 +1,41 @@
 ---
 name: chart-viewer
 description: |
-  Working knowledge of EncDotNet.ChartViewer (the Sound Charts desktop app):
-  how S-57 features become Mapsui layers on an Avalonia map — layer
-  templates, area and line geometry builders, Spherical Mercator projection,
-  render order, SCAMIN visibility, SVG point symbols, compilation-scale
-  layer ordering, the baked-chart cache and NOAA chart management.
-  USE FOR: changes to src/EncDotNet.ChartViewer/**, S57LayerFactory,
-  S57LayerTemplate, S57LayerTemplates, S57AreaGeometryBuilder,
-  S57LineGeometryBuilder, ScaminStyleHelper, ProjectedEdgeCache, ChartBaker,
-  view models and views, adding or restyling an object class, NTS geometry
-  construction, Mapsui styling questions. DO NOT USE FOR: what the S-52
-  display rules require (use s52-presentation); S-57 record semantics or
-  topology rules (use s57-enc).
+  Maintenance notes for EncDotNet.ChartViewer, the legacy Avalonia + Mapsui
+  desktop viewer for S-57 cells. The viewer is kept building but is not
+  being developed: chart display work belongs in EncDotNet.S100, which
+  translates S-57 to S-101 and portrays it with the S-100 Lua catalogue.
+  USE FOR: fixing a build break, dependency update or crash in
+  src/EncDotNet.ChartViewer/**, or keeping it compiling after an
+  EncDotNet.S57 API change. DO NOT USE FOR: new display features or S-52
+  portrayal work (do that in EncDotNet.S100); S-57 semantics (use s57-enc).
 ---
 
-# Chart viewer (Avalonia + Mapsui)
+# Chart viewer (maintenance only)
 
-## When engaged
+`EncDotNet.ChartViewer` draws S-57 cells on a Mapsui map with hand-written
+styles and SVG symbols that approximate S-52. It isn't published to NuGet
+and isn't where chart display is developed. Keep changes to the minimum
+needed to keep it building and running:
 
-- Tasks touching `src/EncDotNet.ChartViewer/**`, or the geometry-builder
-  tests (`S57AreaGeometryBuilderTests.cs`, `S57LineGeometryBuilderTests.cs`).
-- Adding, restyling or reordering an S-57 object class on the map.
-
-The viewer approximates S-52 with hand-written styles and SVG symbols; it
-does not run the S-52 Presentation Library. Load `s52-presentation` when a
-change should follow the display rules, and this skill for how to build it.
-
-## Stack
-
-- Avalonia 11 with ReactiveUI (`ViewModelBase` derives from
-  `ReactiveObject`) and compiled bindings by default.
-- Mapsui 5 (`Mapsui.Avalonia`, `Mapsui.Nts`) with NetTopologySuite
-  geometries.
-- `Microsoft.Extensions.DependencyInjection`, `Microsoft.Extensions.Logging`
-  and OpenTelemetry exporters (`ChartViewerDiagnostics`, `DiagnosticOptions`).
-- MessagePack for the baked-chart cache.
+- Fix build breaks, crashes and dependency updates.
+- Update call sites when an `EncDotNet.S57` API changes.
+- Don't add features, symbology or S-52 rules here. Raise display work
+  against [EncDotNet.S100](https://github.com/philliphoff/EncDotNet.S100).
+- Don't let viewer needs shape the libraries: keep display logic out of
+  `EncDotNet.S57` and `EncDotNet.Iso8211`.
 
 ## Where things live
 
 | File | Role |
 |---|---|
-| `S57LayerFactory.cs` | Builds `MemoryLayer`s from an `S57Chart`, grouped by object code |
-| `S57LayerTemplate.cs` | Per-object-code area, line and point handlers, `RenderOrder`, `MaxVisible`, SCAMIN wrapping |
-| `S57LayerTemplates.cs` | Registry of templates: colours, symbols and attribute-driven styling |
-| `S57AreaGeometryBuilder.cs` | `Polygon`/`MultiPolygon` from face-based or edge-only area topology |
-| `S57LineGeometryBuilder.cs` | `LineString`/`MultiLineString` from edges, honouring ORNT and MASK |
+| `S57LayerFactory.cs` | Builds Mapsui `MemoryLayer`s from an `S57Chart` |
+| `S57LayerTemplate.cs`, `S57LayerTemplates.cs` | Per-object-code styles, render order and SCAMIN handling |
+| `S57AreaGeometryBuilder.cs`, `S57LineGeometryBuilder.cs` | NTS geometry from S-57 topology (covered by tests) |
 | `ProjectedEdgeCache.cs` | Projects each edge to EPSG:3857 once per chart |
-| `ScaminThemeStyle.cs` | `ScaminStyleHelper`: hides features beyond their SCAMIN scale |
-| `Baking/ChartBaker.cs` | Caches the parsed document and projected edges to skip re-parsing |
-| `Charts/` | Chart sources, catalog sources and the NOAA package manager |
-| `Assets/ChartSymbols/` | Embedded SVG symbols, loaded as `embedded://` image sources |
+| `Baking/ChartBaker.cs` | MessagePack cache of parsed cells |
+| `Charts/` | Chart sources and the NOAA package manager |
 
-## Conventions
-
-- **Layers:** every chart layer is a `MemoryLayer` of `GeometryFeature`s
-  wrapping NTS geometries.
-- **Projection:** project with `SphericalMercator.FromLonLat` after
-  converting with COMF (see `s57-enc`); go through `ProjectedEdgeCache` for
-  edges rather than projecting again.
-- **Render order** (lower draws first): land 100, water 200, depth area
-  300, area overlay 400, line 500, label 600, point 700. Within a layer,
-  set the `"FeatureOrder"` feature property; `S57LayerFactory` sorts on
-  it ascending (DEPARE stores `-depth` so deeper areas draw first).
-- **Chart order:** charts stack by compilation scale (CSCL); smaller-scale
-  charts draw behind larger-scale ones. `MaxVisible` is derived from CSCL
-  and, per feature, SCAMIN.
-- **Styles:** `VectorStyle` for fills and strokes, `LabelStyle` for text
-  such as soundings (converted to the selected `DepthUnit`), `ImageStyle`
-  for SVG symbols. Wrap every feature style with
-  `S57LayerTemplate.MaybeWrapWithScamin`.
-- **New object class:** add a template in `S57LayerTemplates` using the
-  `AreaStyle`, `LineStyle`, `PointStyle` and `ImagePointStyle` helpers,
-  pick its render order, and add a `S57FeatureCategory` value
-  (`Models/S57FeatureCategory.cs`) if users should be able to hide it.
-
-## Review checklist
-
-1. Geometry builders handle both face-based and edge-only areas, interior
-   rings (USAG = 2), reversed edges (ORNT = 2) and masked edges.
-2. No per-frame allocation or projection in style callbacks.
-3. Baked-cache changes bump or validate the cache format so stale files are
-   rebuilt, not mis-read.
-4. Geometry-builder changes have tests built from in-memory charts.
-5. Never commit downloaded NOAA cells; the `.catalog/` and `.expanded/`
-   folders are ignored for that reason.
+If a fix touches the geometry builders, keep `S57AreaGeometryBuilderTests`
+and `S57LineGeometryBuilderTests` passing; they also exercise S-57
+topology handling.

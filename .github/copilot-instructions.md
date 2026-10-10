@@ -2,11 +2,12 @@
 
 ## Project overview
 
-EncDotNet is a set of .NET libraries and a cross-platform desktop viewer
-(Sound Charts) for reading, parsing, writing and rendering **IHO S-57
-Electronic Navigational Charts (ENCs)** and the **ISO/IEC 8211** container
-format they use. The libraries target `net8.0;net10.0`; the viewer and tests
-target `net10.0`. `<Nullable>enable</Nullable>` and
+EncDotNet is a set of .NET libraries for reading, parsing and writing **IHO
+S-57 Electronic Navigational Charts (ENCs)** and the **ISO/IEC 8211**
+container format they use. The libraries target `net8.0;net10.0`; tests
+target `net10.0`. The repository also holds a legacy desktop viewer
+(`EncDotNet.ChartViewer`) that is kept building but not developed; chart
+display work happens in EncDotNet.S100. `<Nullable>enable</Nullable>` and
 `<ImplicitUsings>enable</ImplicitUsings>` apply throughout.
 
 `EncDotNet.Iso8211` and `EncDotNet.S57` are published NuGet packages and are
@@ -24,7 +25,7 @@ in the PR description, with its EncDotNet.S100 impact.
 | **IHO S-57 Edition 3.1** | Transfer standard: data model, feature and vector records, chain-node topology, updating. Modelled by `EncDotNet.S57` |
 | **S-57 Appendix A** | Object catalogue (OBJL codes such as DEPARE, SOUNDG, LIGHTS) and attribute catalogue (ATTL codes and value domains) |
 | **S-57 Appendix B.1** | ENC Product Specification (Annex A) and encoding guide (Annex D) |
-| **IHO S-52 Edition 6.1.1** | Display rules for ECDIS: categories, priorities, colours, symbols. The viewer approximates it; it is not fully implemented |
+| **IHO S-52 Edition 6.1.1** | ECDIS display rules. Reference only: the legacy viewer approximates them, and full portrayal is in EncDotNet.S100 |
 
 Markdown versions of these documents are in `standards/md/` (PDFs in
 `standards/pdf/`). Read the relevant one before changing spec-driven code,
@@ -37,7 +38,7 @@ src/
   EncDotNet.Iso8211/      # ISO 8211 reader, writer and builders (NuGet)
   EncDotNet.S57/          # S-57 document, chart model, updates, exchange sets (NuGet)
   EncDotNet.Noaa/         # NOAA ENC product catalog client (NuGet)
-  EncDotNet.ChartViewer/  # Sound Charts: Avalonia + Mapsui desktop viewer
+  EncDotNet.ChartViewer/  # Legacy Avalonia + Mapsui viewer (maintenance only)
 tests/
   EndDotNet.UnitTests/    # xUnit tests for the libraries and viewer geometry builders
   EncDotNet.Benchmarks/   # BenchmarkDotNet parsing benchmarks
@@ -46,17 +47,15 @@ standards/                # IHO and ISO reference documents (md + pdf)
 docs/                     # DocFX conceptual docs
 ```
 
-Dependency chain: `Iso8211 → S57 → ChartViewer`, with `Noaa` standalone and
-used by the viewer.
+Dependency chain: `Iso8211 → S57`, with `Noaa` standalone. The viewer
+depends on `S57` and `Noaa`.
 
 ## Technology stack
 
 | Concern | Library / tool |
 |---|---|
 | Language / platform | C#, .NET 10 (libraries also target .NET 8) |
-| UI framework | Avalonia 11 + ReactiveUI |
-| Map rendering | Mapsui 5 + NetTopologySuite |
-| Viewer cache | MessagePack |
+| Legacy viewer | Avalonia 11, ReactiveUI, Mapsui 5, NetTopologySuite, MessagePack |
 | Observability | Microsoft.Extensions.Logging, OpenTelemetry |
 | Testing | xUnit, coverlet; BenchmarkDotNet |
 | Package management | Central Package Management via `Directory.Packages.props` |
@@ -138,11 +137,10 @@ load the matching skill(s):
 |---|---|
 | ISO 8211 leaders, DDR, field controls, subfield formats, reader/writer; `src/EncDotNet.Iso8211/**` | `iso8211` |
 | S-57 records, fields, object or attribute codes, topology, updates, exchange sets, CATALOG.031; `src/EncDotNet.S57/**` | `s57-enc` |
-| How or when a chart object should be drawn: display categories, priorities, colours, symbols, SCAMIN | `s52-presentation` |
-| Mapsui layers, styles, geometry builders, projection, viewer UI; `src/EncDotNet.ChartViewer/**` | `chart-viewer` |
+| Keeping the legacy viewer building; `src/EncDotNet.ChartViewer/**` (maintenance only) | `chart-viewer` |
 
-- For changes that cross layers (for example a new S-57 attribute that the
-  viewer then styles), load every affected skill and reconcile them first.
+- For changes that cross layers (for example an S-57 change that needs new
+  ISO 8211 support), load every affected skill and reconcile them first.
   The `new-feature-spec-check` prompt in `.github/prompts/` walks through
   that review.
 - Cite the standard's section number in PR descriptions and in XML doc
