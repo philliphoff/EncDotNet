@@ -11,8 +11,7 @@ Check each area this PR touches and confirm the matching skill was consulted
 
 - [ ] ISO/IEC 8211 (`iso8211`)
 - [ ] S-57 records, topology, updates or exchange sets (`s57-enc`)
-- [ ] S-52 display rules (`s52-presentation`)
-- [ ] Chart viewer (`chart-viewer`)
+- [ ] Legacy chart viewer, maintenance only (`chart-viewer`)
 - [ ] N/A: build, CI, docs or tooling only
 
 **Standard section references cited in code or docs:**

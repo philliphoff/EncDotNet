@@ -1,7 +1,7 @@
 # Contributing to EncDotNet
 
 Thanks for your interest in contributing. EncDotNet is a set of .NET libraries
-for ISO/IEC 8211 and IHO S-57 data, plus a desktop chart viewer. This guide
+for ISO/IEC 8211 and IHO S-57 data. This guide
 covers how to build, test and submit changes.
 
 ## Prerequisites
@@ -63,13 +63,19 @@ Before a non-trivial change, read the matching skill:
 |---|---|
 | ISO 8211 leaders, DDR, subfield formats, reader and writer | `iso8211` |
 | S-57 records, attributes, topology, updates, exchange sets | `s57-enc` |
-| S-52 display categories, priorities, colours and symbols | `s52-presentation` |
-| Chart viewer layers, styles and geometry | `chart-viewer` |
+| Keeping the legacy chart viewer building | `chart-viewer` |
 | Docs pages and package READMEs | `docs-writing` |
 
 Markdown versions of the standards are in `standards/md/`. Cite the section
 number in pull requests and in XML doc comments for spec-derived types,
 constants and enum values.
+
+## Chart viewer
+
+`src/EncDotNet.ChartViewer` is a legacy desktop viewer. It's kept building
+but isn't being developed: limit changes to build fixes, crash fixes and
+dependency updates. Chart display work belongs in
+[EncDotNet.S100](https://github.com/philliphoff/EncDotNet.S100).
 
 ## Coding style
 

@@ -10,6 +10,10 @@ body:
         solve before a specific design; that leaves room to consider
         alternatives.
 
+        The chart viewer in this repository is in maintenance only. For
+        chart display features, use
+        [EncDotNet.S100](https://github.com/philliphoff/EncDotNet.S100/issues).
+
   - type: textarea
     id: problem
     attributes:
@@ -35,7 +39,6 @@ body:
         - "ISO 8211 (EncDotNet.Iso8211)"
         - "S-57 reading, updates, exchange sets (EncDotNet.S57)"
         - "NOAA catalog (EncDotNet.Noaa)"
-        - "Chart viewer (EncDotNet.ChartViewer)"
         - "Scripts (scripts/)"
         - "Build / CI / packaging"
         - "Docs"

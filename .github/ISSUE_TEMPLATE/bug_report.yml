@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a defect in the EncDotNet libraries, the chart viewer or the scripts.
+description: Report a defect in the EncDotNet libraries, the scripts or the legacy chart viewer.
 title: "[Bug]: "
 labels: ["bug"]
 body:
@@ -32,7 +32,7 @@ body:
         - "ISO 8211 (EncDotNet.Iso8211)"
         - "S-57 reading, updates, exchange sets (EncDotNet.S57)"
         - "NOAA catalog (EncDotNet.Noaa)"
-        - "Chart viewer (EncDotNet.ChartViewer)"
+        - "Legacy chart viewer (EncDotNet.ChartViewer)"
         - "Scripts (scripts/)"
         - "Build / CI / packaging"
         - "Docs"
