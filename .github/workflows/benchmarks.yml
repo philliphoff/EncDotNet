@@ -132,7 +132,10 @@ jobs:
 
           run() { # run <tree> <artifacts>
             echo "::group::$2"
-            dotnet "$1/$DLL" "${ARGS[@]}" --artifacts "$2"
+            # Run from inside the tree: BenchmarkDotNet rebuilds the benchmark project it
+            # finds from the working directory, so running the base build from the head
+            # checkout would measure the head's code.
+            (cd "$1" && dotnet "$DLL" "${ARGS[@]}" --artifacts "$2")
             echo "::endgroup::"
           }
 
@@ -140,12 +143,12 @@ jobs:
           for ((r = 1; r <= ROUNDS; r++)); do
             # Alternate the order (base, head, then head, base) so drift cancels out.
             if [ "$BASE_BUILT" != "true" ]; then
-              run . "$OUT/head-$r"
+              run "$GITHUB_WORKSPACE" "$OUT/head-$r"
             elif ((r % 2)); then
               run "$RUNNER_TEMP/base" "$OUT/base-$r"
-              run . "$OUT/head-$r"
+              run "$GITHUB_WORKSPACE" "$OUT/head-$r"
             else
-              run . "$OUT/head-$r"
+              run "$GITHUB_WORKSPACE" "$OUT/head-$r"
               run "$RUNNER_TEMP/base" "$OUT/base-$r"
             fi
           done
