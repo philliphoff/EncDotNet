@@ -83,7 +83,17 @@ public sealed record S57Document
     ///   (FSPC, FFPC, VRPC, SGCC) when present.</description></item>
     /// </list>
     /// </para>
+    /// <para>
+    /// A control field's 1-based index and count must address entries that exist in the
+    /// base record's array (S-57 Part 3, 8.4.3). An insert may target any position from 1
+    /// to one past the last entry; a delete or modify must lie entirely within the array.
+    /// A control field that falls outside these bounds means the update does not match
+    /// the base cell, and no partial result is returned.
+    /// </para>
     /// </remarks>
+    /// <exception cref="InvalidDataException">An update control field (FSPC, FFPC, VRPC or SGCC)
+    /// has an index or count outside the bounds of the base record's array. The message names
+    /// the record (RCNM/RCID) and the control field.</exception>
     public S57Document ApplyChanges(S57Document update)
     {
         var features = ApplyRecordChanges(
@@ -186,8 +196,8 @@ public sealed record S57Document
             UpdateInstruction = updateRecord.UpdateInstruction,
             Attributes = MergeAttributes(baseRecord.Attributes, updateRecord.Attributes),
             NationalAttributes = MergeAttributes(baseRecord.NationalAttributes, updateRecord.NationalAttributes),
-            SpatialPointers = ApplyArrayUpdate([.. baseRecord.SpatialPointers], [.. updateRecord.SpatialPointers], updateRecord.SpatialPointerControl),
-            FeaturePointers = ApplyArrayUpdate([.. baseRecord.FeaturePointers], [.. updateRecord.FeaturePointers], updateRecord.FeaturePointerControl),
+            SpatialPointers = ApplyArrayUpdate([.. baseRecord.SpatialPointers], [.. updateRecord.SpatialPointers], updateRecord.SpatialPointerControl, baseRecord.RecordName, S57FieldTags.FSPC),
+            FeaturePointers = ApplyArrayUpdate([.. baseRecord.FeaturePointers], [.. updateRecord.FeaturePointers], updateRecord.FeaturePointerControl, baseRecord.RecordName, S57FieldTags.FFPC),
         };
     }
 
@@ -199,9 +209,9 @@ public sealed record S57Document
             RecordVersion = updateRecord.RecordVersion,
             UpdateInstruction = updateRecord.UpdateInstruction,
             Attributes = MergeAttributes(baseRecord.Attributes, updateRecord.Attributes),
-            VectorPointers = ApplyArrayUpdate([.. baseRecord.VectorPointers], [.. updateRecord.VectorPointers], updateRecord.VectorPointerControl),
-            Coordinates2D = ApplyArrayUpdate([.. baseRecord.Coordinates2D], [.. updateRecord.Coordinates2D], updateRecord.CoordinateControl),
-            Soundings = ApplyArrayUpdate([.. baseRecord.Soundings], [.. updateRecord.Soundings], updateRecord.CoordinateControl),
+            VectorPointers = ApplyArrayUpdate([.. baseRecord.VectorPointers], [.. updateRecord.VectorPointers], updateRecord.VectorPointerControl, baseRecord.RecordName, S57FieldTags.VRPC),
+            Coordinates2D = ApplyArrayUpdate([.. baseRecord.Coordinates2D], [.. updateRecord.Coordinates2D], updateRecord.CoordinateControl, baseRecord.RecordName, S57FieldTags.SGCC),
+            Soundings = ApplyArrayUpdate([.. baseRecord.Soundings], [.. updateRecord.Soundings], updateRecord.CoordinateControl, baseRecord.RecordName, S57FieldTags.SGCC),
         };
     }
 
@@ -262,7 +272,9 @@ public sealed record S57Document
     private static ImmutableArray<T> ApplyArrayUpdate<T>(
         ImmutableArray<T> baseArray,
         ImmutableArray<T> updateData,
-        S57FieldUpdateControl? control)
+        S57FieldUpdateControl? control,
+        S57RecordName recordName,
+        string controlFieldTag)
         where T : struct
     {
         if (control is null)
@@ -275,38 +287,66 @@ public sealed record S57Document
         // Convert from 1-based S-57 index to 0-based.
         int index = ctrl.Index - 1;
 
+        // SGCC controls both SG2D and SG3D, so the splice helpers leave an array untouched when
+        // the update carries no data for it (or, for a delete, the base has none) before
+        // checking the range against it.
         return ctrl.UpdateInstruction switch
         {
-            S57UpdateInstruction.Insert => SpliceInsert(baseArray, updateData, index),
-            S57UpdateInstruction.Delete => SpliceDelete(baseArray, index, ctrl.Count),
-            S57UpdateInstruction.Modify => SpliceModify(baseArray, updateData, index, ctrl.Count),
+            S57UpdateInstruction.Insert => SpliceInsert(baseArray, updateData, index, ctrl, recordName, controlFieldTag),
+            S57UpdateInstruction.Delete => SpliceDelete(baseArray, index, ctrl, recordName, controlFieldTag),
+            S57UpdateInstruction.Modify => SpliceModify(baseArray, updateData, index, ctrl, recordName, controlFieldTag),
             _ => baseArray
         };
     }
 
-    private static ImmutableArray<T> SpliceInsert<T>(ImmutableArray<T> baseArray, ImmutableArray<T> items, int index)
+    private static ImmutableArray<T> SpliceInsert<T>(
+        ImmutableArray<T> baseArray,
+        ImmutableArray<T> items,
+        int index,
+        S57FieldUpdateControl ctrl,
+        S57RecordName recordName,
+        string controlFieldTag)
         where T : struct
     {
         if (items.IsDefaultOrEmpty)
         {
             return baseArray;
+        }
+
+        // An insert may target any existing position or one past the end (an append).
+        if (index < 0 || index > baseArray.Length)
+        {
+            throw OutOfRange(ctrl, baseArray.Length, recordName, controlFieldTag);
         }
 
         return baseArray.InsertRange(index, items);
     }
 
-    private static ImmutableArray<T> SpliceDelete<T>(ImmutableArray<T> baseArray, int index, int count)
+    private static ImmutableArray<T> SpliceDelete<T>(
+        ImmutableArray<T> baseArray,
+        int index,
+        S57FieldUpdateControl ctrl,
+        S57RecordName recordName,
+        string controlFieldTag)
         where T : struct
     {
-        if (count <= 0 || baseArray.IsDefaultOrEmpty)
+        if (ctrl.Count <= 0 || baseArray.IsDefaultOrEmpty)
         {
             return baseArray;
         }
 
-        return baseArray.RemoveRange(index, count);
+        EnsureRangeInBounds(baseArray.Length, index, ctrl, recordName, controlFieldTag);
+
+        return baseArray.RemoveRange(index, ctrl.Count);
     }
 
-    private static ImmutableArray<T> SpliceModify<T>(ImmutableArray<T> baseArray, ImmutableArray<T> items, int index, int count)
+    private static ImmutableArray<T> SpliceModify<T>(
+        ImmutableArray<T> baseArray,
+        ImmutableArray<T> items,
+        int index,
+        S57FieldUpdateControl ctrl,
+        S57RecordName recordName,
+        string controlFieldTag)
         where T : struct
     {
         if (items.IsDefaultOrEmpty)
@@ -314,8 +354,37 @@ public sealed record S57Document
             return baseArray;
         }
 
+        EnsureRangeInBounds(baseArray.Length, index, ctrl, recordName, controlFieldTag);
+
         // Modify = delete the existing range, then insert the new items at the same position.
-        var withRemoved = baseArray.RemoveRange(index, count);
+        var withRemoved = baseArray.RemoveRange(index, ctrl.Count);
         return withRemoved.InsertRange(index, items);
+    }
+
+    private static void EnsureRangeInBounds(
+        int length,
+        int index,
+        S57FieldUpdateControl ctrl,
+        S57RecordName recordName,
+        string controlFieldTag)
+    {
+        // Written as a subtraction so a large count cannot overflow index + count.
+        if (index < 0 || index > length || ctrl.Count < 0 || ctrl.Count > length - index)
+        {
+            throw OutOfRange(ctrl, length, recordName, controlFieldTag);
+        }
+    }
+
+    private static InvalidDataException OutOfRange(
+        S57FieldUpdateControl ctrl,
+        int length,
+        S57RecordName recordName,
+        string controlFieldTag)
+    {
+        return new InvalidDataException(
+            $"Update control field {controlFieldTag} on record {recordName} " +
+            $"({ctrl.UpdateInstruction} at index {ctrl.Index}, count {ctrl.Count}) is outside " +
+            $"the base record's {length} entries (S-57 Part 3, 8.4.3). " +
+            "The update does not match the base cell.");
     }
 }
