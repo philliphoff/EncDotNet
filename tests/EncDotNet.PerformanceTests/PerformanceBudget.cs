@@ -63,11 +63,12 @@ internal static class PerformanceBudget
         if (actual < lower)
         {
             Assert.Fail(
-                $"{scenario} {kind} {actual:N0} bytes, under its budget of {budget:N0} by {Percent(budget, actual)}. " +
+                $"{scenario} {kind} {actual:N0} bytes, under its budget of {budget:N0} by {Percent(actual, budget)}. " +
                 $"Lower the budget in PerformanceBudgets.cs to {actual:N0} to lock in the improvement.");
         }
     }
 
-    private static string Percent(long larger, long smaller) =>
-        smaller == 0 ? "∞" : $"{(larger - smaller) * 100.0 / smaller:F1}%";
+    // The size of the difference as a share of the budget.
+    private static string Percent(long actual, long budget) =>
+        budget == 0 ? "∞" : $"{Math.Abs(actual - budget) * 100.0 / budget:F1}%";
 }

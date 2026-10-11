@@ -41,16 +41,21 @@ public sealed class Iso8211FieldReader
     private const byte FieldTerminator = 0x1E;
 
     private readonly Iso8211FieldDefinition _fieldDefinition;
-    private readonly byte[] _data;
-    private readonly ParsedSubfield[] _parsedSubfields;
-    private readonly int _groupCount;
+    private readonly Iso8211FieldLayout _layout;
+    private readonly ReadOnlyMemory<byte> _data;
     private readonly int _lexicalLevel;
+
+    // Offsets of each parsed subfield instance. Null when every subfield is fixed-width: the
+    // layout then gives any instance's offset from its position, so no table is needed.
+    private readonly ParsedSubfield[]? _parsedSubfields;
+    private readonly int _subfieldCount;
+    private readonly int _groupCount;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="Iso8211FieldReader"/> class.
     /// </summary>
     /// <param name="fieldDefinition">The field definition from the DDR describing this field's structure.</param>
-    /// <param name="data">The raw field data to read.</param>
+    /// <param name="data">The raw field data to read. The reader keeps its own copy.</param>
     /// <param name="lexicalLevel">
     /// The lexical level for character data (0 or 1 = ASCII/ISO 8859, 2 = UCS-2/UTF-16LE).
     /// When set to 2, variable-length character subfields use 2-byte terminators (0x1F 0x00 / 0x1E 0x00).
@@ -59,18 +64,15 @@ public sealed class Iso8211FieldReader
     /// Thrown when <paramref name="fieldDefinition"/> is <c>null</c>.
     /// </exception>
     public Iso8211FieldReader(Iso8211FieldDefinition fieldDefinition, ReadOnlySpan<byte> data, int lexicalLevel = 0)
+        : this(fieldDefinition ?? throw new ArgumentNullException(nameof(fieldDefinition)), data.ToArray().AsMemory(), lexicalLevel, validated: true)
     {
-        _fieldDefinition = fieldDefinition ?? throw new ArgumentNullException(nameof(fieldDefinition));
-        _data = data.ToArray();
-        _lexicalLevel = lexicalLevel;
-        (_parsedSubfields, _groupCount) = ParseSubfields();
     }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="Iso8211FieldReader"/> class.
     /// </summary>
     /// <param name="fieldDefinition">The field definition from the DDR describing this field's structure.</param>
-    /// <param name="data">The raw field data to read.</param>
+    /// <param name="data">The raw field data to read. The reader reads the array in place, without copying it.</param>
     /// <param name="lexicalLevel">
     /// The lexical level for character data (0 or 1 = ASCII/ISO 8859, 2 = UCS-2/UTF-16LE).
     /// When set to 2, variable-length character subfields use 2-byte terminators (0x1F 0x00 / 0x1E 0x00).
@@ -79,11 +81,34 @@ public sealed class Iso8211FieldReader
     /// Thrown when <paramref name="fieldDefinition"/> or <paramref name="data"/> is <c>null</c>.
     /// </exception>
     public Iso8211FieldReader(Iso8211FieldDefinition fieldDefinition, byte[] data, int lexicalLevel = 0)
+        : this(
+            fieldDefinition ?? throw new ArgumentNullException(nameof(fieldDefinition)),
+            (data ?? throw new ArgumentNullException(nameof(data))).AsMemory(),
+            lexicalLevel,
+            validated: true)
     {
-        _fieldDefinition = fieldDefinition ?? throw new ArgumentNullException(nameof(fieldDefinition));
-        _data = data ?? throw new ArgumentNullException(nameof(data));
+    }
+
+    private Iso8211FieldReader(Iso8211FieldDefinition fieldDefinition, ReadOnlyMemory<byte> data, int lexicalLevel, bool validated)
+    {
+        _ = validated;
+        _fieldDefinition = fieldDefinition;
+        _layout = Iso8211FieldLayout.For(fieldDefinition);
+        _data = data;
         _lexicalLevel = lexicalLevel;
-        (_parsedSubfields, _groupCount) = ParseSubfields();
+
+        var span = data.Span;
+        if (_layout.IsFixedWidth)
+        {
+            _subfieldCount = ParseSubfields(span, [], out _groupCount);
+        }
+        else
+        {
+            // Count first, then fill an exactly sized table.
+            var count = ParseSubfields(span, [], out _);
+            _parsedSubfields = count == 0 ? [] : new ParsedSubfield[count];
+            _subfieldCount = ParseSubfields(span, _parsedSubfields, out _groupCount);
+        }
     }
 
     /// <summary>
@@ -94,7 +119,7 @@ public sealed class Iso8211FieldReader
     /// <summary>
     /// Gets the raw field data.
     /// </summary>
-    public ReadOnlySpan<byte> Data => _data;
+    public ReadOnlySpan<byte> Data => _data.Span;
 
     /// <summary>
     /// Gets the number of parsed subfield instances.
@@ -102,7 +127,7 @@ public sealed class Iso8211FieldReader
     /// <remarks>
     /// For fields with repeating groups, this count includes all instances across all repetitions.
     /// </remarks>
-    public int SubfieldCount => _parsedSubfields.Length;
+    public int SubfieldCount => _subfieldCount;
 
     /// <summary>
     /// Gets the number of subfield groups (repetitions) in this field.
@@ -110,6 +135,7 @@ public sealed class Iso8211FieldReader
     /// <remarks>
     /// For fields without repeating groups, this will be 1.
     /// For fields with repeating groups, this is the number of times the group repeats.
+    /// A final repetition cut short by the end of the field data is not counted.
     /// </remarks>
     public int GroupCount => _groupCount;
 
@@ -117,6 +143,41 @@ public sealed class Iso8211FieldReader
     /// Gets whether this field has repeating subfield groups.
     /// </summary>
     public bool HasRepeatingGroups => _fieldDefinition.HasRepeatingGroup && _groupCount > 1;
+
+    /// <summary>
+    /// Gets the ordinal of a subfield: its position in the field definition's
+    /// <see cref="Iso8211FieldDefinition.SubfieldDefinitions"/>.
+    /// </summary>
+    /// <param name="name">The subfield name, such as <c>"YCOO"</c>.</param>
+    /// <returns>The zero-based ordinal of the first subfield with that name.</returns>
+    /// <exception cref="KeyNotFoundException">
+    /// Thrown when the field definition has no subfield with the specified name.
+    /// </exception>
+    /// <remarks>
+    /// Look the ordinal up once and pass it to <see cref="GetSubfield{T}(int, int)"/> to read many
+    /// repetitions of a group without repeating the name lookup for each one.
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// var reader = new Iso8211FieldReader(ddr.GetFieldDefinition("SG2D")!, field.Data);
+    /// var y = reader.GetOrdinal("YCOO");
+    /// var x = reader.GetOrdinal("XCOO");
+    /// for (var group = 0; group &lt; reader.GroupCount; group++)
+    /// {
+    ///     points.Add((reader.GetSubfield&lt;int&gt;(group, y), reader.GetSubfield&lt;int&gt;(group, x)));
+    /// }
+    /// </code>
+    /// </example>
+    public int GetOrdinal(string name)
+    {
+        var ordinal = _layout.IndexOf(name);
+        if (ordinal < 0)
+        {
+            throw new KeyNotFoundException($"Subfield '{name}' not found in field definition '{_fieldDefinition.Tag}'.");
+        }
+
+        return ordinal;
+    }
 
     /// <summary>
     /// Gets the value of a subfield by name.
@@ -159,25 +220,70 @@ public sealed class Iso8211FieldReader
     /// <returns><c>true</c> if the subfield was found; otherwise, <c>false</c>.</returns>
     public bool TryGetSubfield<T>(string name, out T value)
     {
-        var subfieldDef = _fieldDefinition.GetSubfieldDefinition(name);
-        if (subfieldDef is null)
+        // Instances follow definition order, so a subfield's first instance is at its ordinal.
+        var ordinal = _layout.IndexOf(name);
+        if (ordinal < 0 || ordinal >= _subfieldCount)
         {
             value = default!;
             return false;
         }
 
-        // Find the first parsed subfield matching this definition
-        foreach (var parsed in _parsedSubfields)
+        value = ConvertAt<T>(ordinal);
+        return true;
+    }
+
+    /// <summary>
+    /// Gets the value of a subfield in one repetition of the field's repeating group.
+    /// </summary>
+    /// <typeparam name="T">The type to convert the subfield value to.</typeparam>
+    /// <param name="groupIndex">
+    /// The zero-based repetition, from 0 to <see cref="GroupCount"/> - 1. For a field without a
+    /// repeating group, the only repetition is 0.
+    /// </param>
+    /// <param name="ordinal">The subfield's ordinal, from <see cref="GetOrdinal(string)"/>.</param>
+    /// <returns>The subfield value converted to type <typeparamref name="T"/>.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// Thrown when <paramref name="ordinal"/> is not a subfield of the repeating group, or the
+    /// field data has no such repetition.
+    /// </exception>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when the subfield value cannot be converted to the requested type.
+    /// </exception>
+    public T GetSubfield<T>(int groupIndex, int ordinal)
+    {
+        if (!TryGetInstanceIndex(groupIndex, ordinal, out var index))
         {
-            if (parsed.DefinitionIndex == subfieldDef.Index)
-            {
-                value = ConvertValue<T>(parsed, subfieldDef);
-                return true;
-            }
+            throw new ArgumentOutOfRangeException(
+                nameof(groupIndex),
+                $"Field '{_fieldDefinition.Tag}' has no subfield {ordinal} in repetition {groupIndex}.");
         }
 
-        value = default!;
-        return false;
+        return ConvertAt<T>(index);
+    }
+
+    /// <summary>
+    /// Tries to get the value of a subfield in one repetition of the field's repeating group.
+    /// </summary>
+    /// <typeparam name="T">The type to convert the subfield value to.</typeparam>
+    /// <param name="groupIndex">The zero-based repetition.</param>
+    /// <param name="ordinal">The subfield's ordinal, from <see cref="GetOrdinal(string)"/>.</param>
+    /// <param name="value">
+    /// When this method returns, contains the subfield value if present; otherwise, the default value.
+    /// </param>
+    /// <returns>
+    /// <c>true</c> if the repetition contains the subfield; <c>false</c> if <paramref name="ordinal"/>
+    /// is not in the repeating group or the field data ends before it.
+    /// </returns>
+    public bool TryGetSubfield<T>(int groupIndex, int ordinal, out T value)
+    {
+        if (!TryGetInstanceIndex(groupIndex, ordinal, out var index))
+        {
+            value = default!;
+            return false;
+        }
+
+        value = ConvertAt<T>(index);
+        return true;
     }
 
     /// <summary>
@@ -191,23 +297,30 @@ public sealed class Iso8211FieldReader
     /// </exception>
     public ImmutableArray<T> GetSubfieldValues<T>(string name)
     {
-        var subfieldDef = _fieldDefinition.GetSubfieldDefinition(name);
-        if (subfieldDef is null)
+        var ordinal = _layout.IndexOf(name);
+        if (ordinal < 0)
         {
             throw new KeyNotFoundException($"Subfield '{name}' not found in field definition '{_fieldDefinition.Tag}'.");
         }
 
-        var builder = ImmutableArray.CreateBuilder<T>();
-
-        foreach (var parsed in _parsedSubfields)
+        if (ordinal >= _subfieldCount)
         {
-            if (parsed.DefinitionIndex == subfieldDef.Index)
-            {
-                builder.Add(ConvertValue<T>(parsed, subfieldDef));
-            }
+            return [];
         }
 
-        return builder.ToImmutable();
+        if (!_layout.HasRepeatingGroup || ordinal < _layout.RepeatStart)
+        {
+            return [ConvertAt<T>(ordinal)];
+        }
+
+        // Instances of a repeating subfield sit one group apart.
+        var builder = ImmutableArray.CreateBuilder<T>(((_subfieldCount - 1 - ordinal) / _layout.RepeatCount) + 1);
+        for (var index = ordinal; index < _subfieldCount; index += _layout.RepeatCount)
+        {
+            builder.Add(ConvertAt<T>(index));
+        }
+
+        return builder.MoveToImmutable();
     }
 
     /// <summary>
@@ -221,14 +334,12 @@ public sealed class Iso8211FieldReader
     /// </exception>
     public T GetSubfieldAt<T>(int index)
     {
-        if (index < 0 || index >= _parsedSubfields.Length)
+        if (index < 0 || index >= _subfieldCount)
         {
             throw new ArgumentOutOfRangeException(nameof(index));
         }
 
-        var parsed = _parsedSubfields[index];
-        var subfieldDef = _fieldDefinition.SubfieldDefinitions[parsed.DefinitionIndex];
-        return ConvertValue<T>(parsed, subfieldDef);
+        return ConvertAt<T>(index);
     }
 
     /// <summary>
@@ -241,26 +352,46 @@ public sealed class Iso8211FieldReader
     /// </exception>
     /// <remarks>
     /// For repeating subfields, this returns the bytes from the first occurrence.
-    /// Use <see cref="Iso8211SubfieldGroup.GetSubfieldBytes(string)"/> to retrieve
+    /// Use <see cref="GetSubfieldBytes(int, int)"/> or
+    /// <see cref="Iso8211SubfieldGroup.GetSubfieldBytes(string)"/> to retrieve
     /// bytes for a specific group.
     /// </remarks>
     public ReadOnlySpan<byte> GetSubfieldBytes(string name)
     {
-        var subfieldDef = _fieldDefinition.GetSubfieldDefinition(name);
-        if (subfieldDef is null)
+        var ordinal = _layout.IndexOf(name);
+        if (ordinal < 0)
         {
             throw new KeyNotFoundException($"Subfield '{name}' not found in field '{_fieldDefinition.Tag}'.");
         }
 
-        foreach (var parsed in _parsedSubfields)
+        if (ordinal >= _subfieldCount)
         {
-            if (parsed.DefinitionIndex == subfieldDef.Index)
-            {
-                return _data.AsSpan(parsed.Offset, parsed.Length);
-            }
+            throw new KeyNotFoundException($"Subfield '{name}' not found in parsed field data.");
         }
 
-        throw new KeyNotFoundException($"Subfield '{name}' not found in parsed field data.");
+        return BytesAt(ordinal);
+    }
+
+    /// <summary>
+    /// Gets the raw bytes of a subfield in one repetition of the field's repeating group.
+    /// </summary>
+    /// <param name="groupIndex">The zero-based repetition.</param>
+    /// <param name="ordinal">The subfield's ordinal, from <see cref="GetOrdinal(string)"/>.</param>
+    /// <returns>A span containing the raw subfield data.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// Thrown when <paramref name="ordinal"/> is not a subfield of the repeating group, or the
+    /// field data has no such repetition.
+    /// </exception>
+    public ReadOnlySpan<byte> GetSubfieldBytes(int groupIndex, int ordinal)
+    {
+        if (!TryGetInstanceIndex(groupIndex, ordinal, out var index))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(groupIndex),
+                $"Field '{_fieldDefinition.Tag}' has no subfield {ordinal} in repetition {groupIndex}.");
+        }
+
+        return BytesAt(index);
     }
 
     /// <summary>
@@ -273,13 +404,12 @@ public sealed class Iso8211FieldReader
     /// </exception>
     public ReadOnlySpan<byte> GetSubfieldBytesAt(int index)
     {
-        if (index < 0 || index >= _parsedSubfields.Length)
+        if (index < 0 || index >= _subfieldCount)
         {
             throw new ArgumentOutOfRangeException(nameof(index));
         }
 
-        var parsed = _parsedSubfields[index];
-        return _data.AsSpan(parsed.Offset, parsed.Length);
+        return BytesAt(index);
     }
 
     /// <summary>
@@ -291,13 +421,16 @@ public sealed class Iso8211FieldReader
     /// </returns>
     /// <remarks>
     /// For fields without repeating groups, this returns a single group containing all subfields.
+    /// Unlike <see cref="GroupCount"/>, the enumeration includes a final repetition cut short by
+    /// the end of the field data. To read many repetitions without allocating a group object for
+    /// each, use <see cref="GetOrdinal(string)"/> with <see cref="GetSubfield{T}(int, int)"/>.
     /// </remarks>
     public IEnumerable<Iso8211SubfieldGroup> GetSubfieldGroups()
     {
         if (!_fieldDefinition.HasRepeatingGroup)
         {
             // Single group containing all subfields
-            yield return new Iso8211SubfieldGroup(this, 0, _parsedSubfields.Length, 0);
+            yield return new Iso8211SubfieldGroup(this, 0, _subfieldCount, 0);
             yield break;
         }
 
@@ -309,9 +442,9 @@ public sealed class Iso8211FieldReader
         int currentIndex = fixedCount;
         int groupIndex = 0;
 
-        while (currentIndex < _parsedSubfields.Length)
+        while (currentIndex < _subfieldCount)
         {
-            var groupLength = Math.Min(repeatCount, _parsedSubfields.Length - currentIndex);
+            var groupLength = Math.Min(repeatCount, _subfieldCount - currentIndex);
             yield return new Iso8211SubfieldGroup(this, currentIndex, groupLength, groupIndex);
             currentIndex += groupLength;
             groupIndex++;
@@ -331,37 +464,114 @@ public sealed class Iso8211FieldReader
     public T GetFixedSubfield<T>(string name) => GetSubfield<T>(name);
 
     /// <summary>
-    /// Parses all subfields in the field data.
+    /// Gets the ordinal of a subfield by name, or <c>-1</c>, for <see cref="Iso8211SubfieldGroup"/>.
     /// </summary>
-    /// <returns>
-    /// A tuple containing the array of parsed subfields and the number of groups.
-    /// </returns>
-    private (ParsedSubfield[] subfields, int groupCount) ParseSubfields()
+    internal int IndexOfSubfield(string name) => _layout.IndexOf(name);
+
+    /// <summary>
+    /// Maps a repetition and subfield ordinal to the index of the parsed subfield instance.
+    /// </summary>
+    private bool TryGetInstanceIndex(int groupIndex, int ordinal, out int index)
     {
-        var subfields = _fieldDefinition.SubfieldDefinitions;
-        if (subfields.Count == 0)
+        index = -1;
+        if (groupIndex < 0 || ordinal < 0 || ordinal >= _layout.Count)
         {
-            return ([], 0);
+            return false;
         }
 
-        // Pre-size: for repeating groups, estimate ~4 bytes per subfield
-        int initialCapacity = subfields.Count;
-        if (_fieldDefinition.HasRepeatingGroup && _data.Length > 0)
+        if (!_layout.HasRepeatingGroup)
         {
-            initialCapacity = Math.Max(initialCapacity, _data.Length / 4);
+            index = groupIndex == 0 ? ordinal : -1;
+        }
+        else if (ordinal >= _layout.RepeatStart)
+        {
+            // Instances follow definition order: the leading subfields, then each repetition.
+            index = _layout.RepeatStart + (groupIndex * _layout.RepeatCount) + (ordinal - _layout.RepeatStart);
         }
 
-        var parsed = new List<ParsedSubfield>(initialCapacity);
-        var data = _data.AsSpan();
+        return index >= 0 && index < _subfieldCount;
+    }
+
+    /// <summary>
+    /// Locates a parsed subfield instance: its definition ordinal, offset and length.
+    /// </summary>
+    private void Locate(int index, out int ordinal, out int offset, out int length)
+    {
+        if (_parsedSubfields is not null)
+        {
+            var parsed = _parsedSubfields[index];
+            ordinal = parsed.DefinitionIndex;
+            offset = parsed.Offset;
+            length = parsed.Length;
+            return;
+        }
+
+        // Fixed-width layout: every instance before the last is full width, so offsets follow
+        // from position. Only the final instance can be cut short by the end of the data.
+        var layout = _layout;
+        if (index < layout.PrefixCount)
+        {
+            ordinal = index;
+            offset = layout.Offsets[index];
+        }
+        else
+        {
+            var inGroups = index - layout.PrefixCount;
+            var group = inGroups / layout.RepeatCount;
+            ordinal = layout.RepeatStart + (inGroups - (group * layout.RepeatCount));
+            offset = layout.PrefixBytes + (group * layout.Stride) + layout.Offsets[ordinal];
+        }
+
+        length = Math.Min(layout.Formats[ordinal].Width, _data.Length - offset);
+    }
+
+    private ReadOnlySpan<byte> BytesAt(int index)
+    {
+        Locate(index, out _, out var offset, out var length);
+        return _data.Span.Slice(offset, length);
+    }
+
+    private T ConvertAt<T>(int index)
+    {
+        Locate(index, out var ordinal, out var offset, out var length);
+        var format = _layout.Formats[ordinal];
+        var span = _data.Span.Slice(offset, length);
+
+        return format.FormatType switch
+        {
+            Iso8211SubfieldFormatType.CharacterData => ConvertCharacterData<T>(span),
+            Iso8211SubfieldFormatType.Integer => ConvertAsciiInteger<T>(span),
+            Iso8211SubfieldFormatType.Real => ConvertAsciiReal<T>(span),
+            Iso8211SubfieldFormatType.UnsignedInteger => ConvertUnsignedBinary<T>(span, format.Width),
+            Iso8211SubfieldFormatType.SignedInteger => ConvertSignedBinary<T>(span, format.Width),
+            Iso8211SubfieldFormatType.FloatingPoint => ConvertFloatingBinary<T>(span, format.Width),
+            Iso8211SubfieldFormatType.BitString => ConvertBitString<T>(span),
+            _ => throw new InvalidOperationException($"Unknown format type: {format.FormatType}")
+        };
+    }
+
+    /// <summary>
+    /// Walks the field data, recording each subfield instance in <paramref name="output"/> when
+    /// it isn't empty.
+    /// </summary>
+    /// <returns>The number of subfield instances.</returns>
+    private int ParseSubfields(ReadOnlySpan<byte> data, Span<ParsedSubfield> output, out int groupCount)
+    {
+        var subfields = _layout.Formats;
+        groupCount = 0;
+        if (subfields.Length == 0)
+        {
+            return 0;
+        }
+
+        var count = 0;
         int offset = 0;
         int subfieldIndex = 0;
-        int groupCount = 0;
         bool inRepeatingGroup = false;
 
         while (offset < data.Length)
         {
-            var subfieldDef = subfields[subfieldIndex];
-            var format = subfieldDef.Format;
+            var format = subfields[subfieldIndex];
 
             // For variable-length subfields, check if we've hit a field terminator.
             // Fixed-width binary subfields may contain 0x1E (30) as valid data, so we
@@ -373,7 +583,7 @@ public sealed class Iso8211FieldReader
 
             // For fixed-width subfields in repeating groups, check if we've hit the end:
             // If the remaining data is just the field terminator, we're done.
-            if (format.IsFixedWidth && _fieldDefinition.HasRepeatingGroup)
+            if (format.IsFixedWidth && _layout.HasRepeatingGroup)
             {
                 // If remaining bytes < expected width AND the first remaining byte is FT, stop
                 int remaining = data.Length - offset;
@@ -386,41 +596,34 @@ public sealed class Iso8211FieldReader
             // Calculate the length of this subfield
             int length = CalculateSubfieldLength(data, offset, format);
 
-            parsed.Add(new ParsedSubfield
+            if (!output.IsEmpty)
             {
-                DefinitionIndex = subfieldIndex,
-                Offset = offset,
-                Length = length,
-                GroupIndex = groupCount
-            });
+                output[count] = new ParsedSubfield(subfieldIndex, offset, length);
+            }
 
+            count++;
             offset += length;
 
             // Skip unit terminator if present - only for variable-length subfields
             // Fixed-width binary subfields (b11, b12, b14, b21, b22, b24) don't have UTs
-            if (!format.IsFixedWidth)
+            if (!format.IsFixedWidth && IsUnitTerminator(data, offset))
             {
-                if (IsUnitTerminator(data, offset))
-                {
-                    offset += TerminatorWidth;
-                }
-                else if (IsFieldTerminator(data, offset))
-                {
-                    // Field terminator acts as the final unit terminator; don't advance
-                    // past it so the next iteration's FT check can break the loop.
-                }
+                offset += TerminatorWidth;
             }
+
+            // A field terminator acts as the final unit terminator; it isn't skipped, so the
+            // next iteration's check ends the loop.
 
             // Advance to next subfield definition
             subfieldIndex++;
 
             // Handle repeating groups
-            if (subfieldIndex >= subfields.Count)
+            if (subfieldIndex >= subfields.Length)
             {
-                if (_fieldDefinition.HasRepeatingGroup)
+                if (_layout.HasRepeatingGroup)
                 {
                     // Reset to the start of the repeating group
-                    subfieldIndex = _fieldDefinition.RepeatingSubfieldStartIndex;
+                    subfieldIndex = _layout.RepeatStart;
                     groupCount++;
                     inRepeatingGroup = true;
                 }
@@ -430,28 +633,26 @@ public sealed class Iso8211FieldReader
                     break;
                 }
             }
-            else if (!inRepeatingGroup && subfieldIndex == _fieldDefinition.RepeatingSubfieldStartIndex && _fieldDefinition.HasRepeatingGroup)
+            else if (!inRepeatingGroup && subfieldIndex == _layout.RepeatStart && _layout.HasRepeatingGroup)
             {
-                // Just entered the repeating group for the first time.
-                // Set to 0; the wrap-around at line ~424 will increment to 1
-                // after the first complete group is parsed.
+                // Just entered the repeating group for the first time; the wrap-around above
+                // counts each group once it is complete.
                 groupCount = 0;
                 inRepeatingGroup = true;
             }
         }
 
         // If we never entered a repeating group but have subfields, we have 1 group
-        if (!inRepeatingGroup && parsed.Count > 0)
+        if (!inRepeatingGroup && count > 0)
         {
             groupCount = 1;
         }
 
-        return (parsed.ToArray(), groupCount);
+        return count;
     }
 
     /// <summary>
-    /// Gets the width of terminators based on the lexical level.
-    /// For lexical level 2 (UCS-2), terminators are 2 bytes (e.g. 0x1F 0x00).
+    /// Gets the width of a terminator for the current lexical level.
     /// </summary>
     private int TerminatorWidth => _lexicalLevel >= 2 ? 2 : 1;
 
@@ -506,189 +707,193 @@ public sealed class Iso8211FieldReader
         return length;
     }
 
-    /// <summary>
-    /// Converts a parsed subfield value to the requested type.
-    /// </summary>
-    private T ConvertValue<T>(ParsedSubfield parsed, Iso8211SubfieldDefinition subfieldDef)
-    {
-        var span = _data.AsSpan(parsed.Offset, parsed.Length);
-        var format = subfieldDef.Format;
-
-        object result = format.FormatType switch
-        {
-            Iso8211SubfieldFormatType.CharacterData => ConvertCharacterData<T>(span),
-            Iso8211SubfieldFormatType.Integer => ConvertAsciiInteger<T>(span),
-            Iso8211SubfieldFormatType.Real => ConvertAsciiReal<T>(span),
-            Iso8211SubfieldFormatType.UnsignedInteger => ConvertUnsignedBinary<T>(span, format.Width),
-            Iso8211SubfieldFormatType.SignedInteger => ConvertSignedBinary<T>(span, format.Width),
-            Iso8211SubfieldFormatType.FloatingPoint => ConvertFloatingBinary<T>(span, format.Width),
-            Iso8211SubfieldFormatType.BitString => ConvertBitString<T>(span),
-            _ => throw new InvalidOperationException($"Unknown format type: {format.FormatType}")
-        };
-
-        return (T)result;
-    }
+    // The conversions below return T directly. Each `(T)(object)value` sits behind a
+    // `typeof(T) == typeof(...)` check, which the JIT folds for value types, so optimized code
+    // neither boxes nor allocates.
 
     /// <summary>
     /// Converts character data to the requested type.
     /// </summary>
-    private object ConvertCharacterData<T>(ReadOnlySpan<byte> data)
+    private T ConvertCharacterData<T>(ReadOnlySpan<byte> data)
     {
-        var encoding = _lexicalLevel >= 2 ? Encoding.Unicode : Encoding.UTF8;
-        var str = encoding.GetString(data).TrimEnd('\x1F', '\x1E', '\0', ' ');
+        if (typeof(T) == typeof(byte[]))
+        {
+            return (T)(object)data.ToArray();
+        }
+
+        var str = DecodeCharacterData(data);
 
         if (typeof(T) == typeof(string))
         {
-            return str;
+            return (T)(object)str;
         }
         if (typeof(T) == typeof(int))
         {
-            return int.Parse(str, CultureInfo.InvariantCulture);
+            return (T)(object)int.Parse(str, CultureInfo.InvariantCulture);
         }
         if (typeof(T) == typeof(long))
         {
-            return long.Parse(str, CultureInfo.InvariantCulture);
+            return (T)(object)long.Parse(str, CultureInfo.InvariantCulture);
         }
         if (typeof(T) == typeof(double))
         {
-            return double.Parse(str, CultureInfo.InvariantCulture);
+            return (T)(object)double.Parse(str, CultureInfo.InvariantCulture);
         }
         if (typeof(T) == typeof(float))
         {
-            return float.Parse(str, CultureInfo.InvariantCulture);
-        }
-        if (typeof(T) == typeof(byte[]))
-        {
-            return data.ToArray();
+            return (T)(object)float.Parse(str, CultureInfo.InvariantCulture);
         }
         if (typeof(T) == typeof(byte))
         {
-            return byte.Parse(str, CultureInfo.InvariantCulture);
+            return (T)(object)byte.Parse(str, CultureInfo.InvariantCulture);
         }
         if (typeof(T) == typeof(sbyte))
         {
-            return sbyte.Parse(str, CultureInfo.InvariantCulture);
+            return (T)(object)sbyte.Parse(str, CultureInfo.InvariantCulture);
         }
         if (typeof(T) == typeof(short))
         {
-            return short.Parse(str, CultureInfo.InvariantCulture);
+            return (T)(object)short.Parse(str, CultureInfo.InvariantCulture);
         }
         if (typeof(T) == typeof(ushort))
         {
-            return ushort.Parse(str, CultureInfo.InvariantCulture);
+            return (T)(object)ushort.Parse(str, CultureInfo.InvariantCulture);
         }
 
         throw new InvalidOperationException($"Cannot convert character data to type {typeof(T).Name}.");
     }
 
     /// <summary>
-    /// Converts ASCII integer data to the requested type.
+    /// Decodes character data, dropping trailing terminators, NULs and spaces.
     /// </summary>
-    private static object ConvertAsciiInteger<T>(ReadOnlySpan<byte> data)
+    private string DecodeCharacterData(ReadOnlySpan<byte> data)
+    {
+        if (_lexicalLevel >= 2)
+        {
+            return Encoding.Unicode.GetString(data).TrimEnd(CharacterPadding);
+        }
+
+        // In UTF-8 these four characters are single bytes that never occur inside a multi-byte
+        // sequence, so trimming the bytes before decoding matches trimming the decoded string,
+        // and decodes once instead of allocating a second, trimmed string.
+        var end = data.Length;
+        while (end > 0 && data[end - 1] is UnitTerminator or FieldTerminator or 0x00 or (byte)' ')
+        {
+            end--;
+        }
+
+        return Encoding.UTF8.GetString(data[..end]);
+    }
+
+    private static readonly char[] CharacterPadding = ['\x1F', '\x1E', '\0', ' '];
+
+    /// <summary>
+    /// Converts ASCII integer data (I format) to the requested type.
+    /// </summary>
+    private static T ConvertAsciiInteger<T>(ReadOnlySpan<byte> data)
     {
         var str = Encoding.ASCII.GetString(data).Trim();
 
         if (string.IsNullOrEmpty(str))
         {
-            return default(T)!;
+            return default!;
         }
 
         if (typeof(T) == typeof(string))
         {
-            return str;
+            return (T)(object)str;
         }
         if (typeof(T) == typeof(int))
         {
-            return int.Parse(str, CultureInfo.InvariantCulture);
+            return (T)(object)int.Parse(str, CultureInfo.InvariantCulture);
         }
         if (typeof(T) == typeof(uint))
         {
-            return uint.Parse(str, CultureInfo.InvariantCulture);
+            return (T)(object)uint.Parse(str, CultureInfo.InvariantCulture);
         }
         if (typeof(T) == typeof(long))
         {
-            return long.Parse(str, CultureInfo.InvariantCulture);
+            return (T)(object)long.Parse(str, CultureInfo.InvariantCulture);
         }
         if (typeof(T) == typeof(ulong))
         {
-            return ulong.Parse(str, CultureInfo.InvariantCulture);
+            return (T)(object)ulong.Parse(str, CultureInfo.InvariantCulture);
         }
         if (typeof(T) == typeof(short))
         {
-            return short.Parse(str, CultureInfo.InvariantCulture);
+            return (T)(object)short.Parse(str, CultureInfo.InvariantCulture);
         }
         if (typeof(T) == typeof(ushort))
         {
-            return ushort.Parse(str, CultureInfo.InvariantCulture);
+            return (T)(object)ushort.Parse(str, CultureInfo.InvariantCulture);
         }
         if (typeof(T) == typeof(byte))
         {
-            return byte.Parse(str, CultureInfo.InvariantCulture);
+            return (T)(object)byte.Parse(str, CultureInfo.InvariantCulture);
         }
         if (typeof(T) == typeof(sbyte))
         {
-            return sbyte.Parse(str, CultureInfo.InvariantCulture);
+            return (T)(object)sbyte.Parse(str, CultureInfo.InvariantCulture);
         }
         if (typeof(T) == typeof(double))
         {
-            return double.Parse(str, CultureInfo.InvariantCulture);
+            return (T)(object)double.Parse(str, CultureInfo.InvariantCulture);
         }
         if (typeof(T) == typeof(float))
         {
-            return float.Parse(str, CultureInfo.InvariantCulture);
+            return (T)(object)float.Parse(str, CultureInfo.InvariantCulture);
         }
 
         throw new InvalidOperationException($"Cannot convert ASCII integer to type {typeof(T).Name}.");
     }
 
     /// <summary>
-    /// Converts ASCII real number data to the requested type.
+    /// Converts ASCII real data (R format) to the requested type.
     /// </summary>
-    private static object ConvertAsciiReal<T>(ReadOnlySpan<byte> data)
+    private static T ConvertAsciiReal<T>(ReadOnlySpan<byte> data)
     {
         var str = Encoding.ASCII.GetString(data).Trim();
 
         if (string.IsNullOrEmpty(str))
         {
-            return default(T)!;
+            return default!;
         }
 
         if (typeof(T) == typeof(string))
         {
-            return str;
+            return (T)(object)str;
         }
         if (typeof(T) == typeof(double))
         {
-            return double.Parse(str, CultureInfo.InvariantCulture);
+            return (T)(object)double.Parse(str, CultureInfo.InvariantCulture);
         }
         if (typeof(T) == typeof(float))
         {
-            return float.Parse(str, CultureInfo.InvariantCulture);
+            return (T)(object)float.Parse(str, CultureInfo.InvariantCulture);
         }
         if (typeof(T) == typeof(decimal))
         {
-            return decimal.Parse(str, CultureInfo.InvariantCulture);
+            return (T)(object)decimal.Parse(str, CultureInfo.InvariantCulture);
         }
         if (typeof(T) == typeof(int))
         {
-            return (int)double.Parse(str, CultureInfo.InvariantCulture);
+            return (T)(object)(int)double.Parse(str, CultureInfo.InvariantCulture);
         }
         if (typeof(T) == typeof(long))
         {
-            return (long)double.Parse(str, CultureInfo.InvariantCulture);
+            return (T)(object)(long)double.Parse(str, CultureInfo.InvariantCulture);
         }
 
         throw new InvalidOperationException($"Cannot convert ASCII real to type {typeof(T).Name}.");
     }
 
     /// <summary>
-    /// Converts unsigned binary integer data to the requested type.
+    /// Converts unsigned binary data (b1w format) to the requested type.
     /// </summary>
-    private static object ConvertUnsignedBinary<T>(ReadOnlySpan<byte> data, int width)
+    private static T ConvertUnsignedBinary<T>(ReadOnlySpan<byte> data, int width)
     {
         // Use actual data length if shorter than expected width
         int actualWidth = Math.Min(width, data.Length);
-
         ulong value = actualWidth switch
         {
             1 => data[0],
@@ -700,60 +905,59 @@ public sealed class Iso8211FieldReader
 
         if (typeof(T) == typeof(byte))
         {
-            return (byte)value;
+            return (T)(object)(byte)value;
         }
         if (typeof(T) == typeof(ushort))
         {
-            return (ushort)value;
+            return (T)(object)(ushort)value;
         }
         if (typeof(T) == typeof(uint))
         {
-            return (uint)value;
+            return (T)(object)(uint)value;
         }
         if (typeof(T) == typeof(ulong))
         {
-            return value;
+            return (T)(object)value;
         }
         if (typeof(T) == typeof(int))
         {
-            return (int)value;
+            return (T)(object)(int)value;
         }
         if (typeof(T) == typeof(long))
         {
-            return (long)value;
+            return (T)(object)(long)value;
         }
         if (typeof(T) == typeof(short))
         {
-            return (short)value;
+            return (T)(object)(short)value;
         }
         if (typeof(T) == typeof(sbyte))
         {
-            return (sbyte)value;
+            return (T)(object)(sbyte)value;
         }
         if (typeof(T) == typeof(double))
         {
-            return (double)value;
+            return (T)(object)(double)value;
         }
         if (typeof(T) == typeof(float))
         {
-            return (float)value;
+            return (T)(object)(float)value;
         }
         if (typeof(T) == typeof(string))
         {
-            return value.ToString(CultureInfo.InvariantCulture);
+            return (T)(object)value.ToString(CultureInfo.InvariantCulture);
         }
 
         throw new InvalidOperationException($"Cannot convert unsigned binary to type {typeof(T).Name}.");
     }
 
     /// <summary>
-    /// Converts signed binary integer data to the requested type.
+    /// Converts signed binary data (b2w format) to the requested type.
     /// </summary>
-    private static object ConvertSignedBinary<T>(ReadOnlySpan<byte> data, int width)
+    private static T ConvertSignedBinary<T>(ReadOnlySpan<byte> data, int width)
     {
         // Use actual data length if shorter than expected width
         int actualWidth = Math.Min(width, data.Length);
-
         long value = actualWidth switch
         {
             1 => (sbyte)data[0],
@@ -765,59 +969,58 @@ public sealed class Iso8211FieldReader
 
         if (typeof(T) == typeof(sbyte))
         {
-            return (sbyte)value;
+            return (T)(object)(sbyte)value;
         }
         if (typeof(T) == typeof(short))
         {
-            return (short)value;
+            return (T)(object)(short)value;
         }
         if (typeof(T) == typeof(int))
         {
-            return (int)value;
+            return (T)(object)(int)value;
         }
         if (typeof(T) == typeof(long))
         {
-            return value;
+            return (T)(object)value;
         }
         if (typeof(T) == typeof(byte))
         {
-            return (byte)value;
+            return (T)(object)(byte)value;
         }
         if (typeof(T) == typeof(ushort))
         {
-            return (ushort)value;
+            return (T)(object)(ushort)value;
         }
         if (typeof(T) == typeof(uint))
         {
-            return (uint)value;
+            return (T)(object)(uint)value;
         }
         if (typeof(T) == typeof(ulong))
         {
-            return (ulong)value;
+            return (T)(object)(ulong)value;
         }
         if (typeof(T) == typeof(double))
         {
-            return (double)value;
+            return (T)(object)(double)value;
         }
         if (typeof(T) == typeof(float))
         {
-            return (float)value;
+            return (T)(object)(float)value;
         }
         if (typeof(T) == typeof(string))
         {
-            return value.ToString(CultureInfo.InvariantCulture);
+            return (T)(object)value.ToString(CultureInfo.InvariantCulture);
         }
 
         throw new InvalidOperationException($"Cannot convert signed binary to type {typeof(T).Name}.");
     }
 
     /// <summary>
-    /// Converts floating-point binary data (ISO 8211 <c>b4x</c>/<c>b5x</c>, IEEE 754) to the requested type.
+    /// Converts floating-point binary data (b4w format) to the requested type.
     /// </summary>
-    private static object ConvertFloatingBinary<T>(ReadOnlySpan<byte> data, int width)
+    private static T ConvertFloatingBinary<T>(ReadOnlySpan<byte> data, int width)
     {
         int actualWidth = Math.Min(width, data.Length);
-
         double value = actualWidth switch
         {
             4 => BinaryPrimitives.ReadSingleLittleEndian(data),
@@ -828,49 +1031,46 @@ public sealed class Iso8211FieldReader
 
         if (typeof(T) == typeof(double))
         {
-            return value;
+            return (T)(object)value;
         }
         if (typeof(T) == typeof(float))
         {
-            return (float)value;
+            return (T)(object)(float)value;
         }
         if (typeof(T) == typeof(decimal))
         {
-            return (decimal)value;
+            return (T)(object)(decimal)value;
         }
         if (typeof(T) == typeof(int))
         {
-            return (int)value;
+            return (T)(object)(int)value;
         }
         if (typeof(T) == typeof(long))
         {
-            return (long)value;
+            return (T)(object)(long)value;
         }
         if (typeof(T) == typeof(string))
         {
-            return value.ToString(CultureInfo.InvariantCulture);
+            return (T)(object)value.ToString(CultureInfo.InvariantCulture);
         }
 
         throw new InvalidOperationException($"Cannot convert floating-point binary to type {typeof(T).Name}.");
     }
 
     /// <summary>
-    /// Converts bit string data (ISO 8211 <c>B(n)</c> format) to the requested type.
+    /// Converts bit string data (B(n) format) to the requested type.
     /// </summary>
-    /// <remarks>
-    /// Bit strings are fixed-width binary data. They can be returned as <c>byte[]</c>
-    /// for raw access, or as integer types when the width matches.
-    /// </remarks>
-    private static object ConvertBitString<T>(ReadOnlySpan<byte> data)
+    private static T ConvertBitString<T>(ReadOnlySpan<byte> data)
     {
         if (typeof(T) == typeof(byte[]))
         {
-            return data.ToArray();
+            return (T)(object)data.ToArray();
         }
+
         if (typeof(T) == typeof(string))
         {
             // Return hex representation
-            return Convert.ToHexString(data);
+            return (T)(object)Convert.ToHexString(data);
         }
 
         // For integer types, delegate to unsigned binary conversion
@@ -878,7 +1078,7 @@ public sealed class Iso8211FieldReader
     }
 
     /// <summary>
-    /// Reads an unsigned integer with a non-standard width.
+    /// Reads an unsigned little-endian integer of arbitrary width.
     /// </summary>
     private static ulong ReadUnsignedLittleEndian(ReadOnlySpan<byte> data, int width)
     {
@@ -891,7 +1091,7 @@ public sealed class Iso8211FieldReader
     }
 
     /// <summary>
-    /// Reads a signed integer with a non-standard width.
+    /// Reads a signed little-endian integer of arbitrary width.
     /// </summary>
     private static long ReadSignedLittleEndian(ReadOnlySpan<byte> data, int width)
     {
@@ -910,28 +1110,7 @@ public sealed class Iso8211FieldReader
     }
 
     /// <summary>
-    /// Represents a parsed subfield with its location in the field data.
+    /// The position of one subfield instance within the field data.
     /// </summary>
-    private readonly struct ParsedSubfield
-    {
-        /// <summary>
-        /// The index of the subfield definition this parsed subfield corresponds to.
-        /// </summary>
-        public int DefinitionIndex { get; init; }
-
-        /// <summary>
-        /// The byte offset of this subfield within the field data.
-        /// </summary>
-        public int Offset { get; init; }
-
-        /// <summary>
-        /// The length of this subfield's data in bytes.
-        /// </summary>
-        public int Length { get; init; }
-
-        /// <summary>
-        /// The group index for repeating subfields.
-        /// </summary>
-        public int GroupIndex { get; init; }
-    }
+    private readonly record struct ParsedSubfield(int DefinitionIndex, int Offset, int Length);
 }

@@ -43,17 +43,7 @@ public sealed class Iso8211SubfieldGroup
     /// </exception>
     public T GetSubfield<T>(string name)
     {
-        var subfieldDef = _reader.FieldDefinition.GetSubfieldDefinition(name);
-        if (subfieldDef is null)
-        {
-            throw new KeyNotFoundException($"Subfield '{name}' not found in field definition.");
-        }
-
-        var groupSubfieldIndex = subfieldDef.Index;
-        if (_reader.FieldDefinition.HasRepeatingGroup)
-        {
-            groupSubfieldIndex = subfieldDef.Index - _reader.FieldDefinition.RepeatingSubfieldStartIndex;
-        }
+        var groupSubfieldIndex = GetGroupSubfieldIndex(name);
 
         if (groupSubfieldIndex >= 0 && groupSubfieldIndex < _length)
         {
@@ -73,17 +63,7 @@ public sealed class Iso8211SubfieldGroup
     /// </exception>
     public ReadOnlySpan<byte> GetSubfieldBytes(string name)
     {
-        var subfieldDef = _reader.FieldDefinition.GetSubfieldDefinition(name);
-        if (subfieldDef is null)
-        {
-            throw new KeyNotFoundException($"Subfield '{name}' not found in field definition.");
-        }
-
-        var groupSubfieldIndex = subfieldDef.Index;
-        if (_reader.FieldDefinition.HasRepeatingGroup)
-        {
-            groupSubfieldIndex = subfieldDef.Index - _reader.FieldDefinition.RepeatingSubfieldStartIndex;
-        }
+        var groupSubfieldIndex = GetGroupSubfieldIndex(name);
 
         if (groupSubfieldIndex >= 0 && groupSubfieldIndex < _length)
         {
@@ -91,6 +71,22 @@ public sealed class Iso8211SubfieldGroup
         }
 
         throw new KeyNotFoundException($"Subfield '{name}' not found in group {_groupIndex}.");
+    }
+
+    /// <summary>
+    /// Gets a named subfield's position within a repetition of the group.
+    /// </summary>
+    private int GetGroupSubfieldIndex(string name)
+    {
+        var ordinal = _reader.IndexOfSubfield(name);
+        if (ordinal < 0)
+        {
+            throw new KeyNotFoundException($"Subfield '{name}' not found in field definition.");
+        }
+
+        return _reader.FieldDefinition.HasRepeatingGroup
+            ? ordinal - _reader.FieldDefinition.RepeatingSubfieldStartIndex
+            : ordinal;
     }
 
     /// <summary>
