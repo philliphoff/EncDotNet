@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- Allocation counts depend on how the JIT compiled the code: tiered compilation
+         recompiles hot methods with dynamic PGO while the tests run, and the optimized
+         code stack-allocates some objects the first tier didn't. Compiling every method
+         fully optimized up front makes the counts the same on every run. -->
+    <TieredCompilation>false</TieredCompilation>
+    <!-- Workstation, non-concurrent GC keeps heap measurements free of background work. -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\EncDotNet.Iso8211\EncDotNet.Iso8211.csproj" />
+    <ProjectReference Include="..\..\src\EncDotNet.S57\EncDotNet.S57.csproj" />
+  </ItemGroup>
+
+</Project>

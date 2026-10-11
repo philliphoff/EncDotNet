@@ -43,7 +43,9 @@ src/
   EncDotNet.ChartViewer/  # Legacy Avalonia + Mapsui viewer (maintenance only)
 tests/
   EncDotNet.UnitTests/    # xUnit tests for the libraries and viewer geometry builders
-  EncDotNet.Benchmarks/   # BenchmarkDotNet parsing benchmarks
+  EncDotNet.Benchmarks/   # BenchmarkDotNet benchmarks (informational; compared on PRs)
+  EncDotNet.PerformanceTests/ # Allocation and retained-memory budgets (gate)
+  Shared/                 # Deterministic synthetic S-57 cells for both
 scripts/                  # File-based C# scripts (`dotnet run scripts/X.cs`)
 standards/                # IHO and ISO reference documents (md + pdf)
 docs/                     # DocFX conceptual docs

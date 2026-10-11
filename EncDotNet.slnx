@@ -12,6 +12,7 @@
     <Project Path="src/EncDotNet.Noaa/EncDotNet.Noaa.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/EncDotNet.PerformanceTests/EncDotNet.PerformanceTests.csproj" />
     <Project Path="tests/EncDotNet.UnitTests/EncDotNet.UnitTests.csproj" />
   </Folder>
   <Folder Name="/benchmarks/">

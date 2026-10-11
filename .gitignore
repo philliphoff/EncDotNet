@@ -484,6 +484,7 @@ $RECYCLE.BIN/
 # Catalog files
 .catalog/
 .expanded/
+.benchmark-cells/
 
 # DocFX output
 /_site/
