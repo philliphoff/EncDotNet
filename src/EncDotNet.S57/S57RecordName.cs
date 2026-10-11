@@ -59,6 +59,15 @@ public readonly record struct S57RecordName
         };
     }
 
+    /// <summary>
+    /// Gets the feature's long name (AGEN, FIDN, FIDS), or <c>null</c> when the record has none,
+    /// such as a vector record or a feature record without a FOID field.
+    /// </summary>
+    public S57LongName? LongName =>
+        AgencyCode == 0 && FeatureId == 0 && FeatureSubdivision == 0
+            ? null
+            : new S57LongName((ushort)AgencyCode, unchecked((uint)FeatureId), (ushort)FeatureSubdivision);
+
     /// <inheritdoc/>
     public override string ToString()
     {

@@ -8,6 +8,12 @@ public abstract record S57TypedFeature
     /// <summary>Gets the record name that uniquely identifies this feature.</summary>
     public S57RecordName RecordName { get; }
 
+    /// <summary>
+    /// Gets the feature's long name (LNAM), which other features' <see cref="RelatedFeatures"/>
+    /// pointers use to refer to it, or <c>null</c> when the feature has none.
+    /// </summary>
+    public S57LongName? LongName => RecordName.LongName;
+
     /// <summary>Gets the object code (OBJL) identifying the feature type.</summary>
     public S57ObjectCode ObjectCode { get; }
 

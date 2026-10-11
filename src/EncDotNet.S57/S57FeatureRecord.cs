@@ -8,6 +8,12 @@ public sealed record S57FeatureRecord
     /// <summary>Gets the record name.</summary>
     public S57RecordName RecordName { get; init; }
 
+    /// <summary>
+    /// Gets the feature's long name (LNAM) from its FOID field, which feature pointers use to
+    /// refer to it, or <c>null</c> when the record has no FOID field.
+    /// </summary>
+    public S57LongName? LongName => RecordName.LongName;
+
     /// <summary>Gets the object geometric primitive (PRIM).</summary>
     public S57GeometricPrimitive Primitive { get; init; }
 

@@ -26,10 +26,10 @@ internal static class PerformanceBudgets
     public const long Iso8211DocumentWriterWrite = 2_318_456;
     public const long S57DocumentReaderRead = 3_713_184;
     public const long S57DocumentApplyChanges = 685_440;
-    public const long S57ChartFromDocument = 1_030_312;
+    public const long S57ChartFromDocument = 1_063_752;
 
     // Retained bytes held by the resulting model.
     public const long Iso8211DocumentRetained = 2_048_712;
     public const long S57DocumentRetained = 1_194_928;
-    public const long S57ChartRetained = 1_145_696;
+    public const long S57ChartRetained = 1_178_960;
 }

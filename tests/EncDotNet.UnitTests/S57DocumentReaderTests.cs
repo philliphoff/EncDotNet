@@ -378,7 +378,8 @@ public class S57DocumentReaderTests
         S57SpatialPointer[]? spatialPointers = null,
         S57FieldUpdateControl? spatialPointerControl = null,
         S57FeaturePointer[]? featurePointers = null,
-        S57FieldUpdateControl? featurePointerControl = null)
+        S57FieldUpdateControl? featurePointerControl = null,
+        S57LongName? longName = null)
     {
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms);
@@ -400,6 +401,18 @@ public class S57DocumentReaderTests
         {
             ("FRID", fridData)
         };
+
+        // Add FOID field if a long name is provided
+        if (longName is { } lnam)
+        {
+            using var foidMs = new MemoryStream();
+            using var foidWriter = new BinaryWriter(foidMs);
+            foidWriter.Write(lnam.AgencyCode);
+            foidWriter.Write(lnam.FeatureId);
+            foidWriter.Write(lnam.FeatureSubdivision);
+            foidWriter.Write((byte)0x1E);
+            fields.Add(("FOID", foidMs.ToArray()));
+        }
 
         // Add ATTF field if attributes provided
         if (attributes != null && attributes.Length > 0)
@@ -1145,6 +1158,53 @@ public class S57DocumentReaderTests
         Assert.NotNull(result);
         Assert.Equal(2, result.RecordName.RecordId);
         Assert.Equal(S57ObjectCode.WRECKS, result.ObjectCode);
+    }
+
+    [Fact]
+    public void Read_FeatureWithFeaturePointers_ParsesLongNames()
+    {
+        var featureRecord = CreateFeatureRecord(
+            rcid: 1,
+            longName: new S57LongName(550, 1001, 1),
+            featurePointers:
+            [
+                new S57FeaturePointer
+                {
+                    Name = new S57LongName(550, 4_000_000_000, 2),
+                    Relationship = S57RelationshipIndicator.Slave,
+                    Comment = "",
+                },
+            ]);
+        var document = S57DocumentReader.Read(CreateS57Document(featureRecord));
+
+        var feature = Assert.Single(document.FeatureRecords);
+        Assert.Equal(new S57LongName(550, 1001, 1), feature.LongName);
+        var pointer = Assert.Single(feature.FeaturePointers);
+        Assert.Equal(new S57LongName(550, 4_000_000_000, 2), pointer.Name);
+        Assert.Equal(S57RelationshipIndicator.Slave, pointer.Relationship);
+    }
+
+    [Fact]
+    public void GetFeatureRecord_ByLongName_ReturnsMatchingRecord()
+    {
+        var data = CreateS57Document(
+            CreateFeatureRecord(rcid: 1, objl: 75, longName: new S57LongName(550, 1, 1)),
+            CreateFeatureRecord(rcid: 2, objl: 159, longName: new S57LongName(550, 2, 1)));
+        var document = S57DocumentReader.Read(data);
+
+        var result = document.GetFeatureRecord(new S57LongName(550, 2, 1));
+
+        Assert.NotNull(result);
+        Assert.Equal(2, result.RecordName.RecordId);
+        Assert.Null(document.GetFeatureRecord(new S57LongName(550, 3, 1)));
+    }
+
+    [Fact]
+    public void Read_FeatureWithoutFoid_HasNoLongName()
+    {
+        var document = S57DocumentReader.Read(CreateS57Document(CreateFeatureRecord(rcid: 1)));
+
+        Assert.Null(Assert.Single(document.FeatureRecords).LongName);
     }
 
     [Fact]

@@ -881,6 +881,32 @@ public class S57ChartTests
     }
 
     [Fact]
+    public void GetFeature_ByPointerName_ResolvesTargetAndReferencingFeatures()
+    {
+        var master = new S57LongName(550, 1, 1);
+        var slave = new S57LongName(550, 2, 1);
+        var masterRecord = CreateFeatureRecord(1, S57GeometricPrimitive.Point, S57ObjectCode.BCNLAT,
+            featurePointers: [new S57FeaturePointer { Name = slave, Relationship = S57RelationshipIndicator.Master, Comment = "" }]);
+        masterRecord = masterRecord with { RecordName = masterRecord.RecordName with { AgencyCode = 550, FeatureId = 1, FeatureSubdivision = 1 } };
+        var slaveRecord = CreateFeatureRecord(2, S57GeometricPrimitive.Point, S57ObjectCode.LIGHTS);
+        slaveRecord = slaveRecord with { RecordName = slaveRecord.RecordName with { AgencyCode = 550, FeatureId = 2, FeatureSubdivision = 1 } };
+        var withoutFoid = CreateFeatureRecord(3, S57GeometricPrimitive.Point, S57ObjectCode.LIGHTS);
+        var chart = S57Chart.FromDocument(CreateDocument(features: [masterRecord, slaveRecord, withoutFoid]));
+
+        var pointer = Assert.Single(chart.GetFeature(master)!.RelatedFeatures);
+        var target = chart.GetFeature(pointer.Name);
+
+        Assert.NotNull(target);
+        Assert.Equal(2, target.RecordName.RecordId);
+        Assert.Equal(slave, target.LongName);
+        Assert.Equal(1, Assert.Single(chart.GetReferencingFeatures(slave)).RecordName.RecordId);
+        Assert.Empty(chart.GetReferencingFeatures(master));
+        Assert.Null(chart.GetFeature(new S57LongName(550, 3, 1)));
+        Assert.Equal(2, chart.FeaturesByLongName.Count);
+        Assert.Equal(3, chart.AllFeatures.Count);
+    }
+
+    [Fact]
     public void MetaFeature_WithRelatedFeatures_PreservesRelationships()
     {
         // Arrange
@@ -888,7 +914,7 @@ public class S57ChartTests
         {
             new S57FeaturePointer
             {
-                Name = S57RecordName.FromRcnmRcid(S57RecordNameCodes.Feature, 10),
+                Name = new S57LongName(550, 10, 1),
                 Relationship = S57RelationshipIndicator.Master,
                 Comment = "Test"
             }
@@ -903,7 +929,7 @@ public class S57ChartTests
         var metaFeature = chart.MetaFeatures[0];
         Assert.True(metaFeature.HasRelatedFeatures);
         Assert.Single(metaFeature.RelatedFeatures);
-        Assert.Equal(10, metaFeature.RelatedFeatures[0].Name.RecordId);
+        Assert.Equal(10u, metaFeature.RelatedFeatures[0].Name.FeatureId);
         Assert.Equal(S57RelationshipIndicator.Master, metaFeature.RelatedFeatures[0].Relationship);
     }
 

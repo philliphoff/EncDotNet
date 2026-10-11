@@ -875,9 +875,9 @@ public static class S57DocumentReader
     }
 
     /// <summary>
-    /// Decomposes a LNAM composite subfield (8 bytes: AGEN(2) + FIDN(4) + FIDS(2)) into an S57RecordName.
+    /// Decomposes a LNAM composite subfield (8 bytes: AGEN(2) + FIDN(4) + FIDS(2)) into an S57LongName.
     /// </summary>
-    private static S57RecordName DecomposeLongNameField(ReadOnlySpan<byte> data)
+    private static S57LongName DecomposeLongNameField(ReadOnlySpan<byte> data)
     {
         if (data.Length < 8)
         {
@@ -887,7 +887,7 @@ public static class S57DocumentReader
         var agen = BinaryPrimitives.ReadUInt16LittleEndian(data.Slice(0, 2));
         var fidn = BinaryPrimitives.ReadUInt32LittleEndian(data.Slice(2, 4));
         var fids = BinaryPrimitives.ReadUInt16LittleEndian(data.Slice(6, 2));
-        return S57RecordName.FromLongName(agen, (int)fidn, fids);
+        return new S57LongName(agen, fidn, fids);
     }
 
     /// <summary>

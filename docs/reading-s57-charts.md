@@ -126,6 +126,28 @@ for cells without full topology, their exterior and interior edges
 [Architecture](architecture.md) page explains how features, edges, nodes and
 faces relate.
 
+### Follow relationships between features
+
+Features refer to other features, such as a beacon to the lights on it, with
+feature pointers (the FFPT field). A pointer names its target by long name
+(`S57LongName`: agency, feature ID and subdivision), the identifier a feature
+keeps across editions and updates. `GetFeature` finds the target, and
+`GetReferencingFeatures` finds the features that point to a given one:
+
+```csharp
+foreach (S57TypedFeature feature in chart.AllFeatures.Values)
+{
+    foreach (S57FeaturePointer pointer in feature.RelatedFeatures)
+    {
+        S57TypedFeature? related = chart.GetFeature(pointer.Name);
+        Console.WriteLine($"{feature.ObjectCode} -> {related?.ObjectCode} ({pointer.Relationship})");
+    }
+}
+```
+
+`S57Document.GetFeatureRecord(S57LongName)` does the same on a document
+without building a chart, but searches every record on each call.
+
 ## Apply update cells
 
 A base cell (`.000`) is followed by update cells (`.001`, `.002`, and so on)
