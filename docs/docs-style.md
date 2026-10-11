@@ -2,7 +2,13 @@
 
 This guide covers how to write the EncDotNet developer documentation: the
 pages under `docs/`, the per-package `README.md` files under `src/`, and the
-repository `README.md`. It follows the
+repository `README.md`.
+
+The user-facing pages and package READMEs are also published in the
+[soundcharts.app documentation](https://soundcharts.app/docs/), built together
+with EncDotNet.S100's: the pages under `docs/s57/` and the READMEs under
+**Packages**. The contributor pages (this guide, the C# coding style guide and
+`CONTRIBUTING.md`) are published only on this repository's own site. It follows the
 [EncDotNet.S100 documentation style guide](https://github.com/philliphoff/EncDotNet.S100/blob/main/docs/docs-style.md),
 so pages from both repositories read the same way when they're published
 together.
@@ -170,7 +176,11 @@ Define an S-57 acronym on first use on a page, or link it to the
   source files, scripts, `LICENSE` and folders. Relative links to them break
   when the pages are published inside another site.
 - Use `<xref:...>` (for example `<xref:EncDotNet.S57.S57Document>`) to link to
-  an API page.
+  an API page, and `[text](xref:EncDotNet.S57)` for a namespace. Don't link to
+  `api/index.md`; the combined site has its own.
+- Don't link from a user-facing page or package README to a contributor page
+  (`docs-style.md`, `coding-style.md`, `CONTRIBUTING.md`) with a relative
+  link. Those pages aren't in the combined site, so use an absolute GitHub URL.
 - Make link text say where the link goes: "see [Reading S-57
   charts](reading-s57-charts.md)", not "see [here](reading-s57-charts.md)".
 - Link to a page's own topic once, where the reader needs it. Don't repeat the

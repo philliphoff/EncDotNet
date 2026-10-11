@@ -36,10 +36,11 @@ in a new console app.
 - [S-57 glossary](glossary.md): the field and record acronyms used in the API.
 - [Versioning and compatibility](versioning.md): what counts as public API,
   and how breaking changes are caught.
-- [API reference](../api/index.md): every public type and member.
+- [API reference](xref:EncDotNet.S57): every public type and member, starting
+  from the `EncDotNet.S57` namespace.
 
 ## Contributing
 
-- [How to contribute](../CONTRIBUTING.md)
-- [C# coding style](coding-style.md)
-- [Documentation style](docs-style.md)
+[CONTRIBUTING.md](https://github.com/philliphoff/EncDotNet/blob/main/CONTRIBUTING.md)
+covers building, testing and submitting changes, and links to the C# coding
+and documentation style guides.

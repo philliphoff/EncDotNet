@@ -37,7 +37,10 @@ When unsure, match them.
    - Standard terms and section numbers: `standards/md/`.
 3. **Check inbound links before renaming or removing anything.** Search the
    repository for the file name and `#anchor`, including `README.md`,
-   `index.md`, `docs/toc.yml` and `src/toc.yml`.
+   `index.md`, `docs/toc.yml` and `src/toc.yml`. The user-facing pages are
+   also built into the soundcharts.app docs by EncDotNet.S100, whose
+   `docfx.json`, `docs/toc.yml` and `src/toc.yml` list them by file name; a
+   rename or a new page needs a matching change there.
 4. **Write**, following the style guide. Prefer linking to an existing page
    over restating it.
 5. **Compile the examples.** Paste each C# block into a scratch console
