@@ -9,7 +9,7 @@
     <Authors>Phillip Hoff</Authors>
     <Description>Libraries for reading, parsing, and rendering IHO S-57 Electronic Navigational Charts.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/philliphoff/EncDotNet</PackageProjectUrl>
+    <PackageProjectUrl>https://soundcharts.app/docs/s57/</PackageProjectUrl>
     <RepositoryUrl>https://github.com/philliphoff/EncDotNet</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <!-- Ship XML documentation in every package so consumers get IntelliSense,
@@ -25,7 +25,7 @@
        it's published, so APIs added in it are protected too. -->
   <PropertyGroup Condition="'$(IsPackable)' != 'false'">
     <EnablePackageValidation>true</EnablePackageValidation>
-    <PackageValidationBaselineVersion>0.7.0</PackageValidationBaselineVersion>
+    <PackageValidationBaselineVersion>0.7.2</PackageValidationBaselineVersion>
   </PropertyGroup>
 
   <!-- Local and pull request builds carry the 0.0.0-dev placeholder version,
