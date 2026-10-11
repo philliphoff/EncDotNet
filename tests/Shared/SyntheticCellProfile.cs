@@ -6,7 +6,10 @@ namespace EncDotNet.Testing;
 /// <remarks>
 /// The built-in profiles are calibrated against real NOAA cells: record counts, the
 /// distribution of edge lengths, attributes per feature and spatial pointers per feature
-/// follow the measured averages of the cell named in each profile's remarks.
+/// follow the measured averages of the cell named in each profile's summary. Those were
+/// earlier editions; NOAA has since re-schemed its coverage into smaller cells (edition 36
+/// of US4MD81M is about 320 KB), so the larger profiles now stand for the bigger cells an
+/// application may still meet rather than for a typical current one.
 /// </remarks>
 /// <param name="Name">The profile name, used in the generated data set name and in benchmark output.</param>
 /// <param name="Seed">The seed for the generator; the same profile always yields the same bytes.</param>
@@ -35,7 +38,7 @@ public sealed record SyntheticCellProfile(
     int AreaFeatures)
 {
     /// <summary>
-    /// A harbour-scale cell shaped like NOAA US5WA50M (about 400 KB).
+    /// A harbour-scale cell shaped like an earlier edition of NOAA US5WA50M (about 400 KB).
     /// </summary>
     public static SyntheticCellProfile Harbour { get; } = new(
         Name: "Harbour",
@@ -52,7 +55,7 @@ public sealed record SyntheticCellProfile(
         AreaFeatures: 211);
 
     /// <summary>
-    /// An approach-scale cell shaped like NOAA US4MD81M (about 3.5 MB).
+    /// An approach-scale cell shaped like an earlier edition of NOAA US4MD81M (about 3.5 MB).
     /// </summary>
     public static SyntheticCellProfile Approach { get; } = new(
         Name: "Approach",

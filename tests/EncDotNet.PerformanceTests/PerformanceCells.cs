@@ -13,7 +13,7 @@ internal static class PerformanceCells
     private static readonly Lazy<Inputs> LazyHarbourX4 = new(() => new Inputs(SyntheticCellProfile.Harbour.Scale(4)));
 
     /// <summary>
-    /// Gets the harbour-scale cell, shaped like NOAA US5WA50M.
+    /// Gets the harbour-scale cell, shaped like an earlier edition of NOAA US5WA50M.
     /// </summary>
     public static Inputs Harbour => LazyHarbour.Value;
 
