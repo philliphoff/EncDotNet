@@ -104,6 +104,37 @@ subfields it lacks.
 Character data is read as UTF-8 by default. Pass `lexicalLevel: 2` to the
 `Iso8211FieldReader` constructor for fields encoded as UCS-2 (UTF-16LE).
 
+## Read a large file record by record
+
+`Iso8211DocumentReader.EnumerateRecords` returns one record at a time instead
+of building the whole document, so memory use doesn't grow with the size of the
+file. Each record can be released once you have processed it:
+
+```csharp
+using EncDotNet.Iso8211;
+
+byte[] data = File.ReadAllBytes("path/to/file.000");
+Iso8211DataDescriptiveRecord? ddr = null;
+int fieldCount = 0;
+
+foreach (Iso8211Record record in Iso8211DocumentReader.EnumerateRecords(data))
+{
+    if (record.IsDataDescriptiveRecord)
+    {
+        ddr = Iso8211DataDescriptiveRecordReader.Read(record);
+        continue;
+    }
+
+    fieldCount += record.Fields.Count;
+}
+```
+
+Each field's `Data` is a `ReadOnlyMemory<byte>` slice of the data read, not a
+copy. `EnumerateRecords` and `Read(ReadOnlyMemory<byte>)` slice the memory you
+pass, so don't modify it while you use the records. The overloads that take a
+`byte[]`, a span, a file or a stream read from a private copy, so you can reuse
+your buffer straight away.
+
 ## Scan a file token by token
 
 `Iso8211Reader` works like `System.Text.Json.Utf8JsonReader`: call `Read()`

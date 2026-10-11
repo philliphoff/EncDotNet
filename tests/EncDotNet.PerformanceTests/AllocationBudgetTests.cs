@@ -43,6 +43,24 @@ public class AllocationBudgetTests
     }
 
     [Fact]
+    public void Iso8211DocumentReader_EnumerateRecords_StaysWithinBudget()
+    {
+        // Streaming reads the caller's memory in place and keeps no document.
+        ReadOnlyMemory<byte> bytes = Cell.Bytes;
+
+        var allocated = MemoryMeter.AllocatedBytes(() =>
+        {
+            foreach (var record in Iso8211DocumentReader.EnumerateRecords(bytes))
+            {
+                _ = record.Fields.Count;
+            }
+        });
+
+        PerformanceBudget.AssertAllocated(
+            "Iso8211DocumentReader.EnumerateRecords", allocated, PerformanceBudgets.Iso8211DocumentReaderEnumerateRecords);
+    }
+
+    [Fact]
     public void Iso8211DataDescriptiveRecordReader_Read_StaysWithinBudget()
     {
         var ddr = Cell.Iso8211Document.DataDescriptiveRecord!;

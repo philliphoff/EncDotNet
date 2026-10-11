@@ -89,6 +89,26 @@ public sealed class Iso8211FieldReader
     {
     }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="Iso8211FieldReader"/> class.
+    /// </summary>
+    /// <param name="fieldDefinition">The field definition from the DDR describing this field's structure.</param>
+    /// <param name="data">
+    /// The raw field data to read, such as an <see cref="Iso8211Field.Data"/>. The reader reads it in
+    /// place, without copying it.
+    /// </param>
+    /// <param name="lexicalLevel">
+    /// The lexical level for character data (0 or 1 = ASCII/ISO 8859, 2 = UCS-2/UTF-16LE).
+    /// When set to 2, variable-length character subfields use 2-byte terminators (0x1F 0x00 / 0x1E 0x00).
+    /// </param>
+    /// <exception cref="ArgumentNullException">
+    /// Thrown when <paramref name="fieldDefinition"/> is <c>null</c>.
+    /// </exception>
+    public Iso8211FieldReader(Iso8211FieldDefinition fieldDefinition, ReadOnlyMemory<byte> data, int lexicalLevel = 0)
+        : this(fieldDefinition ?? throw new ArgumentNullException(nameof(fieldDefinition)), data, lexicalLevel, validated: true)
+    {
+    }
+
     private Iso8211FieldReader(Iso8211FieldDefinition fieldDefinition, ReadOnlyMemory<byte> data, int lexicalLevel, bool validated)
     {
         _ = validated;

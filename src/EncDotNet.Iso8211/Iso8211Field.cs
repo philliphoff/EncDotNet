@@ -13,9 +13,15 @@ public sealed record Iso8211Field
     public string Tag { get; init; } = string.Empty;
 
     /// <summary>
-    /// Gets the raw field data.
+    /// Gets the raw field data, without the field terminator.
     /// </summary>
-    public byte[] Data { get; init; } = Array.Empty<byte>();
+    /// <remarks>
+    /// Fields read by <see cref="Iso8211DocumentReader"/> are slices of the data it read, not
+    /// copies. Whether that data is shared with the caller depends on the read method: see
+    /// <see cref="Iso8211DocumentReader.Read(ReadOnlyMemory{byte})"/>. A <see cref="byte"/> array
+    /// converts implicitly when you build a field.
+    /// </remarks>
+    public ReadOnlyMemory<byte> Data { get; init; }
 
     /// <summary>
     /// Gets the field data as a string using the specified encoding.
@@ -25,6 +31,6 @@ public sealed record Iso8211Field
     public string GetDataString(Encoding? encoding = null)
     {
         encoding ??= Encoding.ASCII;
-        return encoding.GetString(Data).TrimEnd('\x1f', '\x1e');
+        return encoding.GetString(Data.Span).TrimEnd('\x1f', '\x1e');
     }
 }

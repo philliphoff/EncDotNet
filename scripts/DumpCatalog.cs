@@ -105,7 +105,7 @@ for (int r = 0; r < iso8211Doc.Records.Count; r++)
         }
 
         // Hex dump
-        DumpHex(field.Data, "│  │  ");
+        DumpHex(field.Data.Span, "│  │  ");
 
         Console.WriteLine("│  └────────────────────────────────────────────────────");
     }
@@ -205,7 +205,7 @@ Console.WriteLine();
 // Helper: Hex dump
 // ============================================================================
 
-static void DumpHex(byte[] data, string linePrefix)
+static void DumpHex(ReadOnlySpan<byte> data, string linePrefix)
 {
     const int bytesPerLine = 16;
     int maxBytes = Math.Min(data.Length, 256);
