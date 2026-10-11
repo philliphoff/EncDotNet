@@ -559,11 +559,11 @@ internal static class S57LayerTemplates
         int fathoms = wholeFeet / 6;
         int remainingFeet = wholeFeet % 6;
 
-        const string SubscriptDigits = "₀₁₂₃₄₅";
+        const string subscriptDigits = "₀₁₂₃₄₅";
 
         return remainingFeet == 0
             ? fathoms.ToString()
-            : $"{fathoms}{SubscriptDigits[remainingFeet]}";
+            : $"{fathoms}{subscriptDigits[remainingFeet]}";
     }
 
     // --- Buoy icon selection ---

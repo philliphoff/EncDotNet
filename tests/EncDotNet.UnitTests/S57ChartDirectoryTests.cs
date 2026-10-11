@@ -3,7 +3,7 @@ using System.Text;
 using EncDotNet.S57;
 using EncDotNet.S57.ExchangeSets;
 
-namespace EndDotNet.UnitTests;
+namespace EncDotNet.UnitTests;
 
 /// <summary>
 /// Unit tests for <see cref="S57ExchangeSet.ReadChart"/> and
@@ -483,7 +483,7 @@ public class S57ExchangeSetChartTests : IDisposable
         WriteChartFile("US5WA51M", ".001", updateData);
 
         // Act
-        var chart = await CreateExchangeSet().ReadChartAsync(_tempDir);
+        var chart = await CreateExchangeSet().ReadChartAsync(_tempDir, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Single(chart.AreaFeatures);
@@ -496,7 +496,7 @@ public class S57ExchangeSetChartTests : IDisposable
     public async Task ReadChartAsync_NoBaseFile_ThrowsFileNotFoundException()
     {
         await Assert.ThrowsAsync<FileNotFoundException>(
-            () => CreateExchangeSet().ReadChartAsync(_tempDir));
+            () => CreateExchangeSet().ReadChartAsync(_tempDir, cancellationToken: TestContext.Current.CancellationToken));
     }
 
     [Fact]

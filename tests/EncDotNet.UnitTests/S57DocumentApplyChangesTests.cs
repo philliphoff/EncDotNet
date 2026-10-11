@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
 using EncDotNet.S57;
 
-namespace EndDotNet.UnitTests;
+namespace EncDotNet.UnitTests;
 
 /// <summary>
 /// Unit tests for <see cref="S57Document.ApplyChanges"/>.

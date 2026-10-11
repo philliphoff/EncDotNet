@@ -1,7 +1,7 @@
 using System.Text;
 using EncDotNet.S57.ExchangeSets;
 
-namespace EndDotNet.UnitTests;
+namespace EncDotNet.UnitTests;
 
 /// <summary>
 /// Unit tests for <see cref="S57ExchangeSetVerifier"/>, <see cref="S57Crc32"/>, and the
@@ -238,7 +238,7 @@ public class S57ExchangeSetVerifierTests
         try
         {
             var catalog = S57CatalogReader.ReadFromFile(Path.Combine(root, "CATALOG.031"));
-            var result = await new S57ExchangeSetVerifier().VerifyAsync(root, catalog);
+            var result = await new S57ExchangeSetVerifier().VerifyAsync(root, catalog, cancellationToken: TestContext.Current.CancellationToken);
 
             var file = Assert.Single(result.FileResults);
             Assert.Equal(S57VerificationOutcome.Ok, file.ChecksumOutcome);
@@ -263,7 +263,7 @@ public class S57ExchangeSetVerifierTests
         try
         {
             var catalog = S57CatalogReader.ReadFromFile(Path.Combine(root, "CATALOG.031"));
-            var result = await new S57ExchangeSetVerifier().VerifyAsync(root, catalog);
+            var result = await new S57ExchangeSetVerifier().VerifyAsync(root, catalog, cancellationToken: TestContext.Current.CancellationToken);
 
             var file = Assert.Single(result.FileResults);
             Assert.Equal(S57VerificationOutcome.ChecksumMismatch, file.ChecksumOutcome);
@@ -288,7 +288,7 @@ public class S57ExchangeSetVerifierTests
         try
         {
             var catalog = S57CatalogReader.ReadFromFile(Path.Combine(root, "CATALOG.031"));
-            var result = await new S57ExchangeSetVerifier().VerifyAsync(root, catalog);
+            var result = await new S57ExchangeSetVerifier().VerifyAsync(root, catalog, cancellationToken: TestContext.Current.CancellationToken);
 
             var file = Assert.Single(result.FileResults);
             Assert.Equal(S57VerificationOutcome.NoChecksum, file.ChecksumOutcome);
@@ -314,7 +314,7 @@ public class S57ExchangeSetVerifierTests
             File.Delete(Path.Combine(root, "US5WA51M", "US5WA51M.000"));
 
             var catalog = S57CatalogReader.ReadFromFile(Path.Combine(root, "CATALOG.031"));
-            var result = await new S57ExchangeSetVerifier().VerifyAsync(root, catalog);
+            var result = await new S57ExchangeSetVerifier().VerifyAsync(root, catalog, cancellationToken: TestContext.Current.CancellationToken);
 
             var file = Assert.Single(result.FileResults);
             Assert.Equal(S57VerificationOutcome.FileMissing, file.ChecksumOutcome);
@@ -341,7 +341,7 @@ public class S57ExchangeSetVerifierTests
         try
         {
             var catalog = S57CatalogReader.ReadFromFile(Path.Combine(root, "CATALOG.031"));
-            var result = await new S57ExchangeSetVerifier().VerifyAsync(root, catalog);
+            var result = await new S57ExchangeSetVerifier().VerifyAsync(root, catalog, cancellationToken: TestContext.Current.CancellationToken);
 
             Assert.Equal(2, result.FileResults.Length);
             Assert.Equal(S57VerificationOutcome.Ok, result.FileResults[0].ChecksumOutcome);
@@ -365,7 +365,7 @@ public class S57ExchangeSetVerifierTests
         try
         {
             var catalog = S57CatalogReader.ReadFromFile(Path.Combine(root, "CATALOG.031"));
-            var result = await new S57ExchangeSetVerifier().VerifyAsync(root, catalog);
+            var result = await new S57ExchangeSetVerifier().VerifyAsync(root, catalog, cancellationToken: TestContext.Current.CancellationToken);
 
             Assert.Equal(S57VerificationOutcome.Ok, Assert.Single(result.FileResults).ChecksumOutcome);
         }
@@ -384,7 +384,7 @@ public class S57ExchangeSetVerifierTests
         try
         {
             var exchangeSet = S57ExchangeSetReader.Read(root);
-            var result = await exchangeSet.VerifyAsync(root);
+            var result = await exchangeSet.VerifyAsync(root, cancellationToken: TestContext.Current.CancellationToken);
 
             Assert.True(result.AllValid);
             Assert.Equal(S57VerificationOutcome.Ok, Assert.Single(result.FileResults).ChecksumOutcome);
@@ -405,7 +405,7 @@ public class S57ExchangeSetVerifierTests
         {
             var catalog = S57CatalogReader.ReadFromFile(Path.Combine(root, "CATALOG.031"));
             var verifier = new S57ExchangeSetVerifier(new StubSignatureVerifier(S57VerificationOutcome.SignatureInvalid));
-            var result = await verifier.VerifyAsync(root, catalog);
+            var result = await verifier.VerifyAsync(root, catalog, cancellationToken: TestContext.Current.CancellationToken);
 
             var file = Assert.Single(result.FileResults);
             Assert.Equal(S57VerificationOutcome.Ok, file.ChecksumOutcome);

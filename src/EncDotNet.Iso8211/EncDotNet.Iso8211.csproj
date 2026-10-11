@@ -1,19 +1,14 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
-    <PropertyGroup>
-        <TargetFramework></TargetFramework>
-        <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
-        <Description>A .NET parser for the ISO/IEC 8211 binary container format, the underlying encoding used by IHO S-57 electronic navigational charts and other geospatial data standards.</Description>
-        <PackageTags>iso8211;iso-8211;binary-parser;s57;s-57;enc;nautical-chart;hydrographic;geospatial;maritime</PackageTags>
-        <PackageReadmeFile>README.md</PackageReadmeFile>
-    </PropertyGroup>
+  <PropertyGroup>
+    <TargetFramework></TargetFramework>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <Description>A .NET parser for the ISO/IEC 8211 binary container format, the underlying encoding used by IHO S-57 electronic navigational charts and other geospatial data standards.</Description>
+    <PackageTags>iso8211;iso-8211;binary-parser;s57;s-57;enc;nautical-chart;hydrographic;geospatial;maritime</PackageTags>
+  </PropertyGroup>
 
-    <ItemGroup>
-        <InternalsVisibleTo Include="EndDotNet.UnitTests" />
-    </ItemGroup>
-
-    <ItemGroup>
-        <None Include="README.md" Pack="true" PackagePath="\" />
-    </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="EncDotNet.UnitTests" />
+  </ItemGroup>
 
 </Project>

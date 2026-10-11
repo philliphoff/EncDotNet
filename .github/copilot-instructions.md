@@ -40,7 +40,7 @@ src/
   EncDotNet.Noaa/         # NOAA ENC product catalog client (NuGet)
   EncDotNet.ChartViewer/  # Legacy Avalonia + Mapsui viewer (maintenance only)
 tests/
-  EndDotNet.UnitTests/    # xUnit tests for the libraries and viewer geometry builders
+  EncDotNet.UnitTests/    # xUnit tests for the libraries and viewer geometry builders
   EncDotNet.Benchmarks/   # BenchmarkDotNet parsing benchmarks
 scripts/                  # File-based C# scripts (`dotnet run scripts/X.cs`)
 standards/                # IHO and ISO reference documents (md + pdf)
@@ -57,7 +57,7 @@ depends on `S57` and `Noaa`.
 | Language / platform | C#, .NET 10 (libraries also target .NET 8) |
 | Legacy viewer | Avalonia 11, ReactiveUI, Mapsui 5, NetTopologySuite, MessagePack |
 | Observability | Microsoft.Extensions.Logging, OpenTelemetry |
-| Testing | xUnit, coverlet; BenchmarkDotNet |
+| Testing | xUnit v3, coverlet; BenchmarkDotNet |
 | Package management | Central Package Management via `Directory.Packages.props` |
 | Documentation | DocFX (`docfx.json`) |
 | CI/CD | GitHub Actions (`.github/workflows/ci.yml`, `release.yml`, `docs.yml`) |
@@ -77,6 +77,8 @@ skills explain how the code models them.
 - Every new public API or bug fix needs an xUnit test under `tests/`.
 - Build test input in memory (for example with `Iso8211DocumentBuilder`).
   Never commit real ENC cells or NOAA downloads.
+- Tests use xUnit v3: pass `TestContext.Current.CancellationToken` to async
+  calls that accept a cancellation token (xUnit1051 fails the build).
 - Run tests with `dotnet test --configuration Release`.
 
 ### Documentation
@@ -109,8 +111,9 @@ skills explain how the code models them.
 - All public APIs carry XML doc comments. `GenerateDocumentationFile` and
   `TreatWarningsAsErrors` are on, so a missing comment fails the build.
 - Before finishing, run `dotnet format whitespace EncDotNet.slnx` and
-  `dotnet format style EncDotNet.slnx --diagnostics IDE0005`. CI verifies
-  both with `--verify-no-changes`.
+  `dotnet format style EncDotNet.slnx --diagnostics IDE0005`, then
+  `dotnet format EncDotNet.slnx --diagnostics IDE0005 IDE1006 --severity warn --verify-no-changes`. CI runs that last command, which also
+  checks naming (IDE1006); fix naming violations by hand.
 
 ### Package dependencies
 

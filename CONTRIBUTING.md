@@ -28,6 +28,9 @@ they're gated to a runtime identifier.
 
 - Every new public API or bug fix needs an xUnit test under `tests/`.
 - Build test input in memory, for example with `Iso8211DocumentBuilder`.
+- Tests use xUnit v3. Pass `TestContext.Current.CancellationToken` to async
+  calls that take a cancellation token; the xUnit analyzer (xUnit1051) fails
+  the build otherwise.
 - **Never commit real ENC cells or NOAA downloads.** The `scripts/` that
   download them write to `.catalog/` and `.expanded/`, which Git ignores.
 - Parsing benchmarks live in `tests/EncDotNet.Benchmarks`
@@ -91,15 +94,17 @@ In brief:
   or `ArgumentNullException.ThrowIfNull`.
 - Every public API has XML doc comments. A missing one fails the build.
 
-CI's format job verifies whitespace and using directives. Fix and check them
-locally before you push:
+CI's format job verifies whitespace, using directives and naming. Fix and
+check them locally before you push:
 
 ```bash
 dotnet format whitespace EncDotNet.slnx
 dotnet format style EncDotNet.slnx --diagnostics IDE0005
-dotnet format whitespace EncDotNet.slnx --verify-no-changes
-dotnet format style EncDotNet.slnx --diagnostics IDE0005 --severity warn --verify-no-changes
+dotnet format EncDotNet.slnx --diagnostics IDE0005 IDE1006 --severity warn --verify-no-changes
 ```
+
+`dotnet format` can't fix naming (IDE1006) violations automatically; rename
+those by hand.
 
 ## Documentation
 
@@ -133,10 +138,12 @@ dotnet format style EncDotNet.slnx --diagnostics IDE0005 --severity warn --verif
 ## Releases
 
 Maintainers release by running the **Release** workflow
-(`.github/workflows/release.yml`) with a patch, minor or major bump. It
-updates `<Version>` in `src/Directory.Build.props`, commits, and pushes a
-`v*` tag. The tag build in CI publishes the packages to NuGet and creates a
-GitHub release with the packages and viewer builds attached.
+(`.github/workflows/release.yml`) with a patch, minor or major bump. It finds
+the highest `vMAJOR.MINOR.PATCH` tag, computes the next version, and pushes a
+new tag; nothing is committed to `main`. The tag build in CI takes the version
+from the tag name, publishes the packages to NuGet, and creates a GitHub
+release with the packages and viewer builds attached. Local and pull request
+builds use the `0.0.0-dev` placeholder in `src/Directory.Build.props`.
 
 macOS viewer builds are signed and notarized on pushes to `main` and tags
 when the `APPLE_DEVELOPER_CERTIFICATE_P12`,

@@ -1,7 +1,7 @@
 using System.Text;
 using EncDotNet.Iso8211;
 
-namespace EndDotNet.UnitTests;
+namespace EncDotNet.UnitTests;
 
 /// <summary>
 /// Unit tests for the <see cref="Iso8211DocumentReader"/> and related classes.
@@ -784,7 +784,7 @@ public class Iso8211DocumentReaderTests
         using var stream = new MemoryStream(data);
 
         // Act
-        var document = await Iso8211DocumentReader.ReadAsync(stream);
+        var document = await Iso8211DocumentReader.ReadAsync(stream, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.NotNull(document);
@@ -856,10 +856,10 @@ public class Iso8211DocumentReaderTests
         var tempFile = Path.GetTempFileName();
         try
         {
-            await File.WriteAllBytesAsync(tempFile, data);
+            await File.WriteAllBytesAsync(tempFile, data, cancellationToken: TestContext.Current.CancellationToken);
 
             // Act
-            var document = await Iso8211DocumentReader.ReadFromFileAsync(tempFile);
+            var document = await Iso8211DocumentReader.ReadFromFileAsync(tempFile, cancellationToken: TestContext.Current.CancellationToken);
 
             // Assert
             Assert.NotNull(document);
@@ -880,7 +880,7 @@ public class Iso8211DocumentReaderTests
         var cts = new CancellationTokenSource();
         try
         {
-            await File.WriteAllBytesAsync(tempFile, data);
+            await File.WriteAllBytesAsync(tempFile, data, cancellationToken: TestContext.Current.CancellationToken);
 
             // Act
             var document = await Iso8211DocumentReader.ReadFromFileAsync(tempFile, cts.Token);
@@ -912,7 +912,7 @@ public class Iso8211DocumentReaderTests
         var nonExistentFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
 
         // Act & Assert
-        await Assert.ThrowsAsync<FileNotFoundException>(() => Iso8211DocumentReader.ReadFromFileAsync(nonExistentFile));
+        await Assert.ThrowsAsync<FileNotFoundException>(() => Iso8211DocumentReader.ReadFromFileAsync(nonExistentFile, cancellationToken: TestContext.Current.CancellationToken));
     }
 
     #endregion

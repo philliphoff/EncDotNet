@@ -6,11 +6,10 @@ contributors to infer it from surrounding code.
 
 > **Enforcement.** Mechanically checkable rules are encoded in
 > [`.editorconfig`](https://github.com/philliphoff/EncDotNet/blob/main/.editorconfig).
-> CI gates whitespace with `dotnet format whitespace --verify-no-changes` and
-> using directives with `dotnet format style --diagnostics IDE0005
-> --verify-no-changes`. Broader style and naming
-> rules remain hand-followed because `dotnet format` cannot safely Fix-All
-> naming. When this guide and `.editorconfig` disagree, `.editorconfig` wins.
+> CI's format job verifies whitespace, using directives (IDE0005) and naming
+> (IDE1006) in one `dotnet format` run. `dotnet format` can't Fix-All naming,
+> so fix naming violations by hand. Other style rules are followed by hand.
+> When this guide and `.editorconfig` disagree, `.editorconfig` wins.
 
 ## 1. Guiding principles
 
@@ -47,7 +46,8 @@ contributors to infer it from surrounding code.
 | Type parameter | `PascalCase` prefixed with `T` | `TRecord`, `TKey` |
 | Local variable, parameter | `camelCase` | `recordLength`, `field` |
 | Private/internal instance field | `_camelCase` | `_recordReader` |
-| Constant, `static readonly` | `PascalCase` | `FieldTerminator` |
+| Constant field, `static readonly` field | `PascalCase` | `FieldTerminator` |
+| Local constant | `camelCase` | `const int overlapLevels = 3;` |
 | Async method | `PascalCase` suffixed `Async` | `ReadCatalogAsync` |
 
 Do not prefix member access with `this.`. Prefer descriptive names, while
@@ -104,6 +104,5 @@ Before pushing, apply and verify the CI-enforced subsets:
 ```bash
 dotnet format whitespace EncDotNet.slnx
 dotnet format style EncDotNet.slnx --diagnostics IDE0005
-dotnet format whitespace EncDotNet.slnx --verify-no-changes
-dotnet format style EncDotNet.slnx --diagnostics IDE0005 --verify-no-changes
+dotnet format EncDotNet.slnx --diagnostics IDE0005 IDE1006 --severity warn --verify-no-changes
 ```
