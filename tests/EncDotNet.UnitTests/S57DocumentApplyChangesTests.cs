@@ -908,6 +908,222 @@ public class S57DocumentApplyChangesTests
 
     #endregion
 
+    #region Out-of-Range Update Controls
+
+    [Fact]
+    public void ApplyChanges_SgccModifyBeyondBaseCoordinates_ThrowsNamingRecordAndField()
+    {
+        var baseDoc = new S57Document
+        {
+            FeatureRecords = ImmutableArray<S57FeatureRecord>.Empty,
+            VectorRecords =
+            [
+                CreateVector(1, coordinates: [Coord(10, 20), Coord(30, 40), Coord(50, 60)])
+            ]
+        };
+        var update = new S57Document
+        {
+            FeatureRecords = ImmutableArray<S57FeatureRecord>.Empty,
+            VectorRecords =
+            [
+                CreateVector(1, ruin: S57UpdateInstruction.Modify,
+                    coordinateControl: new S57FieldUpdateControl
+                    {
+                        UpdateInstruction = S57UpdateInstruction.Modify,
+                        Index = 2,
+                        Count = 5 // only 2 coordinates from index 2 onward
+                    },
+                    coordinates: [Coord(999, 888)])
+            ]
+        };
+
+        var ex = Assert.Throws<InvalidDataException>(() => baseDoc.ApplyChanges(update));
+
+        Assert.Contains(S57FieldTags.SGCC, ex.Message);
+        Assert.Contains($"RCNM={S57RecordNameCodes.Edge}, RCID=1", ex.Message);
+    }
+
+    [Fact]
+    public void ApplyChanges_FspcDeleteBeyondBasePointers_ThrowsNamingRecordAndField()
+    {
+        var baseDoc = new S57Document
+        {
+            FeatureRecords =
+            [
+                CreateFeature(7,
+                    spatialPointers:
+                    [
+                        SpatialPtr(S57RecordNameCodes.Edge, 1),
+                        SpatialPtr(S57RecordNameCodes.Edge, 2)
+                    ])
+            ],
+            VectorRecords = ImmutableArray<S57VectorRecord>.Empty
+        };
+        var update = new S57Document
+        {
+            FeatureRecords =
+            [
+                CreateFeature(7, ruin: S57UpdateInstruction.Modify,
+                    spatialPointerControl: new S57FieldUpdateControl
+                    {
+                        UpdateInstruction = S57UpdateInstruction.Delete,
+                        Index = 3, // past the last of 2 pointers
+                        Count = 1
+                    })
+            ],
+            VectorRecords = ImmutableArray<S57VectorRecord>.Empty
+        };
+
+        var ex = Assert.Throws<InvalidDataException>(() => baseDoc.ApplyChanges(update));
+
+        Assert.Contains(S57FieldTags.FSPC, ex.Message);
+        Assert.Contains($"RCNM={S57RecordNameCodes.Feature}, RCID=7", ex.Message);
+    }
+
+    [Fact]
+    public void ApplyChanges_FfpcInsertBeyondAppendPosition_ThrowsNamingRecordAndField()
+    {
+        var basePtr = new S57FeaturePointer
+        {
+            Name = S57RecordName.FromRcnmRcid(S57RecordNameCodes.Feature, 100),
+            Relationship = S57RelationshipIndicator.Master,
+            Comment = ""
+        };
+        var newPtr = basePtr with { Name = S57RecordName.FromRcnmRcid(S57RecordNameCodes.Feature, 200) };
+        var baseDoc = new S57Document
+        {
+            FeatureRecords = [CreateFeature(1, featurePointers: [basePtr])],
+            VectorRecords = ImmutableArray<S57VectorRecord>.Empty
+        };
+        var update = new S57Document
+        {
+            FeatureRecords =
+            [
+                CreateFeature(1, ruin: S57UpdateInstruction.Modify,
+                    featurePointerControl: new S57FieldUpdateControl
+                    {
+                        UpdateInstruction = S57UpdateInstruction.Insert,
+                        Index = 3, // 1 pointer, so 2 (append) is the furthest valid position
+                        Count = 1
+                    },
+                    featurePointers: [newPtr])
+            ],
+            VectorRecords = ImmutableArray<S57VectorRecord>.Empty
+        };
+
+        var ex = Assert.Throws<InvalidDataException>(() => baseDoc.ApplyChanges(update));
+
+        Assert.Contains(S57FieldTags.FFPC, ex.Message);
+        Assert.Contains($"RCNM={S57RecordNameCodes.Feature}, RCID=1", ex.Message);
+    }
+
+    [Fact]
+    public void ApplyChanges_VrpcIndexZero_Throws()
+    {
+        var ptr = new S57VectorPointer
+        {
+            Name = S57RecordName.FromRcnmRcid(S57RecordNameCodes.ConnectedNode, 1),
+            Orientation = S57Orientation.Forward,
+            Usage = S57UsageIndicator.NotApplicable,
+            Topology = S57TopologyIndicator.Beginning,
+            Mask = S57MaskingIndicator.NotApplicable
+        };
+        var baseDoc = new S57Document
+        {
+            FeatureRecords = ImmutableArray<S57FeatureRecord>.Empty,
+            VectorRecords = [CreateVector(10, vectorPointers: [ptr])]
+        };
+        var update = new S57Document
+        {
+            FeatureRecords = ImmutableArray<S57FeatureRecord>.Empty,
+            VectorRecords =
+            [
+                CreateVector(10, ruin: S57UpdateInstruction.Modify,
+                    vectorPointerControl: new S57FieldUpdateControl
+                    {
+                        UpdateInstruction = S57UpdateInstruction.Delete,
+                        Index = 0, // indices are 1-based
+                        Count = 1
+                    })
+            ]
+        };
+
+        var ex = Assert.Throws<InvalidDataException>(() => baseDoc.ApplyChanges(update));
+
+        Assert.Contains(S57FieldTags.VRPC, ex.Message);
+    }
+
+    [Fact]
+    public void ApplyChanges_SgccModifyCoveringLastCoordinate_Succeeds()
+    {
+        var baseDoc = new S57Document
+        {
+            FeatureRecords = ImmutableArray<S57FeatureRecord>.Empty,
+            VectorRecords =
+            [
+                CreateVector(1, coordinates: [Coord(10, 20), Coord(30, 40), Coord(50, 60)])
+            ]
+        };
+        var update = new S57Document
+        {
+            FeatureRecords = ImmutableArray<S57FeatureRecord>.Empty,
+            VectorRecords =
+            [
+                CreateVector(1, ruin: S57UpdateInstruction.Modify,
+                    coordinateControl: new S57FieldUpdateControl
+                    {
+                        UpdateInstruction = S57UpdateInstruction.Modify,
+                        Index = 2,
+                        Count = 2
+                    },
+                    coordinates: [Coord(777, 0), Coord(888, 0)])
+            ]
+        };
+
+        var result = baseDoc.ApplyChanges(update);
+
+        var coords = result.VectorRecords[0].Coordinates2D;
+        Assert.Equal([10, 777, 888], coords.Select(c => c.X));
+    }
+
+    [Fact]
+    public void ApplyChanges_FfpcInsertAtAppendPosition_Succeeds()
+    {
+        var basePtr = new S57FeaturePointer
+        {
+            Name = S57RecordName.FromRcnmRcid(S57RecordNameCodes.Feature, 100),
+            Relationship = S57RelationshipIndicator.Master,
+            Comment = ""
+        };
+        var newPtr = basePtr with { Name = S57RecordName.FromRcnmRcid(S57RecordNameCodes.Feature, 200) };
+        var baseDoc = new S57Document
+        {
+            FeatureRecords = [CreateFeature(1, featurePointers: [basePtr])],
+            VectorRecords = ImmutableArray<S57VectorRecord>.Empty
+        };
+        var update = new S57Document
+        {
+            FeatureRecords =
+            [
+                CreateFeature(1, ruin: S57UpdateInstruction.Modify,
+                    featurePointerControl: new S57FieldUpdateControl
+                    {
+                        UpdateInstruction = S57UpdateInstruction.Insert,
+                        Index = 2,
+                        Count = 1
+                    },
+                    featurePointers: [newPtr])
+            ],
+            VectorRecords = ImmutableArray<S57VectorRecord>.Empty
+        };
+
+        var result = baseDoc.ApplyChanges(update);
+
+        Assert.Equal([100, 200], result.FeatureRecords[0].FeaturePointers.Select(p => p.Name.RecordId));
+    }
+
+    #endregion
+
     #region Empty Update Document
 
     [Fact]
