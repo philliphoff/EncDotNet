@@ -96,6 +96,12 @@ dotnet run scripts/DumpChart.cs .expanded/US5CA11M/ENC_ROOT/US5CA11M/US5CA11M.00
 - [IHO S-52](https://iho.int/en/s-52-guidance): chart content and display
   aspects of ECDIS.
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). For questions, see
+[SUPPORT.md](SUPPORT.md); to report a vulnerability, see
+[SECURITY.md](SECURITY.md).
+
 ## License
 
 MIT. See [LICENSE](https://github.com/philliphoff/EncDotNet/blob/main/LICENSE).

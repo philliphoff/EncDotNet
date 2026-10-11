@@ -1,0 +1,67 @@
+name: Feature request
+description: Suggest a feature or capability for EncDotNet.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a feature. Describe the problem you want to
+        solve before a specific design; that leaves room to consider
+        alternatives.
+
+        The chart viewer in this repository is in maintenance only. For
+        chart display features, use
+        [EncDotNet.S100](https://github.com/philliphoff/EncDotNet.S100/issues).
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or motivation
+      description: What problem does this solve, and for whom?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What you'd like to see, such as an API, behavior or UI.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      description: Pick the closest match.
+      options:
+        - "ISO 8211 (EncDotNet.Iso8211)"
+        - "S-57 reading, updates, exchange sets (EncDotNet.S57)"
+        - "NOAA catalog (EncDotNet.Noaa)"
+        - "Scripts (scripts/)"
+        - "Build / CI / packaging"
+        - "Docs"
+        - "Other / cross-cutting"
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches and why you set them aside.
+
+  - type: textarea
+    id: spec
+    attributes:
+      label: Standard references (optional)
+      description: |
+        For behavior defined by a standard, cite the section, for example
+        "S-57 Part 3, 8.4.2 (feature record updating)".
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Use cases, examples or related issues.

@@ -38,5 +38,6 @@ in a new console app.
 
 ## Contributing
 
+- [How to contribute](../CONTRIBUTING.md)
 - [C# coding style](coding-style.md)
 - [Documentation style](docs-style.md)
