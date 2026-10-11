@@ -31,8 +31,11 @@ public static class S57DocumentReader
     /// <returns>The parsed S-57 document.</returns>
     public static S57Document Read(byte[] data, ILogger? logger = null)
     {
-        var iso8211Document = Iso8211DocumentReader.Read(data);
-        return ParseDocument(iso8211Document, logger);
+        ArgumentNullException.ThrowIfNull(data);
+
+        // The S-57 model holds decoded values, not slices of the input, so the records can be
+        // read from the caller's array without a copy.
+        return ParseRecords(Iso8211DocumentReader.EnumerateRecords(data), logger);
     }
 
     /// <summary>
@@ -43,8 +46,7 @@ public static class S57DocumentReader
     /// <returns>The parsed S-57 document.</returns>
     public static S57Document Read(ReadOnlySpan<byte> data, ILogger? logger = null)
     {
-        var iso8211Document = Iso8211DocumentReader.Read(data);
-        return ParseDocument(iso8211Document, logger);
+        return ParseRecords(Iso8211DocumentReader.EnumerateRecords(data.ToArray()), logger);
     }
 
     /// <summary>
@@ -55,8 +57,7 @@ public static class S57DocumentReader
     /// <returns>The parsed S-57 document.</returns>
     public static S57Document ReadFromFile(string path, ILogger? logger = null)
     {
-        var iso8211Document = Iso8211DocumentReader.ReadFromFile(path);
-        return ParseDocument(iso8211Document, logger);
+        return ParseRecords(Iso8211DocumentReader.EnumerateRecords(File.ReadAllBytes(path)), logger);
     }
 
     /// <summary>
@@ -68,8 +69,8 @@ public static class S57DocumentReader
     /// <returns>A task that represents the asynchronous read operation.</returns>
     public static async Task<S57Document> ReadFromFileAsync(string path, ILogger? logger = null, CancellationToken cancellationToken = default)
     {
-        var iso8211Document = await Iso8211DocumentReader.ReadFromFileAsync(path, cancellationToken).ConfigureAwait(false);
-        return ParseDocument(iso8211Document, logger);
+        var data = await File.ReadAllBytesAsync(path, cancellationToken).ConfigureAwait(false);
+        return ParseRecords(Iso8211DocumentReader.EnumerateRecords(data), logger);
     }
 
     /// <summary>
@@ -80,8 +81,9 @@ public static class S57DocumentReader
     /// <returns>The parsed S-57 document.</returns>
     public static S57Document Read(Stream stream, ILogger? logger = null)
     {
-        var iso8211Document = Iso8211DocumentReader.Read(stream);
-        return ParseDocument(iso8211Document, logger);
+        using var memoryStream = new MemoryStream();
+        stream.CopyTo(memoryStream);
+        return ParseRecords(Iso8211DocumentReader.EnumerateRecords(WrittenBytes(memoryStream)), logger);
     }
 
     /// <summary>
@@ -93,19 +95,25 @@ public static class S57DocumentReader
     /// <returns>A task that represents the asynchronous read operation.</returns>
     public static async Task<S57Document> ReadAsync(Stream stream, ILogger? logger = null, CancellationToken cancellationToken = default)
     {
-        var iso8211Document = await Iso8211DocumentReader.ReadAsync(stream, cancellationToken).ConfigureAwait(false);
-        return ParseDocument(iso8211Document, logger);
+        using var memoryStream = new MemoryStream();
+        await stream.CopyToAsync(memoryStream, cancellationToken).ConfigureAwait(false);
+        return ParseRecords(Iso8211DocumentReader.EnumerateRecords(WrittenBytes(memoryStream)), logger);
     }
 
     /// <summary>
-    /// Parses an ISO 8211 document into an S-57 document.
+    /// Gets the bytes written to a memory stream, without copying them.
     /// </summary>
-    private static S57Document ParseDocument(Iso8211Document iso8211Document, ILogger? logger)
+    private static ReadOnlyMemory<byte> WrittenBytes(MemoryStream stream) =>
+        stream.TryGetBuffer(out var buffer) ? buffer.AsMemory() : stream.ToArray();
+
+    /// <summary>
+    /// Parses ISO 8211 records, read one at a time, into an S-57 document.
+    /// </summary>
+    private static S57Document ParseRecords(IEnumerable<Iso8211Record> records, ILogger? logger)
     {
-        // Parse the Data Descriptive Record (DDR) to get field definitions
-        var ddr = iso8211Document.DataDescriptiveRecord is not null
-            ? Iso8211DataDescriptiveRecordReader.Read(iso8211Document.DataDescriptiveRecord)
-            : null;
+        // The Data Descriptive Record (DDR), when it is the first record, gives the field definitions
+        Iso8211DataDescriptiveRecord? ddr = null;
+        var first = true;
 
         S57DataSetIdentification? dsid = null;
         S57DataSetParameters? dspm = null;
@@ -113,8 +121,23 @@ public static class S57DocumentReader
         var vectorRecords = ImmutableArray.CreateBuilder<S57VectorRecord>();
         int nall = 0; // NATF lexical level (0=ASCII, 1=ISO 8859, 2=UCS-2)
 
-        foreach (var record in iso8211Document.DataRecords)
+        foreach (var record in records)
         {
+            if (first)
+            {
+                first = false;
+                if (record.IsDataDescriptiveRecord)
+                {
+                    ddr = Iso8211DataDescriptiveRecordReader.Read(record);
+                    continue;
+                }
+            }
+
+            if (record.IsDataDescriptiveRecord)
+            {
+                continue; // Only data records carry S-57 content
+            }
+
             // Check for DSID field
             var dsidField = record.GetFieldByTag(S57FieldTags.DSID);
             if (dsidField != null)
@@ -500,11 +523,18 @@ public static class S57DocumentReader
     /// </summary>
     private static ImmutableArray<S57AttributeValue> ParseAttributes(Iso8211Record record, string fieldTag, Iso8211DataDescriptiveRecord? ddr, ILogger? logger, int lexicalLevel = 0)
     {
-        var attributes = ImmutableArray.CreateBuilder<S57AttributeValue>();
+        ImmutableArray<S57AttributeValue>.Builder? attributes = null;
         var fieldDef = ddr?.GetFieldDefinition(fieldTag);
 
-        foreach (var field in record.GetFieldsByTag(fieldTag))
+        // A loop rather than GetFieldsByTag, which allocates an iterator per call.
+        for (var i = 0; i < record.Fields.Count; i++)
         {
+            var field = record.Fields[i];
+            if (field.Tag != fieldTag)
+            {
+                continue;
+            }
+
             if (fieldDef == null || !fieldDef.HasRepeatingGroup)
             {
                 continue; // No field definition or not a repeating field - skip
@@ -512,6 +542,7 @@ public static class S57DocumentReader
 
             // Use DDR-based field reader with repeating groups
             var reader = new Iso8211FieldReader(fieldDef, field.Data, lexicalLevel);
+            attributes ??= ImmutableArray.CreateBuilder<S57AttributeValue>(reader.GroupCount);
 
             try
             {
@@ -532,7 +563,7 @@ public static class S57DocumentReader
             }
         }
 
-        return attributes.ToImmutable();
+        return Complete(attributes);
     }
 
 
@@ -542,11 +573,18 @@ public static class S57DocumentReader
     /// </summary>
     private static ImmutableArray<S57SpatialPointer> ParseSpatialPointers(Iso8211Record record, Iso8211DataDescriptiveRecord? ddr, ILogger? logger)
     {
-        var pointers = ImmutableArray.CreateBuilder<S57SpatialPointer>();
+        ImmutableArray<S57SpatialPointer>.Builder? pointers = null;
         var fieldDef = ddr?.GetFieldDefinition(S57FieldTags.FSPT);
 
-        foreach (var field in record.GetFieldsByTag(S57FieldTags.FSPT))
+        // A loop rather than GetFieldsByTag, which allocates an iterator per call.
+        for (var i = 0; i < record.Fields.Count; i++)
         {
+            var field = record.Fields[i];
+            if (field.Tag != S57FieldTags.FSPT)
+            {
+                continue;
+            }
+
             if (fieldDef == null || !fieldDef.HasRepeatingGroup)
             {
                 continue; // No field definition or not a repeating field - skip
@@ -554,6 +592,7 @@ public static class S57DocumentReader
 
             // Use DDR-based field reader with repeating groups
             var reader = new Iso8211FieldReader(fieldDef, field.Data);
+            pointers ??= ImmutableArray.CreateBuilder<S57SpatialPointer>(reader.GroupCount);
 
             try
             {
@@ -581,7 +620,7 @@ public static class S57DocumentReader
             }
         }
 
-        return pointers.ToImmutable();
+        return Complete(pointers);
     }
 
     /// <summary>
@@ -589,11 +628,18 @@ public static class S57DocumentReader
     /// </summary>
     private static ImmutableArray<S57FeaturePointer> ParseFeaturePointers(Iso8211Record record, Iso8211DataDescriptiveRecord? ddr, ILogger? logger)
     {
-        var pointers = ImmutableArray.CreateBuilder<S57FeaturePointer>();
+        ImmutableArray<S57FeaturePointer>.Builder? pointers = null;
         var fieldDef = ddr?.GetFieldDefinition(S57FieldTags.FFPT);
 
-        foreach (var field in record.GetFieldsByTag(S57FieldTags.FFPT))
+        // A loop rather than GetFieldsByTag, which allocates an iterator per call.
+        for (var i = 0; i < record.Fields.Count; i++)
         {
+            var field = record.Fields[i];
+            if (field.Tag != S57FieldTags.FFPT)
+            {
+                continue;
+            }
+
             if (fieldDef == null || !fieldDef.HasRepeatingGroup)
             {
                 continue; // No field definition or not a repeating field - skip
@@ -601,6 +647,7 @@ public static class S57DocumentReader
 
             // Use DDR-based field reader with repeating groups
             var reader = new Iso8211FieldReader(fieldDef, field.Data);
+            pointers ??= ImmutableArray.CreateBuilder<S57FeaturePointer>(reader.GroupCount);
 
             try
             {
@@ -626,7 +673,7 @@ public static class S57DocumentReader
             }
         }
 
-        return pointers.ToImmutable();
+        return Complete(pointers);
     }
 
     /// <summary>
@@ -634,11 +681,18 @@ public static class S57DocumentReader
     /// </summary>
     private static ImmutableArray<S57VectorPointer> ParseVectorPointers(Iso8211Record record, Iso8211DataDescriptiveRecord? ddr, ILogger? logger)
     {
-        var pointers = ImmutableArray.CreateBuilder<S57VectorPointer>();
+        ImmutableArray<S57VectorPointer>.Builder? pointers = null;
         var fieldDef = ddr?.GetFieldDefinition(S57FieldTags.VRPT);
 
-        foreach (var field in record.GetFieldsByTag(S57FieldTags.VRPT))
+        // A loop rather than GetFieldsByTag, which allocates an iterator per call.
+        for (var i = 0; i < record.Fields.Count; i++)
         {
+            var field = record.Fields[i];
+            if (field.Tag != S57FieldTags.VRPT)
+            {
+                continue;
+            }
+
             if (fieldDef == null || !fieldDef.HasRepeatingGroup)
             {
                 continue; // No field definition or not a repeating field - skip
@@ -646,6 +700,7 @@ public static class S57DocumentReader
 
             // Use DDR-based field reader with repeating groups
             var reader = new Iso8211FieldReader(fieldDef, field.Data);
+            pointers ??= ImmutableArray.CreateBuilder<S57VectorPointer>(reader.GroupCount);
 
             try
             {
@@ -675,7 +730,7 @@ public static class S57DocumentReader
             }
         }
 
-        return pointers.ToImmutable();
+        return Complete(pointers);
     }
 
     /// <summary>
@@ -683,11 +738,18 @@ public static class S57DocumentReader
     /// </summary>
     private static ImmutableArray<S57Coordinate2D> ParseCoordinates2D(Iso8211Record record, Iso8211DataDescriptiveRecord? ddr, ILogger? logger)
     {
-        var coordinates = ImmutableArray.CreateBuilder<S57Coordinate2D>();
+        ImmutableArray<S57Coordinate2D>.Builder? coordinates = null;
         var fieldDef = ddr?.GetFieldDefinition(S57FieldTags.SG2D);
 
-        foreach (var field in record.GetFieldsByTag(S57FieldTags.SG2D))
+        // A loop rather than GetFieldsByTag, which allocates an iterator per call.
+        for (var i = 0; i < record.Fields.Count; i++)
         {
+            var field = record.Fields[i];
+            if (field.Tag != S57FieldTags.SG2D)
+            {
+                continue;
+            }
+
             if (fieldDef == null || !fieldDef.HasRepeatingGroup)
             {
                 continue; // No field definition or not a repeating field - skip
@@ -695,6 +757,7 @@ public static class S57DocumentReader
 
             // Use DDR-based field reader with repeating groups
             var reader = new Iso8211FieldReader(fieldDef, field.Data);
+            coordinates ??= ImmutableArray.CreateBuilder<S57Coordinate2D>(reader.GroupCount);
 
             try
             {
@@ -717,7 +780,7 @@ public static class S57DocumentReader
             }
         }
 
-        return coordinates.ToImmutable();
+        return Complete(coordinates);
     }
 
     /// <summary>
@@ -725,11 +788,18 @@ public static class S57DocumentReader
     /// </summary>
     private static ImmutableArray<S57Sounding> ParseSoundings(Iso8211Record record, Iso8211DataDescriptiveRecord? ddr, ILogger? logger)
     {
-        var soundings = ImmutableArray.CreateBuilder<S57Sounding>();
+        ImmutableArray<S57Sounding>.Builder? soundings = null;
         var fieldDef = ddr?.GetFieldDefinition(S57FieldTags.SG3D);
 
-        foreach (var field in record.GetFieldsByTag(S57FieldTags.SG3D))
+        // A loop rather than GetFieldsByTag, which allocates an iterator per call.
+        for (var i = 0; i < record.Fields.Count; i++)
         {
+            var field = record.Fields[i];
+            if (field.Tag != S57FieldTags.SG3D)
+            {
+                continue;
+            }
+
             if (fieldDef == null || !fieldDef.HasRepeatingGroup)
             {
                 continue; // No field definition or not a repeating field - skip
@@ -737,6 +807,7 @@ public static class S57DocumentReader
 
             // Use DDR-based field reader with repeating groups
             var reader = new Iso8211FieldReader(fieldDef, field.Data);
+            soundings ??= ImmutableArray.CreateBuilder<S57Sounding>(reader.GroupCount);
 
             try
             {
@@ -761,8 +832,17 @@ public static class S57DocumentReader
             }
         }
 
-        return soundings.ToImmutable();
+        return Complete(soundings);
     }
+
+    /// <summary>
+    /// Completes a builder sized from the fields' group counts, without copying when it is full,
+    /// and without allocating at all when no field was present.
+    /// </summary>
+    private static ImmutableArray<T> Complete<T>(ImmutableArray<T>.Builder? builder) =>
+        builder is null ? []
+        : builder.Count == builder.Capacity ? builder.MoveToImmutable()
+        : builder.ToImmutable();
 
     /// <summary>
     /// Logs a warning when a field's data ends partway through a repetition of its group. The
