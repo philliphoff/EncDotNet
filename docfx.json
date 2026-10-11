@@ -53,11 +53,12 @@
     "output": "_site",
     "template": [
       "default",
-      "modern"
+      "modern",
+      "docs/template"
     ],
     "globalMetadata": {
-      "_appLogoPath": "docs/images/logo.svg",
-      "_appFaviconPath": "docs/images/logo.svg",
+      "_appLogoPath": "docs/images/icon.svg",
+      "_appFaviconPath": "docs/images/icon.svg",
       "_appName": "EncDotNet",
       "_appTitle": "EncDotNet Docs"
     }
