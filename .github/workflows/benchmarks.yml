@@ -122,7 +122,10 @@ jobs:
           BASE_BUILT: ${{ steps.build_base.outcome == 'success' }}
         run: |
           DLL=tests/EncDotNet.Benchmarks/bin/Release/net10.0/EncDotNet.Benchmarks.dll
-          ARGS=(--filter '*' --exporters json --warmupCount 3 --iterationCount 10 --launchCount 1)
+          # BenchmarkDotNet's default 500 ms iterations make each case take 10-15 s however
+          # fast the operation is. Shorter iterations, with more of them, halve the run time
+          # while keeping the median as precise (standard error about 2%).
+          ARGS=(--filter '*' --exporters json --warmupCount 3 --iterationCount 15 --iterationTime 200 --launchCount 1)
           if [ "$SCOPE" = "core" ]; then
             ARGS+=(--anyCategories Core)
           fi
