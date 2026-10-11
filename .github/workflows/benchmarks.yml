@@ -1,0 +1,189 @@
+name: Benchmarks
+
+# Compares the pull request's benchmark timings with its base branch's and posts the
+# result to the job summary. Timings on shared runners are too noisy to gate on, so this
+# job never fails a pull request over them; the exact allocation and retained-memory
+# budgets in tests/EncDotNet.PerformanceTests, which run in CI, are the gate.
+#
+# Noise control: base and head run on the same runner, against the same input bytes,
+# interleaved base/head then head/base so slow drift during the job affects both. The
+# report flags only changes that exceed the threshold in every round.
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'src/EncDotNet.Iso8211/**'
+      - 'src/EncDotNet.S57/**'
+      - 'tests/EncDotNet.Benchmarks/**'
+      - 'tests/Shared/**'
+      - 'scripts/CompareBenchmarks.cs'
+      - 'scripts/DownloadBenchmarkCells.cs'
+      - '.github/workflows/benchmarks.yml'
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: 'Benchmarks to run: core (the pull request set) or all'
+        type: choice
+        options: [ core, all ]
+        default: core
+      rounds:
+        description: 'Interleaved rounds of base and head'
+        type: number
+        default: 2
+
+concurrency:
+  group: benchmarks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Determine base commit
+        id: base
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE="$(git merge-base origin/main HEAD)"
+          fi
+          echo "sha=$BASE" >> "$GITHUB_OUTPUT"
+          # NOAA re-issues cells as updates land; refresh the cached copies weekly.
+          echo "week=$(date -u +%G-W%V)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore NOAA cells
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/enc
+          key: noaa-benchmark-cells-${{ hashFiles('scripts/DownloadBenchmarkCells.cs') }}-${{ steps.base.outputs.week }}
+
+      - name: Download NOAA cells
+        # Real cells are optional: without them the run falls back to synthetic cells.
+        continue-on-error: true
+        shell: bash
+        run: |
+          if [ ! -s "$RUNNER_TEMP/enc/cells.txt" ]; then
+            dotnet run scripts/DownloadBenchmarkCells.cs -- "$RUNNER_TEMP/enc"
+          fi
+
+      - name: Choose inputs
+        id: inputs
+        shell: bash
+        run: |
+          if [ -s "$RUNNER_TEMP/enc/cells.txt" ]; then
+            # Real cells cover representative sizes; add the synthetic Large cell for scale.
+            echo "synthetic=Large" >> "$GITHUB_OUTPUT"
+            echo "enc_root=$RUNNER_TEMP/enc" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::NOAA cells unavailable; benchmarking synthetic cells only."
+            echo "synthetic=Harbour,Approach,Large" >> "$GITHUB_OUTPUT"
+            echo "enc_root=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build head
+        run: dotnet build tests/EncDotNet.Benchmarks --configuration Release
+
+      - name: Build base
+        id: build_base
+        # The base tree gets the head's benchmark harness, so both builds run identical
+        # benchmarks and only the library code differs. If the head's benchmarks use an API
+        # the base lacks, the base can't build and the report shows head results only.
+        continue-on-error: true
+        shell: bash
+        run: |
+          git worktree add "$RUNNER_TEMP/base" "${{ steps.base.outputs.sha }}"
+          rm -rf "$RUNNER_TEMP/base/tests/EncDotNet.Benchmarks" "$RUNNER_TEMP/base/tests/Shared"
+          cp -r tests/EncDotNet.Benchmarks tests/Shared tests/Directory.Build.props "$RUNNER_TEMP/base/tests/"
+          rm -rf "$RUNNER_TEMP/base/tests/EncDotNet.Benchmarks/bin" "$RUNNER_TEMP/base/tests/EncDotNet.Benchmarks/obj"
+          dotnet build "$RUNNER_TEMP/base/tests/EncDotNet.Benchmarks" --configuration Release
+
+      - name: Run benchmarks
+        shell: bash
+        env:
+          ENCDOTNET_BENCHMARK_SYNTHETIC: ${{ steps.inputs.outputs.synthetic }}
+          ENCDOTNET_ENC_ROOT: ${{ steps.inputs.outputs.enc_root }}
+          SCOPE: ${{ inputs.scope || 'core' }}
+          ROUNDS: ${{ inputs.rounds || 2 }}
+          BASE_BUILT: ${{ steps.build_base.outcome == 'success' }}
+        run: |
+          DLL=tests/EncDotNet.Benchmarks/bin/Release/net10.0/EncDotNet.Benchmarks.dll
+          ARGS=(--filter '*' --exporters json --warmupCount 3 --iterationCount 10 --launchCount 1)
+          if [ "$SCOPE" = "core" ]; then
+            ARGS+=(--anyCategories Core)
+          fi
+
+          run() { # run <tree> <artifacts>
+            echo "::group::$2"
+            dotnet "$1/$DLL" "${ARGS[@]}" --artifacts "$2"
+            echo "::endgroup::"
+          }
+
+          OUT="$RUNNER_TEMP/bdn"
+          for ((r = 1; r <= ROUNDS; r++)); do
+            # Alternate the order (base, head, then head, base) so drift cancels out.
+            if [ "$BASE_BUILT" != "true" ]; then
+              run . "$OUT/head-$r"
+            elif ((r % 2)); then
+              run "$RUNNER_TEMP/base" "$OUT/base-$r"
+              run . "$OUT/head-$r"
+            else
+              run . "$OUT/head-$r"
+              run "$RUNNER_TEMP/base" "$OUT/base-$r"
+            fi
+          done
+
+      - name: Report
+        if: always()
+        shell: bash
+        env:
+          ROUNDS: ${{ inputs.rounds || 2 }}
+        run: |
+          OUT="$RUNNER_TEMP/bdn"
+          BASES=(); HEADS=()
+          for ((r = 1; r <= ROUNDS; r++)); do
+            [ -d "$OUT/base-$r" ] && BASES+=("$OUT/base-$r")
+            [ -d "$OUT/head-$r" ] && HEADS+=("$OUT/head-$r")
+          done
+          if [ ${#HEADS[@]} -eq 0 ]; then
+            echo "No benchmark results to report." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          {
+            if [ ${#BASES[@]} -gt 0 ]; then
+              dotnet run scripts/CompareBenchmarks.cs -- --base "${BASES[@]}" --head "${HEADS[@]}"
+            else
+              echo "> The base commit couldn't build this pull request's benchmarks, so only head results are shown."
+              echo
+              dotnet run scripts/CompareBenchmarks.cs -- --head "${HEADS[@]}"
+            fi
+            if [ -s "$RUNNER_TEMP/enc/cells.txt" ]; then
+              echo
+              echo "NOAA cells measured:"
+              echo
+              sed 's/^/- /' "$RUNNER_TEMP/enc/cells.txt"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: ${{ runner.temp }}/bdn/**/results/*
+          if-no-files-found: ignore

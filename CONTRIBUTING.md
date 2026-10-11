@@ -33,8 +33,41 @@ they're gated to a runtime identifier.
   the build otherwise.
 - **Never commit real ENC cells or NOAA downloads.** The `scripts/` that
   download them write to `.catalog/` and `.expanded/`, which Git ignores.
-- Parsing benchmarks live in `tests/EncDotNet.Benchmarks`
-  (`dotnet run -c Release --project tests/EncDotNet.Benchmarks`).
+
+## Performance
+
+Performance is checked in two ways, because elapsed time on shared CI runners
+is too noisy to fail a build on, while memory figures are exact.
+
+- **Memory budgets (gate).** `tests/EncDotNet.PerformanceTests` measures the
+  bytes each reader, writer and model builder allocates, and the bytes the
+  parsed models retain, for a synthetic harbour cell. They run with
+  `dotnet test` like any other test and fail when a figure moves outside its
+  budget in `PerformanceBudgets.cs`: above it is a regression; well below it
+  means the budget must be lowered to lock in the improvement. When a change
+  moves a figure on purpose, update the budget to the figure the test prints
+  and explain why in the pull request. The project compiles every method fully
+  optimized up front (`TieredCompilation` off), because the tiered JIT's
+  optimizations change allocation counts while a process runs.
+- **Timing benchmarks (informational).** `tests/EncDotNet.Benchmarks` holds
+  BenchmarkDotNet benchmarks. On pull requests that touch the libraries, the
+  `Benchmarks` workflow runs the `Core` benchmarks for the base and the head
+  on the same runner, interleaved, and posts a comparison to the job summary.
+  It flags only changes that hold in every round, and never fails the build.
+
+Both use synthetic cells from `tests/Shared/SyntheticS57Cell.cs`, generated
+deterministically and shaped like real NOAA cells. The benchmarks also read
+real cells when `ENCDOTNET_ENC_ROOT` points at a directory of them; CI
+downloads a few with `scripts/DownloadBenchmarkCells.cs`. To run locally:
+
+```bash
+dotnet test tests/EncDotNet.PerformanceTests --configuration Release
+dotnet run scripts/DownloadBenchmarkCells.cs -- .benchmark-cells
+ENCDOTNET_ENC_ROOT=.benchmark-cells dotnet run -c Release --project tests/EncDotNet.Benchmarks -- --anyCategories Core
+```
+
+`ENCDOTNET_BENCHMARK_SYNTHETIC` limits the synthetic cells, for example to
+`Large`, the cell with a record longer than 99,999 bytes.
 
 ## Package management
 
