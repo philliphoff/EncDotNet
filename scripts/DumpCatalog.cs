@@ -1,7 +1,7 @@
 #!/usr/bin/env dotnet run
 
-#:package Microsoft.Extensions.Logging@9.0.0
-#:package Microsoft.Extensions.Logging.Console@9.0.0
+#:package Microsoft.Extensions.Logging
+#:package Microsoft.Extensions.Logging.Console
 
 #:project ../src/EncDotNet.S57/EncDotNet.S57.csproj
 
@@ -58,7 +58,7 @@ if (iso8211Doc.DataDescriptiveRecord is not null)
     ddr = Iso8211DataDescriptiveRecordReader.Read(iso8211Doc.DataDescriptiveRecord);
 }
 
-for (int r = 0; r < iso8211Doc.Records.Length; r++)
+for (int r = 0; r < iso8211Doc.Records.Count; r++)
 {
     var record = iso8211Doc.Records[r];
     var leader = record.Leader;
@@ -75,12 +75,12 @@ for (int r = 0; r < iso8211Doc.Records.Length; r++)
     Console.WriteLine($"│  Base Address      : {leader.BaseAddressOfFieldArea}");
     Console.WriteLine($"│  Ext Char Set      : {leader.ExtendedCharacterSetIndicator}");
     Console.WriteLine($"│  Entry Map         : tag={leader.SizeOfFieldTagField} len={leader.SizeOfFieldLengthField} pos={leader.SizeOfFieldPositionField}");
-    Console.WriteLine($"│  Directory Entries : {record.Directory.Length}");
-    Console.WriteLine($"│  Fields           : {record.Fields.Length}");
+    Console.WriteLine($"│  Directory Entries : {record.Directory.Count}");
+    Console.WriteLine($"│  Fields           : {record.Fields.Count}");
     Console.WriteLine("│");
 
     // Directory entries
-    if (record.Directory.Length > 0)
+    if (record.Directory.Count > 0)
     {
         Console.WriteLine("│  ┌─ Directory ────────────────────────────────────────");
         foreach (var entry in record.Directory)
@@ -92,7 +92,7 @@ for (int r = 0; r < iso8211Doc.Records.Length; r++)
     }
 
     // Fields with hex dump
-    for (int f = 0; f < record.Fields.Length; f++)
+    for (int f = 0; f < record.Fields.Count; f++)
     {
         var field = record.Fields[f];
         Console.WriteLine($"│  ┌─ Field {f}: Tag = \"{field.Tag}\"  ({field.Data.Length} bytes) ──────");
@@ -137,7 +137,7 @@ if (ddr is not null)
         Console.WriteLine($"│    Format Controls: {fieldDef.FormatControls}");
         Console.WriteLine($"│    Repeating Group: {(fieldDef.HasRepeatingGroup ? $"Yes (from index {fieldDef.RepeatingSubfieldStartIndex})" : "No")}");
 
-        if (!fieldDef.SubfieldDefinitions.IsDefaultOrEmpty)
+        if (fieldDef.SubfieldDefinitions.Count > 0)
         {
             Console.WriteLine("│    Subfields:");
             foreach (var sf in fieldDef.SubfieldDefinitions)
@@ -153,10 +153,10 @@ if (ddr is not null)
 }
 
 // --- Catalog Entries ---
-Console.WriteLine($"┌─── Catalog Entries ({catalog.Entries.Length} total) ──────────────────────────");
+Console.WriteLine($"┌─── Catalog Entries ({catalog.Entries.Count} total) ──────────────────────────");
 Console.WriteLine("│");
 
-for (int i = 0; i < catalog.Entries.Length; i++)
+for (int i = 0; i < catalog.Entries.Count; i++)
 {
     var entry = catalog.Entries[i];
 
@@ -196,9 +196,9 @@ Console.WriteLine();
 Console.WriteLine("╔══════════════════════════════════════════════════════════════════════╗");
 Console.WriteLine("║                           SUMMARY                                   ║");
 Console.WriteLine("╚══════════════════════════════════════════════════════════════════════╝");
-Console.WriteLine($"  ISO 8211 Records   : {iso8211Doc.Records.Length}");
-Console.WriteLine($"  DDR Fields         : {(ddr is not null ? ddr.FieldDefinitions.Length : 0)}");
-Console.WriteLine($"  Catalog Entries    : {catalog.Entries.Length}");
+Console.WriteLine($"  ISO 8211 Records   : {iso8211Doc.Records.Count}");
+Console.WriteLine($"  DDR Fields         : {(ddr is not null ? ddr.FieldDefinitions.Count : 0)}");
+Console.WriteLine($"  Catalog Entries    : {catalog.Entries.Count}");
 Console.WriteLine();
 
 // ============================================================================
