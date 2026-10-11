@@ -1,7 +1,7 @@
 #!/usr/bin/env dotnet run
 
-#:package Microsoft.Extensions.Logging@9.0.0
-#:package Microsoft.Extensions.Logging.Console@9.0.0
+#:package Microsoft.Extensions.Logging
+#:package Microsoft.Extensions.Logging.Console
 
 #:project ../src/EncDotNet.S57/EncDotNet.S57.csproj
 
@@ -39,7 +39,7 @@ Console.WriteLine($"Found {files.Length} .000 files in expanded folder.");
 Console.WriteLine();
 
 using var loggerFactory = LoggerFactory.Create(builder =>
-    builder.AddConsole(options => options.IncludeScopes = true));
+    builder.AddSimpleConsole(options => options.IncludeScopes = true));
 var logger = loggerFactory.CreateLogger("ReadCatalogS57");
 
 int totalFeatures = 0;
@@ -55,8 +55,8 @@ foreach (var file in files)
         using var scope = logger.BeginScope("Chart: {ChartPath}", file);
         var document = S57DocumentReader.ReadFromFile(file, logger);
         var chart = S57Chart.FromDocument(document);
-        totalFeatures += document.FeatureRecords.Length;
-        totalVectors += document.VectorRecords.Length;
+        totalFeatures += document.FeatureRecords.Count;
+        totalVectors += document.VectorRecords.Count;
         totalFiles++;
     }
     catch (Exception ex)
@@ -79,16 +79,16 @@ foreach (var file in files)
         {
             Console.WriteLine("=== ISO 8211 Diagnostic Info ===");
             var iso8211Doc = Iso8211DocumentReader.ReadFromFile(file);
-            Console.WriteLine($"Total ISO 8211 records: {iso8211Doc.Records.Length}");
+            Console.WriteLine($"Total ISO 8211 records: {iso8211Doc.Records.Count}");
             
-            if (iso8211Doc.Records.Length > 0)
+            if (iso8211Doc.Records.Count > 0)
             {
                 Console.WriteLine();
                 Console.WriteLine("First few records:");
-                for (int i = 0; i < Math.Min(5, iso8211Doc.Records.Length); i++)
+                for (int i = 0; i < Math.Min(5, iso8211Doc.Records.Count); i++)
                 {
                     var record = iso8211Doc.Records[i];
-                    Console.WriteLine($"  Record {i}: {record.Fields.Length} fields");
+                    Console.WriteLine($"  Record {i}: {record.Fields.Count} fields");
                     foreach (var field in record.Fields)
                     {
                         Console.WriteLine($"    Field: {field.Tag}, Data length: {field.Data.Length} bytes");

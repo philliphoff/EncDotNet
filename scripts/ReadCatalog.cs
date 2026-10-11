@@ -43,7 +43,7 @@ foreach (var file in files)
     try
     {
         var document = Iso8211DocumentReader.ReadFromFile(file);
-        totalRecords += document.Records.Length;
+        totalRecords += document.Records.Count;
         totalFiles++;
     }
     catch (Exception ex)

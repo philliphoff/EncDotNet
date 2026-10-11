@@ -1,7 +1,7 @@
 #!/usr/bin/env dotnet run
 
-#:package Microsoft.Extensions.Logging@9.0.0
-#:package Microsoft.Extensions.Logging.Console@9.0.0
+#:package Microsoft.Extensions.Logging
+#:package Microsoft.Extensions.Logging.Console
 
 #:project ../src/EncDotNet.S57/EncDotNet.S57.csproj
 
@@ -38,7 +38,7 @@ Console.WriteLine($"File: {filePath}");
 Console.WriteLine($"Size: {new FileInfo(filePath).Length} bytes");
 Console.WriteLine();
 
-using var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole(options => options.IncludeScopes = true));
+using var loggerFactory = LoggerFactory.Create(builder => builder.AddSimpleConsole(options => options.IncludeScopes = true));
 var logger = loggerFactory.CreateLogger("DumpChart");
 
 // ============================================================================
@@ -59,7 +59,7 @@ if (iso8211Doc.DataDescriptiveRecord is not null)
     ddr = Iso8211DataDescriptiveRecordReader.Read(iso8211Doc.DataDescriptiveRecord);
 }
 
-for (int r = 0; r < iso8211Doc.Records.Length; r++)
+for (int r = 0; r < iso8211Doc.Records.Count; r++)
 {
     var record = iso8211Doc.Records[r];
     var leader = record.Leader;
@@ -76,12 +76,12 @@ for (int r = 0; r < iso8211Doc.Records.Length; r++)
     Console.WriteLine($"│  Base Address      : {leader.BaseAddressOfFieldArea}");
     Console.WriteLine($"│  Ext Char Set      : {leader.ExtendedCharacterSetIndicator}");
     Console.WriteLine($"│  Entry Map         : tag={leader.SizeOfFieldTagField} len={leader.SizeOfFieldLengthField} pos={leader.SizeOfFieldPositionField}");
-    Console.WriteLine($"│  Directory Entries : {record.Directory.Length}");
-    Console.WriteLine($"│  Fields           : {record.Fields.Length}");
+    Console.WriteLine($"│  Directory Entries : {record.Directory.Count}");
+    Console.WriteLine($"│  Fields           : {record.Fields.Count}");
     Console.WriteLine("│");
 
     // Directory entries
-    if (record.Directory.Length > 0)
+    if (record.Directory.Count > 0)
     {
         Console.WriteLine("│  ┌─ Directory ────────────────────────────────────────");
         foreach (var entry in record.Directory)
@@ -93,7 +93,7 @@ for (int r = 0; r < iso8211Doc.Records.Length; r++)
     }
 
     // Fields with hex dump
-    for (int f = 0; f < record.Fields.Length; f++)
+    for (int f = 0; f < record.Fields.Count; f++)
     {
         var field = record.Fields[f];
         Console.WriteLine($"│  ┌─ Field {f}: Tag = \"{field.Tag}\"  ({field.Data.Length} bytes) ──────");
@@ -138,7 +138,7 @@ if (ddr is not null)
         Console.WriteLine($"│    Format Controls: {fieldDef.FormatControls}");
         Console.WriteLine($"│    Repeating Group: {(fieldDef.HasRepeatingGroup ? $"Yes (from index {fieldDef.RepeatingSubfieldStartIndex})" : "No")}");
 
-        if (!fieldDef.SubfieldDefinitions.IsDefaultOrEmpty)
+        if (fieldDef.SubfieldDefinitions.Count > 0)
         {
             Console.WriteLine("│    Subfields:");
             foreach (var sf in fieldDef.SubfieldDefinitions)
@@ -197,10 +197,10 @@ if (s57Doc.DataSetParameters is not null)
 }
 
 // --- Feature Records ---
-Console.WriteLine($"┌─── Feature Records ({s57Doc.FeatureRecords.Length} total) ─────────────────────────");
+Console.WriteLine($"┌─── Feature Records ({s57Doc.FeatureRecords.Count} total) ─────────────────────────");
 Console.WriteLine("│");
 
-for (int i = 0; i < s57Doc.FeatureRecords.Length; i++)
+for (int i = 0; i < s57Doc.FeatureRecords.Count; i++)
 {
     var feature = s57Doc.FeatureRecords[i];
 
@@ -213,7 +213,7 @@ for (int i = 0; i < s57Doc.FeatureRecords.Length; i++)
     Console.WriteLine($"│  │  Update Instr    : {feature.UpdateInstruction}");
 
     // Attributes
-    if (!feature.Attributes.IsDefaultOrEmpty && feature.Attributes.Length > 0)
+    if (feature.Attributes.Count > 0)
     {
         Console.WriteLine("│  │  Attributes (ATTF):");
         foreach (var attr in feature.Attributes)
@@ -223,7 +223,7 @@ for (int i = 0; i < s57Doc.FeatureRecords.Length; i++)
     }
 
     // National Attributes
-    if (!feature.NationalAttributes.IsDefaultOrEmpty && feature.NationalAttributes.Length > 0)
+    if (feature.NationalAttributes.Count > 0)
     {
         Console.WriteLine("│  │  National Attributes (NATF):");
         foreach (var attr in feature.NationalAttributes)
@@ -233,7 +233,7 @@ for (int i = 0; i < s57Doc.FeatureRecords.Length; i++)
     }
 
     // Spatial Pointers
-    if (!feature.SpatialPointers.IsDefaultOrEmpty && feature.SpatialPointers.Length > 0)
+    if (feature.SpatialPointers.Count > 0)
     {
         Console.WriteLine("│  │  Spatial Pointers (FSPT):");
         foreach (var sp in feature.SpatialPointers)
@@ -243,7 +243,7 @@ for (int i = 0; i < s57Doc.FeatureRecords.Length; i++)
     }
 
     // Feature Pointers
-    if (!feature.FeaturePointers.IsDefaultOrEmpty && feature.FeaturePointers.Length > 0)
+    if (feature.FeaturePointers.Count > 0)
     {
         Console.WriteLine("│  │  Feature Pointers (FFPT):");
         foreach (var fp in feature.FeaturePointers)
@@ -262,10 +262,10 @@ Console.WriteLine();
 int comf = s57Doc.CoordinateMultiplicationFactor;
 int somf = s57Doc.SoundingMultiplicationFactor;
 
-Console.WriteLine($"┌─── Vector Records ({s57Doc.VectorRecords.Length} total) ──────────────────────────");
+Console.WriteLine($"┌─── Vector Records ({s57Doc.VectorRecords.Count} total) ──────────────────────────");
 Console.WriteLine("│");
 
-for (int i = 0; i < s57Doc.VectorRecords.Length; i++)
+for (int i = 0; i < s57Doc.VectorRecords.Count; i++)
 {
     var vector = s57Doc.VectorRecords[i];
 
@@ -284,7 +284,7 @@ for (int i = 0; i < s57Doc.VectorRecords.Length; i++)
     Console.WriteLine($"│  │  Update Instr    : {vector.UpdateInstruction}");
 
     // Attributes
-    if (!vector.Attributes.IsDefaultOrEmpty && vector.Attributes.Length > 0)
+    if (vector.Attributes.Count > 0)
     {
         Console.WriteLine("│  │  Attributes (ATTV):");
         foreach (var attr in vector.Attributes)
@@ -294,7 +294,7 @@ for (int i = 0; i < s57Doc.VectorRecords.Length; i++)
     }
 
     // Vector Pointers
-    if (!vector.VectorPointers.IsDefaultOrEmpty && vector.VectorPointers.Length > 0)
+    if (vector.VectorPointers.Count > 0)
     {
         Console.WriteLine("│  │  Vector Pointers (VRPT):");
         foreach (var vp in vector.VectorPointers)
@@ -304,36 +304,36 @@ for (int i = 0; i < s57Doc.VectorRecords.Length; i++)
     }
 
     // 2D Coordinates
-    if (!vector.Coordinates2D.IsDefaultOrEmpty && vector.Coordinates2D.Length > 0)
+    if (vector.Coordinates2D.Count > 0)
     {
-        Console.WriteLine($"│  │  2D Coordinates (SG2D): {vector.Coordinates2D.Length} point(s)");
-        int maxCoords = Math.Min(vector.Coordinates2D.Length, 20);
+        Console.WriteLine($"│  │  2D Coordinates (SG2D): {vector.Coordinates2D.Count} point(s)");
+        int maxCoords = Math.Min(vector.Coordinates2D.Count, 20);
         for (int c = 0; c < maxCoords; c++)
         {
             var coord = vector.Coordinates2D[c];
             var (lon, lat) = coord.ToDecimalDegrees(comf);
             Console.WriteLine($"│  │    [{c,4}] Y={coord.Y,12} X={coord.X,12}  ({lat:F7}°, {lon:F7}°)");
         }
-        if (vector.Coordinates2D.Length > maxCoords)
+        if (vector.Coordinates2D.Count > maxCoords)
         {
-            Console.WriteLine($"│  │    ... and {vector.Coordinates2D.Length - maxCoords} more point(s)");
+            Console.WriteLine($"│  │    ... and {vector.Coordinates2D.Count - maxCoords} more point(s)");
         }
     }
 
     // 3D Soundings
-    if (!vector.Soundings.IsDefaultOrEmpty && vector.Soundings.Length > 0)
+    if (vector.Soundings.Count > 0)
     {
-        Console.WriteLine($"│  │  3D Soundings (SG3D): {vector.Soundings.Length} sounding(s)");
-        int maxSoundings = Math.Min(vector.Soundings.Length, 20);
+        Console.WriteLine($"│  │  3D Soundings (SG3D): {vector.Soundings.Count} sounding(s)");
+        int maxSoundings = Math.Min(vector.Soundings.Count, 20);
         for (int s = 0; s < maxSoundings; s++)
         {
             var snd = vector.Soundings[s];
             var (lon, lat, depth) = snd.ToDecimalValues(comf, somf);
             Console.WriteLine($"│  │    [{s,4}] Y={snd.Y,12} X={snd.X,12} D={snd.Depth,8}  ({lat:F7}°, {lon:F7}°, {depth:F1}m)");
         }
-        if (vector.Soundings.Length > maxSoundings)
+        if (vector.Soundings.Count > maxSoundings)
         {
-            Console.WriteLine($"│  │    ... and {vector.Soundings.Length - maxSoundings} more sounding(s)");
+            Console.WriteLine($"│  │    ... and {vector.Soundings.Count - maxSoundings} more sounding(s)");
         }
     }
 
@@ -347,10 +347,10 @@ Console.WriteLine();
 Console.WriteLine("╔══════════════════════════════════════════════════════════════════════╗");
 Console.WriteLine("║                           SUMMARY                                   ║");
 Console.WriteLine("╚══════════════════════════════════════════════════════════════════════╝");
-Console.WriteLine($"  ISO 8211 Records   : {iso8211Doc.Records.Length}");
-Console.WriteLine($"  DDR Fields         : {(ddr is not null ? ddr.FieldDefinitions.Length : 0)}");
-Console.WriteLine($"  Feature Records    : {s57Doc.FeatureRecords.Length}");
-Console.WriteLine($"  Vector Records     : {s57Doc.VectorRecords.Length}");
+Console.WriteLine($"  ISO 8211 Records   : {iso8211Doc.Records.Count}");
+Console.WriteLine($"  DDR Fields         : {(ddr is not null ? ddr.FieldDefinitions.Count : 0)}");
+Console.WriteLine($"  Feature Records    : {s57Doc.FeatureRecords.Count}");
+Console.WriteLine($"  Vector Records     : {s57Doc.VectorRecords.Count}");
 Console.WriteLine($"  Coord Mult Factor  : {comf}");
 Console.WriteLine($"  Sound Mult Factor  : {somf}");
 Console.WriteLine();

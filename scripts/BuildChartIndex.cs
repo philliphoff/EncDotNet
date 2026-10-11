@@ -2,6 +2,7 @@
 
 #:project ../src/EncDotNet.S57/EncDotNet.S57.csproj
 #:project ../src/EncDotNet.Noaa/EncDotNet.Noaa.csproj
+#:property PublishAot=false
 
 using System.Text.Json;
 using EncDotNet.Noaa;
