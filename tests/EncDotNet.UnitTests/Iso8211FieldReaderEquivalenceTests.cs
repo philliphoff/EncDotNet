@@ -106,15 +106,16 @@ public class Iso8211FieldReaderEquivalenceTests
                     continue;
                 }
 
-                AssertReadsTheSame(definition, field.Data, lexicalLevel: 0);
+                var data = field.Data.ToArray();
+                AssertReadsTheSame(definition, data, lexicalLevel: 0);
 
                 // Truncating every field is slow; a few hundred cover each field type many times.
                 if (truncate && truncated++ < 150)
                 {
-                    for (var length = 0; length < field.Data.Length; length++)
+                    for (var length = 0; length < data.Length; length++)
                     {
-                        AssertReadsTheSame(definition, field.Data[..length], lexicalLevel: 0);
-                        AssertReadsTheSame(definition, [.. field.Data[..length], FieldTerminator], lexicalLevel: 0);
+                        AssertReadsTheSame(definition, data[..length], lexicalLevel: 0);
+                        AssertReadsTheSame(definition, [.. data[..length], FieldTerminator], lexicalLevel: 0);
                     }
                 }
             }

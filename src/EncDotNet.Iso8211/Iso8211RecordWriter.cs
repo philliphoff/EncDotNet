@@ -65,7 +65,7 @@ internal static class Iso8211RecordWriter
         // Field area.
         for (int i = 0; i < fields.Count; i++)
         {
-            output.AddRange(fields[i].Data);
+            output.AddRange(fields[i].Data.Span);
             output.Add(FieldTerminator);
         }
     }
