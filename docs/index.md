@@ -34,6 +34,8 @@ in a new console app.
 ## Reference
 
 - [S-57 glossary](glossary.md): the field and record acronyms used in the API.
+- [Versioning and compatibility](versioning.md): what counts as public API,
+  and how breaking changes are caught.
 - [API reference](../api/index.md): every public type and member.
 
 ## Contributing

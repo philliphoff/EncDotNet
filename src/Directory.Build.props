@@ -18,6 +18,40 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 
+  <!-- Package compatibility: package validation compares each library with
+       its last published release on nuget.org and fails the pack on a
+       breaking change to the public API (or on inconsistencies between the
+       net8.0 and net10.0 builds). Raise the baseline to each new release once
+       it's published, so APIs added in it are protected too. -->
+  <PropertyGroup Condition="'$(IsPackable)' != 'false'">
+    <EnablePackageValidation>true</EnablePackageValidation>
+    <PackageValidationBaselineVersion>0.7.0</PackageValidationBaselineVersion>
+  </PropertyGroup>
+
+  <!-- Local and pull request builds carry the 0.0.0-dev placeholder version,
+       which is lower than any baseline. Skip only the assembly-version
+       ordering rule (CP0003) for those builds; API compatibility is still
+       checked. Tag builds use the release version and keep the rule. -->
+  <PropertyGroup Condition="'$(IsPackable)' != 'false' And '$(Version)' == '0.0.0-dev'">
+    <NoWarn>$(NoWarn);CP0003</NoWarn>
+  </PropertyGroup>
+
+  <!-- Debugging: SourceLink (built into the .NET SDK) maps each package's PDBs
+       to the exact GitHub commit, untracked generated sources are embedded,
+       and symbols ship as .snupkg packages for the NuGet symbol server.
+       ContinuousIntegrationBuild makes CI builds deterministic with
+       normalized paths; local builds keep full paths for debugging. -->
+  <PropertyGroup>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
   <!-- Libraries are trimmable: the trim analyzers run in every build and, with
        TreatWarningsAsErrors, keep reflection that can't be statically analysed
        out of them. Analysed on the net10.0 target only, because IsTrimmable on

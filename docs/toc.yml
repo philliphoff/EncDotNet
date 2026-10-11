@@ -14,6 +14,8 @@
       href: architecture.md
 - name: S-57 glossary
   href: glossary.md
+- name: Versioning and compatibility
+  href: versioning.md
 - name: Contributing
   items:
     - name: C# coding style

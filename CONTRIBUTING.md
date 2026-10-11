@@ -55,6 +55,11 @@ builds on the first two. Treat their public types and members as a
 compatibility commitment: list any removal or signature change under
 **Breaking changes** in the pull request, with its effect on EncDotNet.S100.
 
+`dotnet pack` runs package validation against the last published release and
+fails on a breaking change. If the break is intentional, follow
+[Versioning and compatibility](docs/versioning.md#make-an-intentional-breaking-change)
+to record it.
+
 ## Skills and instructions
 
 Per-area **skills** live in `.github/skills/<name>/SKILL.md`, and matching
@@ -144,6 +149,11 @@ new tag; nothing is committed to `main`. The tag build in CI takes the version
 from the tag name, publishes the packages to NuGet, and creates a GitHub
 release with the packages and viewer builds attached. Local and pull request
 builds use the `0.0.0-dev` placeholder in `src/Directory.Build.props`.
+
+After each release, raise `PackageValidationBaselineVersion` in
+`src/Directory.Build.props` to the version just published and delete any
+`CompatibilitySuppressions.xml` files. See
+[Versioning and compatibility](docs/versioning.md).
 
 macOS viewer builds are signed and notarized on pushes to `main` and tags
 when the `APPLE_DEVELOPER_CERTIFICATE_P12`,

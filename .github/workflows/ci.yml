@@ -59,11 +59,15 @@ jobs:
         # library is published with no edit here.
         run: dotnet pack EncDotNet.slnx --no-build --configuration Release --output nupkgs -p:Version=$VERSION
 
+      # Symbol packages (.snupkg) travel with the packages: `dotnet nuget push`
+      # uploads each one to the NuGet symbol server alongside its .nupkg.
       - name: Upload NuGet packages
         uses: actions/upload-artifact@v4
         with:
           name: nupkgs
-          path: nupkgs/*.nupkg
+          path: |
+            nupkgs/*.nupkg
+            nupkgs/*.snupkg
 
   format:
     name: Format check

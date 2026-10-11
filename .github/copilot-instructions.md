@@ -15,7 +15,9 @@ the foundation of
 [EncDotNet.S100](https://github.com/philliphoff/EncDotNet.S100), which uses
 them to read S-101 and S-401 datasets and to translate S-57 cells to S-101.
 Their public APIs are compatibility commitments: call out any breaking change
-in the PR description, with its EncDotNet.S100 impact.
+in the PR description, with its EncDotNet.S100 impact. `dotnet pack` runs
+package validation against the last release and fails on an unrecorded break;
+see [`docs/versioning.md`](../docs/versioning.md).
 
 ## Relevant standards
 
