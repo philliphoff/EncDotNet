@@ -1,7 +1,7 @@
 using System.Text;
 using EncDotNet.S57.ExchangeSets;
 
-namespace EndDotNet.UnitTests;
+namespace EncDotNet.UnitTests;
 
 /// <summary>
 /// Unit tests for the <see cref="S57CatalogReader"/> and related catalog types.
@@ -488,7 +488,7 @@ public class S57CatalogReaderTests
         S57Catalog catalog;
         using (var stream = new MemoryStream(data))
         {
-            catalog = await S57CatalogReader.ReadAsync(stream);
+            catalog = await S57CatalogReader.ReadAsync(stream, cancellationToken: TestContext.Current.CancellationToken);
         }
 
         // Assert
@@ -531,10 +531,10 @@ public class S57CatalogReaderTests
 
         try
         {
-            await File.WriteAllBytesAsync(tempFile, data);
+            await File.WriteAllBytesAsync(tempFile, data, cancellationToken: TestContext.Current.CancellationToken);
 
             // Act
-            var catalog = await S57CatalogReader.ReadFromFileAsync(tempFile);
+            var catalog = await S57CatalogReader.ReadFromFileAsync(tempFile, cancellationToken: TestContext.Current.CancellationToken);
 
             // Assert
             Assert.Single(catalog.Entries);
@@ -557,7 +557,7 @@ public class S57CatalogReaderTests
 
         try
         {
-            await File.WriteAllBytesAsync(tempFile, data);
+            await File.WriteAllBytesAsync(tempFile, data, cancellationToken: TestContext.Current.CancellationToken);
 
             // Act
             var catalog = await S57CatalogReader.ReadFromFileAsync(tempFile, cancellationToken: cts.Token);

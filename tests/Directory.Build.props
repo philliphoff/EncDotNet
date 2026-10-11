@@ -1,9 +1,10 @@
 <Project>
 
-    <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
 
-    <PropertyGroup>
-        <GenerateDocumentationFile>false</GenerateDocumentationFile>
-    </PropertyGroup>
+  <PropertyGroup>
+    <!-- Tests and benchmarks are never published. -->
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
 
 </Project>

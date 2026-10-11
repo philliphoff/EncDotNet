@@ -1,15 +1,33 @@
 <Project>
 
-    <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
 
-    <PropertyGroup>
-        <Version>0.7.0</Version>
-        <Authors>Phillip Hoff</Authors>
-        <Description>Libraries for reading, parsing, and rendering IHO S-57 Electronic Navigational Charts.</Description>
-        <PackageLicenseExpression>MIT</PackageLicenseExpression>
-        <PackageProjectUrl>https://github.com/philliphoff/EncDotNet</PackageProjectUrl>
-        <RepositoryUrl>https://github.com/philliphoff/EncDotNet</RepositoryUrl>
-        <RepositoryType>git</RepositoryType>
-    </PropertyGroup>
+  <PropertyGroup>
+    <!-- Release versions come from the git tag (see .github/workflows/ci.yml);
+         local and pull request builds use this placeholder. -->
+    <Version>0.0.0-dev</Version>
+    <Authors>Phillip Hoff</Authors>
+    <Description>Libraries for reading, parsing, and rendering IHO S-57 Electronic Navigational Charts.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/philliphoff/EncDotNet</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/philliphoff/EncDotNet</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <!-- Ship XML documentation in every package so consumers get IntelliSense,
+         and fail the build (via TreatWarningsAsErrors) on missing (CS1591) or
+         malformed doc comments. The viewer opts out explicitly. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <!-- Libraries are trimmable: the trim analyzers run in every build and, with
+       TreatWarningsAsErrors, keep reflection that can't be statically analysed
+       out of them. Analysed on the net10.0 target only, because IsTrimmable on
+       net8.0 would pull in the net8.0 ILLink pack. The viewer is an app, not a
+       library. EncDotNet.Noaa deserializes the catalog with XmlSerializer,
+       which isn't trim-safe; it stays out until that parser is replaced. -->
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0'
+                            And '$(MSBuildProjectName)' != 'EncDotNet.ChartViewer'
+                            And '$(MSBuildProjectName)' != 'EncDotNet.Noaa'">
+    <IsTrimmable>true</IsTrimmable>
+  </PropertyGroup>
 
 </Project>

@@ -1,0 +1,21 @@
+<Project>
+
+  <!--
+    Pack each packable library's own README.md as the NuGet package readme so it
+    is shown on nuget.org. Applied here rather than in every .csproj so current
+    and future packable projects that ship a README.md pick it up automatically.
+    Inner (per-target-framework) builds already have README.md as a default
+    None item, so it's updated rather than included twice (NETSDK1022). The
+    multi-targeting outer build, which is where pack runs, has no default
+    items, so it's included there.
+  -->
+  <PropertyGroup Condition="'$(IsPackable)' != 'false' And Exists('$(MSBuildProjectDirectory)/README.md')">
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(IsPackable)' != 'false' And Exists('$(MSBuildProjectDirectory)/README.md')">
+    <None Update="README.md" Pack="true" PackagePath="\" Condition="'$(EnableDefaultItems)' == 'true'" />
+    <None Include="README.md" Pack="true" PackagePath="\" Condition="'$(EnableDefaultItems)' != 'true'" />
+  </ItemGroup>
+
+</Project>

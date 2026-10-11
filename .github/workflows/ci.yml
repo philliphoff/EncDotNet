@@ -24,8 +24,22 @@ jobs:
       - name: Restore
         run: dotnet restore
 
+      - name: Determine version
+        id: version
+        shell: bash
+        run: |
+          # The git tag is the source of truth for the released version. On a
+          # tag build (refs/tags/v*) derive the version from the tag name; on
+          # branch and PR builds fall back to the dev placeholder in props.
+          if [ "${GITHUB_REF_TYPE}" = "tag" ] && [[ "${GITHUB_REF_NAME}" == v* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="$(grep -oE '<Version>[^<]+' src/Directory.Build.props | sed 's/<Version>//')"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Build
-        run: dotnet build --no-restore --configuration Release
+        run: dotnet build --no-restore --configuration Release -p:Version=${{ steps.version.outputs.version }}
 
       - name: Test
         run: dotnet test --no-build --configuration Release --logger trx --results-directory TestResults
@@ -38,10 +52,12 @@ jobs:
           path: TestResults/*.trx
 
       - name: Pack NuGet packages
-        run: |
-          dotnet pack src/EncDotNet.Iso8211/EncDotNet.Iso8211.csproj --no-build --configuration Release --output nupkgs
-          dotnet pack src/EncDotNet.S57/EncDotNet.S57.csproj --no-build --configuration Release --output nupkgs
-          dotnet pack src/EncDotNet.Noaa/EncDotNet.Noaa.csproj --no-build --configuration Release --output nupkgs
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        # Pack every packable project in the solution. The viewer, tests and
+        # benchmarks opt out with <IsPackable>false</IsPackable>, so a new
+        # library is published with no edit here.
+        run: dotnet pack EncDotNet.slnx --no-build --configuration Release --output nupkgs -p:Version=$VERSION
 
       - name: Upload NuGet packages
         uses: actions/upload-artifact@v4
@@ -66,14 +82,54 @@ jobs:
       - name: Restore
         run: dotnet restore
 
-      - name: Verify formatting (whitespace)
-        # Fix locally with: dotnet format whitespace EncDotNet.slnx
-        run: dotnet format whitespace EncDotNet.slnx --no-restore --verify-no-changes
+      - name: Verify formatting, usings and naming
+        # The root command verifies whitespace, and the diagnostic filter
+        # limits code-style analysis to using directives (IDE0005) and naming
+        # (IDE1006). One invocation loads the multi-targeted solution once.
+        # Fix whitespace and usings locally with `dotnet format whitespace` and
+        # `dotnet format style --diagnostics IDE0005`; fix naming by hand.
+        run: >
+          dotnet format EncDotNet.slnx
+          --diagnostics IDE0005 IDE1006
+          --severity warn
+          --no-restore
+          --verify-no-changes
 
-      - name: Verify usings (ordering + unused)
-        # Fix locally with:
-        #   dotnet format style EncDotNet.slnx --diagnostics IDE0005
-        run: dotnet format style EncDotNet.slnx --diagnostics IDE0005 --severity warn --no-restore --verify-no-changes
+  test-arm64:
+    strategy:
+      matrix:
+        include:
+          - os: windows-11-arm
+            name: win-arm64
+          - os: ubuntu-22.04-arm
+            name: linux-arm64
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Test
+        run: dotnet test --no-build --configuration Release --logger trx --results-directory TestResults
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.name }}
+          path: TestResults/*.trx
 
   publish:
     needs: build

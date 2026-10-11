@@ -2,7 +2,7 @@ using System.Collections.Immutable;
 using System.Text;
 using EncDotNet.Iso8211;
 
-namespace EndDotNet.UnitTests;
+namespace EncDotNet.UnitTests;
 
 /// <summary>
 /// Unit tests for <see cref="Iso8211DataDescriptiveRecord"/>, <see cref="Iso8211DataDescriptiveRecordReader"/>,

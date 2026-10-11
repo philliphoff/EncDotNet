@@ -5,7 +5,7 @@ using EncDotNet.S57.Charts;
 using Mapsui.Projections;
 using NetTopologySuite.Geometries;
 
-namespace EndDotNet.UnitTests;
+namespace EncDotNet.UnitTests;
 
 public class S57LineGeometryBuilderTests
 {

@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Text;
 using EncDotNet.S57;
 
-namespace EndDotNet.UnitTests;
+namespace EncDotNet.UnitTests;
 
 /// <summary>
 /// Unit tests for the <see cref="S57DocumentReader"/> class and related S-57 types.
@@ -1511,7 +1511,7 @@ public class S57DocumentReaderTests
         S57Document document;
         using (var stream = new MemoryStream(data))
         {
-            document = await S57DocumentReader.ReadAsync(stream);
+            document = await S57DocumentReader.ReadAsync(stream, cancellationToken: TestContext.Current.CancellationToken);
         }
 
         // Assert
@@ -1554,10 +1554,10 @@ public class S57DocumentReaderTests
 
         try
         {
-            await File.WriteAllBytesAsync(tempFile, data);
+            await File.WriteAllBytesAsync(tempFile, data, cancellationToken: TestContext.Current.CancellationToken);
 
             // Act
-            var document = await S57DocumentReader.ReadFromFileAsync(tempFile);
+            var document = await S57DocumentReader.ReadFromFileAsync(tempFile, cancellationToken: TestContext.Current.CancellationToken);
 
             // Assert
             Assert.NotNull(document.DataSetIdentification);

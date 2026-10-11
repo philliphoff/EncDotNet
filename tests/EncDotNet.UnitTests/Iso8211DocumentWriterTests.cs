@@ -1,7 +1,7 @@
 using System.Text;
 using EncDotNet.Iso8211;
 
-namespace EndDotNet.UnitTests;
+namespace EncDotNet.UnitTests;
 
 /// <summary>
 /// Unit tests for <see cref="Iso8211DocumentWriter"/>, <see cref="Iso8211RecordBuilder"/>,
@@ -259,14 +259,14 @@ public class Iso8211DocumentWriterTests
         var expected = Iso8211DocumentWriter.Write(document);
 
         using var ms = new MemoryStream();
-        await Iso8211DocumentWriter.WriteAsync(ms, document);
+        await Iso8211DocumentWriter.WriteAsync(ms, document, cancellationToken: TestContext.Current.CancellationToken);
         Assert.Equal(expected, ms.ToArray());
 
         var path = Path.GetTempFileName();
         try
         {
-            await Iso8211DocumentWriter.WriteToFileAsync(path, document);
-            Assert.Equal(expected, await File.ReadAllBytesAsync(path));
+            await Iso8211DocumentWriter.WriteToFileAsync(path, document, cancellationToken: TestContext.Current.CancellationToken);
+            Assert.Equal(expected, await File.ReadAllBytesAsync(path, cancellationToken: TestContext.Current.CancellationToken));
 
             Iso8211DocumentWriter.WriteToFile(path, document);
             Assert.Equal(expected, File.ReadAllBytes(path));

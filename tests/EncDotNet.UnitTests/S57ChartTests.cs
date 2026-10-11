@@ -2,7 +2,7 @@ using System.Collections.Immutable;
 using EncDotNet.S57;
 using EncDotNet.S57.Charts;
 
-namespace EndDotNet.UnitTests;
+namespace EncDotNet.UnitTests;
 
 /// <summary>
 /// Unit tests for the S-57 Chart types in the Charts namespace.

@@ -1,16 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-    <PropertyGroup>
-        <OutputType>Exe</OutputType>
-    </PropertyGroup>
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
 
-    <ItemGroup>
-        <PackageReference Include="BenchmarkDotNet" />
-    </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" />
+  </ItemGroup>
 
-    <ItemGroup>
-        <ProjectReference Include="..\..\src\EncDotNet.Iso8211\EncDotNet.Iso8211.csproj" />
-        <ProjectReference Include="..\..\src\EncDotNet.S57\EncDotNet.S57.csproj" />
-    </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\EncDotNet.Iso8211\EncDotNet.Iso8211.csproj" />
+    <ProjectReference Include="..\..\src\EncDotNet.S57\EncDotNet.S57.csproj" />
+  </ItemGroup>
 
 </Project>

@@ -3,7 +3,7 @@ using System.Text;
 using EncDotNet.S57;
 using EncDotNet.S57.ExchangeSets;
 
-namespace EndDotNet.UnitTests;
+namespace EncDotNet.UnitTests;
 
 /// <summary>
 /// Unit tests for <see cref="S57ExchangeSet.ReadDocument"/> and
@@ -459,7 +459,7 @@ public class S57ExchangeSetDocumentTests : IDisposable
         WriteChartFile("US5WA51M", ".001", updateData);
 
         // Act
-        var doc = await CreateExchangeSet().ReadDocumentAsync(_tempDir);
+        var doc = await CreateExchangeSet().ReadDocumentAsync(_tempDir, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(2, doc.FeatureRecords.Count);
@@ -471,7 +471,7 @@ public class S57ExchangeSetDocumentTests : IDisposable
     public async Task ReadDocumentAsync_NoBaseFile_ThrowsFileNotFoundException()
     {
         await Assert.ThrowsAsync<FileNotFoundException>(
-            () => CreateExchangeSet().ReadDocumentAsync(_tempDir));
+            () => CreateExchangeSet().ReadDocumentAsync(_tempDir, cancellationToken: TestContext.Current.CancellationToken));
     }
 
     [Fact]
