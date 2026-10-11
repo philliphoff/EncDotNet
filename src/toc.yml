@@ -1,0 +1,8 @@
+# Table of contents for the per-package READMEs published on the docs site
+# (see docfx.json). Keep in sync with the package table in docs/index.md.
+- name: EncDotNet.Iso8211
+  href: EncDotNet.Iso8211/README.md
+- name: EncDotNet.S57
+  href: EncDotNet.S57/README.md
+- name: EncDotNet.Noaa
+  href: EncDotNet.Noaa/README.md

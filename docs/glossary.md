@@ -1,8 +1,8 @@
-# S-57 / ISO 8211 Glossary
+# S-57 glossary
 
 Key abbreviations and terminology used throughout the EncDotNet codebase, drawn from the IHO S-57 and ISO/IEC 8211 standards.
 
-## File & Record Structure
+## File and record structure
 
 | Term | Meaning |
 |------|---------|
@@ -10,7 +10,7 @@ Key abbreviations and terminology used throughout the EncDotNet codebase, drawn 
 | **CATALOG.031** | The S-57 exchange set catalog file listing all chart files |
 | **CATD** | Catalogue Directory record within CATALOG.031 |
 
-## Data Set Fields
+## Dataset fields
 
 | Term | Meaning |
 |------|---------|
@@ -21,7 +21,7 @@ Key abbreviations and terminology used throughout the EncDotNet codebase, drawn 
 | **SOMF** | Sounding Multiplication Factor — divide raw integer depths by this |
 | **CSCL** | Compilation Scale (e.g., 22000 for a 1:22,000 chart) |
 
-## Feature Records
+## Feature records
 
 | Term | Meaning |
 |------|---------|
@@ -34,7 +34,7 @@ Key abbreviations and terminology used throughout the EncDotNet codebase, drawn 
 | **FSPT** | Feature-to-Spatial Record Pointer (links features to vector geometry) |
 | **FFPT** | Feature-to-Feature Pointer (links related features) |
 
-## Vector/Spatial Records
+## Vector records
 
 | Term | Meaning |
 |------|---------|
@@ -49,7 +49,7 @@ Key abbreviations and terminology used throughout the EncDotNet codebase, drawn 
 | **MASK** | Masking Indicator (Mask=1, Show=2) |
 | **TOPI** | Topology Indicator (Beginning=1, End=2, LeftFace=3, RightFace=4) |
 
-## Topology Model
+## Topology model
 
 S-57 uses **chain-node topology**:
 
@@ -59,7 +59,7 @@ S-57 uses **chain-node topology**:
 - **Isolated Nodes** represent standalone points (or sounding clusters)
 - Edge orientation and usage indicators determine interior vs. exterior boundaries
 
-## Coordinate Handling
+## Coordinates
 
 - Raw coordinates in S-57 files are **integers**; divide by **COMF** (typically 10,000,000) to get lat/lon in decimal degrees
 - Soundings are stored in SG3D fields; divide depth by **SOMF** (typically 10)

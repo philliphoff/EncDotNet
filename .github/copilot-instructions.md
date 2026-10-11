@@ -85,6 +85,8 @@ skills explain how the code models them.
   readme. Update it when adding types, removing APIs or changing behaviour.
 - Conceptual guides live under `docs/`. Add or update pages there for
   user-facing features.
+- Follow [`docs/docs-style.md`](../docs/docs-style.md) and build with
+  `docfx docfx.json --warningsAsErrors` before finishing; CI does the same.
 
 ### Naming and style
 
@@ -138,6 +140,7 @@ load the matching skill(s):
 | ISO 8211 leaders, DDR, field controls, subfield formats, reader/writer; `src/EncDotNet.Iso8211/**` | `iso8211` |
 | S-57 records, fields, object or attribute codes, topology, updates, exchange sets, CATALOG.031; `src/EncDotNet.S57/**` | `s57-enc` |
 | Keeping the legacy viewer building; `src/EncDotNet.ChartViewer/**` (maintenance only) | `chart-viewer` |
+| Adding, rewriting or reviewing developer docs: `docs/**`, `src/*/README.md`, `README.md` (page types, section structure, tone, compiling examples, DocFX build) | `docs-writing` |
 
 - For changes that cross layers (for example an S-57 change that needs new
   ISO 8211 support), load every affected skill and reconcile them first.
