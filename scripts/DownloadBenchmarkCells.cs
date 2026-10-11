@@ -7,10 +7,16 @@ using System.Security.Cryptography;
 using EncDotNet.Noaa;
 
 // ============================================================================
-// DownloadBenchmarkCells.cs — Downloads a fixed set of real NOAA ENC cells for
+// DownloadBenchmarkCells.cs — Downloads a few real NOAA ENC cells for
 // the benchmarks in tests/EncDotNet.Benchmarks.
 //
 // Usage: dotnet run scripts/DownloadBenchmarkCells.cs -- <output-dir> [cell...]
+//
+// Without cell names, the script picks one cell per usage band (harbour, approach
+// and coastal) from the live NOAA catalog: among active cells with update files,
+// the one at the 90th percentile of download size, so the set is substantial but
+// typical. Picking by rule rather than by name survives NOAA withdrawing or
+// renaming cells, which it does as it re-schemes its coverage.
 //
 // Each cell is extracted to <output-dir>/<cell>/ with its update files. Point
 // ENCDOTNET_ENC_ROOT at <output-dir> to include them in a benchmark run. The
@@ -24,9 +30,10 @@ using EncDotNet.Noaa;
 // Never commit the downloaded cells (see CONTRIBUTING.md).
 // ============================================================================
 
-// A harbour, an approach and a coastal cell, all with update files. Together they
-// cover the range of record counts and edge lengths in typical NOAA cells.
-string[] defaultCells = ["US5WA50M", "US4MD81M", "US3WA01M"];
+// Navigational purpose (usage band), the third character of the cell file name
+// (S-57 Appendix B.1, 5.6.4).
+(char Band, string Purpose)[] bands = [('5', "harbour"), ('4', "approach"), ('3', "coastal")];
+const double sizePercentile = 0.9;
 
 if (args.Length == 0)
 {
@@ -35,12 +42,42 @@ if (args.Length == 0)
 }
 
 var outputDirectory = Path.GetFullPath(args[0]);
-var cellNames = args.Length > 1 ? args[1..] : defaultCells;
 Directory.CreateDirectory(outputDirectory);
 
 using var catalogClient = new EncProductCatalogClient();
 var catalog = await catalogClient.GetNoaaCatalogAsync();
 var cellsByName = catalog.Cells.ToDictionary(c => c.Name, StringComparer.OrdinalIgnoreCase);
+
+string[] cellNames;
+if (args.Length > 1)
+{
+    cellNames = args[1..];
+}
+else
+{
+    var picked = new List<string>();
+    foreach (var (band, purpose) in bands)
+    {
+        var candidates = catalog.Cells
+            .Where(c => c.Name.Length == 8 && c.Name[2] == band)
+            .Where(c => c.UpdateNumber > 0 && c.ZipfileSize > 0)
+            .Where(c => !c.Status.Contains("cancel", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(c => c.ZipfileSize)
+            .ThenBy(c => c.Name, StringComparer.Ordinal)
+            .ToList();
+        if (candidates.Count == 0)
+        {
+            Console.Error.WriteLine($"warning: no active {purpose} cell with updates in the NOAA catalog.");
+            continue;
+        }
+
+        var cell = candidates[(int)((candidates.Count - 1) * sizePercentile)];
+        Console.WriteLine($"Picked {cell.Name} as the {purpose} cell ({candidates.Count} candidates, zip {cell.ZipfileSize:N0} bytes).");
+        picked.Add(cell.Name);
+    }
+
+    cellNames = [.. picked];
+}
 
 using var httpClient = new HttpClient();
 var manifest = new List<string>();
@@ -96,4 +133,4 @@ foreach (var name in cellNames)
 }
 
 File.WriteAllLines(Path.Combine(outputDirectory, "cells.txt"), manifest);
-return missing == cellNames.Length ? 1 : 0;
+return cellNames.Length == 0 || missing == cellNames.Length ? 1 : 0;
