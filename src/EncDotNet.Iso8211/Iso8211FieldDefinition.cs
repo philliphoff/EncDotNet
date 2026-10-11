@@ -84,6 +84,17 @@ public sealed record Iso8211FieldDefinition
     /// </summary>
     /// <param name="name">The subfield name to search for.</param>
     /// <returns>The subfield definition with the specified name, or <c>null</c> if not found.</returns>
-    public Iso8211SubfieldDefinition? GetSubfieldDefinition(string name) =>
-        SubfieldDefinitions.FirstOrDefault(s => s.Name == name);
+    public Iso8211SubfieldDefinition? GetSubfieldDefinition(string name)
+    {
+        var definitions = SubfieldDefinitions;
+        for (var i = 0; i < definitions.Count; i++)
+        {
+            if (definitions[i].Name == name)
+            {
+                return definitions[i];
+            }
+        }
+
+        return null;
+    }
 }

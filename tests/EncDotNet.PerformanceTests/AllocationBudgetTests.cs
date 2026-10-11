@@ -81,6 +81,37 @@ public class AllocationBudgetTests
     }
 
     [Fact]
+    public void Iso8211FieldReader_DecodingCoordinatesByOrdinal_StaysWithinBudget()
+    {
+        // The ordinal accessors are the allocation-free way to read a repeating group: the
+        // name lookups happen once per field, and no group objects are created.
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(Cell.Iso8211Document.DataDescriptiveRecord!);
+        var definition = ddr.GetFieldDefinition("SG2D")!;
+        var fields = Cell.Iso8211Document.DataRecords
+            .SelectMany(r => r.Fields)
+            .Where(f => f.Tag == "SG2D")
+            .ToArray();
+
+        var allocated = MemoryMeter.AllocatedBytes(() =>
+        {
+            foreach (var field in fields)
+            {
+                var reader = new Iso8211FieldReader(definition, field.Data);
+                var y = reader.GetOrdinal("YCOO");
+                var x = reader.GetOrdinal("XCOO");
+                for (var group = 0; group < reader.GroupCount; group++)
+                {
+                    _ = reader.GetSubfield<int>(group, y);
+                    _ = reader.GetSubfield<int>(group, x);
+                }
+            }
+        });
+
+        PerformanceBudget.AssertAllocated(
+            "Iso8211FieldReader SG2D by ordinal", allocated, PerformanceBudgets.Iso8211FieldReaderCoordinatesByOrdinal);
+    }
+
+    [Fact]
     public void Iso8211DocumentWriter_Write_StaysWithinBudget()
     {
         var document = Cell.Iso8211Document;

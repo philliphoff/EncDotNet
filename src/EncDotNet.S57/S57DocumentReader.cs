@@ -513,19 +513,22 @@ public static class S57DocumentReader
             // Use DDR-based field reader with repeating groups
             var reader = new Iso8211FieldReader(fieldDef, field.Data, lexicalLevel);
 
-            foreach (var group in reader.GetSubfieldGroups())
+            try
             {
-                try
+                var attl = reader.GetOrdinal(S57SubfieldNames.ATTL);
+                var atvl = reader.GetOrdinal(S57SubfieldNames.ATVL);
+                for (var group = 0; group < reader.GroupCount; group++)
                 {
-                    var attl = group.GetSubfield<ushort>(S57SubfieldNames.ATTL);
-                    var atvl = group.GetSubfield<string>(S57SubfieldNames.ATVL);
-                    attributes.Add(new S57AttributeValue(attl, atvl));
+                    attributes.Add(new S57AttributeValue(
+                        reader.GetSubfield<ushort>(group, attl),
+                        reader.GetSubfield<string>(group, atvl)));
                 }
-                catch (Exception ex)
-                {
-                    logger?.LogWarning(ex, "Failed to parse attribute in {FieldTag} field.", fieldTag);
-                    break;
-                }
+
+                WarnIfTruncated(reader, logger, "Failed to parse attribute in {FieldTag} field.", fieldTag);
+            }
+            catch (Exception ex)
+            {
+                logger?.LogWarning(ex, "Failed to parse attribute in {FieldTag} field.", fieldTag);
             }
         }
 
@@ -552,32 +555,29 @@ public static class S57DocumentReader
             // Use DDR-based field reader with repeating groups
             var reader = new Iso8211FieldReader(fieldDef, field.Data);
 
-            foreach (var group in reader.GetSubfieldGroups())
+            try
             {
-                try
+                var name = reader.GetOrdinal(S57SubfieldNames.NAME);
+                var ornt = reader.GetOrdinal(S57SubfieldNames.ORNT);
+                var usag = reader.GetOrdinal(S57SubfieldNames.USAG);
+                var mask = reader.GetOrdinal(S57SubfieldNames.MASK);
+                for (var group = 0; group < reader.GroupCount; group++)
                 {
-                    // NAME is a composite subfield (5 bytes: RCNM(1) + RCID(4))
-                    // Read it as raw bytes and decompose
-                    var nameBytes = group.GetSubfieldBytes(S57SubfieldNames.NAME);
-                    var name = DecomposeNameField(nameBytes);
-
-                    var ornt = group.GetSubfield<byte>(S57SubfieldNames.ORNT);
-                    var usag = group.GetSubfield<byte>(S57SubfieldNames.USAG);
-                    var mask = group.GetSubfield<byte>(S57SubfieldNames.MASK);
-
                     pointers.Add(new S57SpatialPointer
                     {
-                        Name = name,
-                        Orientation = (S57Orientation)ornt,
-                        Usage = (S57UsageIndicator)usag,
-                        Mask = (S57MaskingIndicator)mask
+                        // NAME is a composite subfield (5 bytes: RCNM(1) + RCID(4)), read as raw bytes
+                        Name = DecomposeNameField(reader.GetSubfieldBytes(group, name)),
+                        Orientation = (S57Orientation)reader.GetSubfield<byte>(group, ornt),
+                        Usage = (S57UsageIndicator)reader.GetSubfield<byte>(group, usag),
+                        Mask = (S57MaskingIndicator)reader.GetSubfield<byte>(group, mask)
                     });
                 }
-                catch (Exception ex)
-                {
-                    logger?.LogWarning(ex, "Failed to parse spatial pointer in FSPT field.");
-                    break;
-                }
+
+                WarnIfTruncated(reader, logger, "Failed to parse spatial pointer in {FieldTag} field.", S57FieldTags.FSPT);
+            }
+            catch (Exception ex)
+            {
+                logger?.LogWarning(ex, "Failed to parse spatial pointer in FSPT field.");
             }
         }
 
@@ -602,29 +602,27 @@ public static class S57DocumentReader
             // Use DDR-based field reader with repeating groups
             var reader = new Iso8211FieldReader(fieldDef, field.Data);
 
-            foreach (var group in reader.GetSubfieldGroups())
+            try
             {
-                try
+                var lnam = reader.GetOrdinal(S57SubfieldNames.LNAM);
+                var rind = reader.GetOrdinal(S57SubfieldNames.RIND);
+                var comt = reader.GetOrdinal(S57SubfieldNames.COMT);
+                for (var group = 0; group < reader.GroupCount; group++)
                 {
-                    // LNAM is a composite subfield (8 bytes: AGEN(2) + FIDN(4) + FIDS(2))
-                    var lnamBytes = group.GetSubfieldBytes(S57SubfieldNames.LNAM);
-                    var lnam = DecomposeLongNameField(lnamBytes);
-
-                    var rind = group.GetSubfield<byte>(S57SubfieldNames.RIND);
-                    var comt = group.GetSubfield<string>(S57SubfieldNames.COMT);
-
                     pointers.Add(new S57FeaturePointer
                     {
-                        Name = lnam,
-                        Relationship = (S57RelationshipIndicator)rind,
-                        Comment = comt
+                        // LNAM is a composite subfield (8 bytes: AGEN(2) + FIDN(4) + FIDS(2))
+                        Name = DecomposeLongNameField(reader.GetSubfieldBytes(group, lnam)),
+                        Relationship = (S57RelationshipIndicator)reader.GetSubfield<byte>(group, rind),
+                        Comment = reader.GetSubfield<string>(group, comt)
                     });
                 }
-                catch (Exception ex)
-                {
-                    logger?.LogWarning(ex, "Failed to parse feature pointer in FFPT field.");
-                    break;
-                }
+
+                WarnIfTruncated(reader, logger, "Failed to parse feature pointer in {FieldTag} field.", S57FieldTags.FFPT);
+            }
+            catch (Exception ex)
+            {
+                logger?.LogWarning(ex, "Failed to parse feature pointer in FFPT field.");
             }
         }
 
@@ -649,33 +647,31 @@ public static class S57DocumentReader
             // Use DDR-based field reader with repeating groups
             var reader = new Iso8211FieldReader(fieldDef, field.Data);
 
-            foreach (var group in reader.GetSubfieldGroups())
+            try
             {
-                try
+                var name = reader.GetOrdinal(S57SubfieldNames.NAME);
+                var ornt = reader.GetOrdinal(S57SubfieldNames.ORNT);
+                var usag = reader.GetOrdinal(S57SubfieldNames.USAG);
+                var topi = reader.GetOrdinal(S57SubfieldNames.TOPI);
+                var mask = reader.GetOrdinal(S57SubfieldNames.MASK);
+                for (var group = 0; group < reader.GroupCount; group++)
                 {
-                    // NAME is a composite subfield (5 bytes: RCNM(1) + RCID(4))
-                    var nameBytes = group.GetSubfieldBytes(S57SubfieldNames.NAME);
-                    var name = DecomposeNameField(nameBytes);
-
-                    var ornt = group.GetSubfield<byte>(S57SubfieldNames.ORNT);
-                    var usag = group.GetSubfield<byte>(S57SubfieldNames.USAG);
-                    var topi = group.GetSubfield<byte>(S57SubfieldNames.TOPI);
-                    var mask = group.GetSubfield<byte>(S57SubfieldNames.MASK);
-
                     pointers.Add(new S57VectorPointer
                     {
-                        Name = name,
-                        Orientation = (S57Orientation)ornt,
-                        Usage = (S57UsageIndicator)usag,
-                        Topology = (S57TopologyIndicator)topi,
-                        Mask = (S57MaskingIndicator)mask
+                        // NAME is a composite subfield (5 bytes: RCNM(1) + RCID(4)), read as raw bytes
+                        Name = DecomposeNameField(reader.GetSubfieldBytes(group, name)),
+                        Orientation = (S57Orientation)reader.GetSubfield<byte>(group, ornt),
+                        Usage = (S57UsageIndicator)reader.GetSubfield<byte>(group, usag),
+                        Topology = (S57TopologyIndicator)reader.GetSubfield<byte>(group, topi),
+                        Mask = (S57MaskingIndicator)reader.GetSubfield<byte>(group, mask)
                     });
                 }
-                catch (Exception ex)
-                {
-                    logger?.LogWarning(ex, "Failed to parse vector pointer in VRPT field.");
-                    break;
-                }
+
+                WarnIfTruncated(reader, logger, "Failed to parse vector pointer in {FieldTag} field.", S57FieldTags.VRPT);
+            }
+            catch (Exception ex)
+            {
+                logger?.LogWarning(ex, "Failed to parse vector pointer in VRPT field.");
             }
         }
 
@@ -700,24 +696,24 @@ public static class S57DocumentReader
             // Use DDR-based field reader with repeating groups
             var reader = new Iso8211FieldReader(fieldDef, field.Data);
 
-            foreach (var group in reader.GetSubfieldGroups())
+            try
             {
-                try
+                var ycoo = reader.GetOrdinal(S57SubfieldNames.YCOO);
+                var xcoo = reader.GetOrdinal(S57SubfieldNames.XCOO);
+                for (var group = 0; group < reader.GroupCount; group++)
                 {
-                    var ycoo = group.GetSubfield<int>(S57SubfieldNames.YCOO);
-                    var xcoo = group.GetSubfield<int>(S57SubfieldNames.XCOO);
-
                     coordinates.Add(new S57Coordinate2D
                     {
-                        Y = ycoo,
-                        X = xcoo
+                        Y = reader.GetSubfield<int>(group, ycoo),
+                        X = reader.GetSubfield<int>(group, xcoo)
                     });
                 }
-                catch (Exception ex)
-                {
-                    logger?.LogWarning(ex, "Failed to parse 2D coordinate in SG2D field.");
-                    break;
-                }
+
+                WarnIfTruncated(reader, logger, "Failed to parse 2D coordinate in {FieldTag} field.", S57FieldTags.SG2D);
+            }
+            catch (Exception ex)
+            {
+                logger?.LogWarning(ex, "Failed to parse 2D coordinate in SG2D field.");
             }
         }
 
@@ -742,30 +738,45 @@ public static class S57DocumentReader
             // Use DDR-based field reader with repeating groups
             var reader = new Iso8211FieldReader(fieldDef, field.Data);
 
-            foreach (var group in reader.GetSubfieldGroups())
+            try
             {
-                try
+                var ycoo = reader.GetOrdinal(S57SubfieldNames.YCOO);
+                var xcoo = reader.GetOrdinal(S57SubfieldNames.XCOO);
+                var ve3d = reader.GetOrdinal(S57SubfieldNames.VE3D);
+                for (var group = 0; group < reader.GroupCount; group++)
                 {
-                    var ycoo = group.GetSubfield<int>(S57SubfieldNames.YCOO);
-                    var xcoo = group.GetSubfield<int>(S57SubfieldNames.XCOO);
-                    var ve3d = group.GetSubfield<int>(S57SubfieldNames.VE3D);
-
                     soundings.Add(new S57Sounding
                     {
-                        Y = ycoo,
-                        X = xcoo,
-                        Depth = ve3d
+                        Y = reader.GetSubfield<int>(group, ycoo),
+                        X = reader.GetSubfield<int>(group, xcoo),
+                        Depth = reader.GetSubfield<int>(group, ve3d)
                     });
                 }
-                catch (Exception ex)
-                {
-                    logger?.LogWarning(ex, "Failed to parse sounding in SG3D field.");
-                    break;
-                }
+
+                WarnIfTruncated(reader, logger, "Failed to parse sounding in {FieldTag} field.", S57FieldTags.SG3D);
+            }
+            catch (Exception ex)
+            {
+                logger?.LogWarning(ex, "Failed to parse sounding in SG3D field.");
             }
         }
 
         return soundings.ToImmutable();
+    }
+
+    /// <summary>
+    /// Logs a warning when a field's data ends partway through a repetition of its group. The
+    /// complete repetitions before it are kept, and the partial one is dropped.
+    /// </summary>
+    private static void WarnIfTruncated(Iso8211FieldReader reader, ILogger? logger, string message, string fieldTag)
+    {
+        var definition = reader.FieldDefinition;
+        var repeatCount = definition.SubfieldDefinitions.Count - definition.RepeatingSubfieldStartIndex;
+        var complete = definition.RepeatingSubfieldStartIndex + (reader.GroupCount * repeatCount);
+        if (reader.SubfieldCount > complete)
+        {
+            logger?.LogWarning(message, fieldTag);
+        }
     }
 
     /// <summary>

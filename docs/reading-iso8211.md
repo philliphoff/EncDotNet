@@ -79,6 +79,28 @@ foreach (Iso8211Record record in document.DataRecords.Take(3))
 of coordinates, `GetSubfieldValues<T>` returns every value of one subfield and
 `GetSubfieldGroups` returns each group.
 
+To read a long repeating group, such as the thousands of coordinates in an
+edge, look up each subfield's ordinal once with `GetOrdinal`, then read each
+repetition by group index and ordinal. This avoids a name lookup and a group
+object for every repetition:
+
+```csharp
+var reader = new Iso8211FieldReader(ddr.GetFieldDefinition("SG2D")!, field.Data);
+int y = reader.GetOrdinal("YCOO");
+int x = reader.GetOrdinal("XCOO");
+
+var points = new List<(int Y, int X)>(reader.GroupCount);
+for (int group = 0; group < reader.GroupCount; group++)
+{
+    points.Add((reader.GetSubfield<int>(group, y), reader.GetSubfield<int>(group, x)));
+}
+```
+
+`GroupCount` counts complete repetitions only. If the field data ends partway
+through one, `GetSubfieldGroups` still returns that partial group, and
+`TryGetSubfield<T>(group, ordinal, out value)` returns `false` for the
+subfields it lacks.
+
 Character data is read as UTF-8 by default. Pass `lexicalLevel: 2` to the
 `Iso8211FieldReader` constructor for fields encoded as UCS-2 (UTF-16LE).
 

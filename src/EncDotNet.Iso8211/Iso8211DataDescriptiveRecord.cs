@@ -31,6 +31,17 @@ public sealed record Iso8211DataDescriptiveRecord
     /// </summary>
     /// <param name="tag">The field tag to search for.</param>
     /// <returns>The field definition with the specified tag, or <c>null</c> if not found.</returns>
-    public Iso8211FieldDefinition? GetFieldDefinition(string tag) =>
-        FieldDefinitions.FirstOrDefault(f => f.Tag == tag);
+    public Iso8211FieldDefinition? GetFieldDefinition(string tag)
+    {
+        var definitions = FieldDefinitions;
+        for (var i = 0; i < definitions.Count; i++)
+        {
+            if (definitions[i].Tag == tag)
+            {
+                return definitions[i];
+            }
+        }
+
+        return null;
+    }
 }

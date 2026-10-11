@@ -19,10 +19,11 @@ internal static class PerformanceBudgets
     // Allocated bytes for one operation.
     public const long Iso8211ReaderAllTokens = 0;
     public const long Iso8211DocumentReaderRead = 2_631_240;
-    public const long Iso8211DataDescriptiveRecordReaderRead = 50_136;
-    public const long Iso8211FieldReaderCoordinates = 6_194_360;
+    public const long Iso8211DataDescriptiveRecordReaderRead = 32_808;
+    public const long Iso8211FieldReaderCoordinates = 846_376;
+    public const long Iso8211FieldReaderCoordinatesByOrdinal = 141_264;
     public const long Iso8211DocumentWriterWrite = 2_318_456;
-    public const long S57DocumentReaderRead = 29_024_040;
+    public const long S57DocumentReaderRead = 7_991_888;
     public const long S57DocumentApplyChanges = 685_440;
     public const long S57ChartFromDocument = 1_030_312;
 

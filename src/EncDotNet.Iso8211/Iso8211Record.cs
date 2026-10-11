@@ -30,12 +30,34 @@ public sealed record Iso8211Record
     /// </summary>
     /// <param name="tag">The tag to search for.</param>
     /// <returns>The field with the specified tag, or null if not found.</returns>
-    public Iso8211Field? GetFieldByTag(string tag) => Fields.FirstOrDefault(f => f.Tag == tag);
+    public Iso8211Field? GetFieldByTag(string tag)
+    {
+        var fields = Fields;
+        for (var i = 0; i < fields.Count; i++)
+        {
+            if (fields[i].Tag == tag)
+            {
+                return fields[i];
+            }
+        }
+
+        return null;
+    }
 
     /// <summary>
     /// Gets all fields with the specified tag.
     /// </summary>
     /// <param name="tag">The tag to search for.</param>
     /// <returns>All fields with the specified tag.</returns>
-    public IEnumerable<Iso8211Field> GetFieldsByTag(string tag) => Fields.Where(f => f.Tag == tag);
+    public IEnumerable<Iso8211Field> GetFieldsByTag(string tag)
+    {
+        var fields = Fields;
+        for (var i = 0; i < fields.Count; i++)
+        {
+            if (fields[i].Tag == tag)
+            {
+                yield return fields[i];
+            }
+        }
+    }
 }
