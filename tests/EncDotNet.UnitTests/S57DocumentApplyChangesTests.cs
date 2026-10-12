@@ -817,13 +817,13 @@ public class S57DocumentApplyChangesTests
     {
         var basePtr = new S57FeaturePointer
         {
-            Name = S57RecordName.FromRcnmRcid(S57RecordNameCodes.Feature, 100),
+            Name = new S57LongName(550, 100, 1),
             Relationship = S57RelationshipIndicator.Master,
             Comment = ""
         };
         var newPtr = new S57FeaturePointer
         {
-            Name = S57RecordName.FromRcnmRcid(S57RecordNameCodes.Feature, 200),
+            Name = new S57LongName(550, 200, 1),
             Relationship = S57RelationshipIndicator.Slave,
             Comment = ""
         };
@@ -852,8 +852,8 @@ public class S57DocumentApplyChangesTests
 
         var ptrs = result.FeatureRecords[0].FeaturePointers;
         Assert.Equal(2, ptrs.Count);
-        Assert.Equal(100, ptrs[0].Name.RecordId);
-        Assert.Equal(200, ptrs[1].Name.RecordId);
+        Assert.Equal(100u, ptrs[0].Name.FeatureId);
+        Assert.Equal(200u, ptrs[1].Name.FeatureId);
     }
 
     #endregion
@@ -985,11 +985,11 @@ public class S57DocumentApplyChangesTests
     {
         var basePtr = new S57FeaturePointer
         {
-            Name = S57RecordName.FromRcnmRcid(S57RecordNameCodes.Feature, 100),
+            Name = new S57LongName(550, 100, 1),
             Relationship = S57RelationshipIndicator.Master,
             Comment = ""
         };
-        var newPtr = basePtr with { Name = S57RecordName.FromRcnmRcid(S57RecordNameCodes.Feature, 200) };
+        var newPtr = basePtr with { Name = new S57LongName(550, 200, 1) };
         var baseDoc = new S57Document
         {
             FeatureRecords = [CreateFeature(1, featurePointers: [basePtr])],
@@ -1091,11 +1091,11 @@ public class S57DocumentApplyChangesTests
     {
         var basePtr = new S57FeaturePointer
         {
-            Name = S57RecordName.FromRcnmRcid(S57RecordNameCodes.Feature, 100),
+            Name = new S57LongName(550, 100, 1),
             Relationship = S57RelationshipIndicator.Master,
             Comment = ""
         };
-        var newPtr = basePtr with { Name = S57RecordName.FromRcnmRcid(S57RecordNameCodes.Feature, 200) };
+        var newPtr = basePtr with { Name = new S57LongName(550, 200, 1) };
         var baseDoc = new S57Document
         {
             FeatureRecords = [CreateFeature(1, featurePointers: [basePtr])],
@@ -1119,7 +1119,7 @@ public class S57DocumentApplyChangesTests
 
         var result = baseDoc.ApplyChanges(update);
 
-        Assert.Equal([100, 200], result.FeatureRecords[0].FeaturePointers.Select(p => p.Name.RecordId));
+        Assert.Equal([100, 200], result.FeatureRecords[0].FeaturePointers.Select(p => (int)p.Name.FeatureId));
     }
 
     #endregion

@@ -59,7 +59,9 @@ out breaking changes and their EncDotNet.S100 impact in the PR description.
 - **Attributes** (`ImmutableArray<S57AttributeValue>`): ATTL/ATVL pairs from
   ATTF and NATF.
 - **Spatial pointers** (FSPT, `S57SpatialPointer`) and **feature pointers**
-  (FFPT, `S57FeaturePointer`).
+  (FFPT, `S57FeaturePointer`). A feature pointer names its target by long name
+  (`S57LongName`: AGEN, FIDN, FIDS from the target's FOID), not by RCNM/RCID;
+  resolve it with `S57Chart.GetFeature(S57LongName)`.
 
 **Vector records** (`S57VectorRecord`), by RCNM:
 

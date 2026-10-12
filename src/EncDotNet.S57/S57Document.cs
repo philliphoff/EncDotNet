@@ -20,6 +20,29 @@ public sealed record S57Document
     public IReadOnlyList<S57VectorRecord> VectorRecords { get; init; } = [];
 
     /// <summary>
+    /// Gets a feature record by its long name (LNAM), such as the target of a feature pointer.
+    /// </summary>
+    /// <param name="longName">The long name to find.</param>
+    /// <returns>The first feature record with that long name, or <c>null</c> if there is none.</returns>
+    /// <remarks>
+    /// This searches every feature record. To resolve many pointers, build an
+    /// <see cref="Charts.S57Chart"/> and use <see cref="Charts.S57Chart.GetFeature(S57LongName)"/>,
+    /// which uses an index.
+    /// </remarks>
+    public S57FeatureRecord? GetFeatureRecord(S57LongName longName)
+    {
+        foreach (var record in FeatureRecords)
+        {
+            if (record.LongName == longName)
+            {
+                return record;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// Gets a feature record by its record name.
     /// </summary>
     public S57FeatureRecord? GetFeatureRecord(S57RecordName name)

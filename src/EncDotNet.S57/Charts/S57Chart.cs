@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Collections.ObjectModel;
 
 namespace EncDotNet.S57.Charts;
 
@@ -56,10 +57,16 @@ public sealed record S57Chart
     public IReadOnlyDictionary<S57RecordName, S57TypedFeature> AllFeatures { get; }
 
     /// <summary>
-    /// Gets the reverse feature-pointer index: maps a feature's record name to all features
+    /// Gets the features that have a long name (LNAM), indexed by it. Feature pointers
+    /// (<see cref="S57TypedFeature.RelatedFeatures"/>) refer to features by long name.
+    /// </summary>
+    public IReadOnlyDictionary<S57LongName, S57TypedFeature> FeaturesByLongName { get; }
+
+    /// <summary>
+    /// Gets the reverse feature-pointer index: maps a feature's long name to all features
     /// that reference it via FFPT (feature-to-feature pointers).
     /// </summary>
-    public IReadOnlyDictionary<S57RecordName, IReadOnlyList<S57TypedFeature>> ReferencingFeatures { get; }
+    public IReadOnlyDictionary<S57LongName, IReadOnlyList<S57TypedFeature>> ReferencingFeatures { get; }
 
     /// <summary>
     /// Gets the spatial co-location index: maps a spatial record name to all point features
@@ -125,6 +132,7 @@ public sealed record S57Chart
         AreaFeatures = areaFeatures ?? [];
         MetaFeatures = metaFeatures ?? [];
         AllFeatures = BuildAllFeaturesIndex(PointFeatures, LineFeatures, AreaFeatures, MetaFeatures);
+        FeaturesByLongName = BuildFeaturesByLongNameIndex(AllFeatures);
         ReferencingFeatures = BuildReferencingFeaturesIndex(AllFeatures);
         ColocatedPointFeatures = BuildColocatedPointFeaturesIndex(PointFeatures);
         FeaturesByObjectCode = BuildFeaturesByObjectCodeIndex(PointFeatures, LineFeatures, AreaFeatures, MetaFeatures);
@@ -162,10 +170,28 @@ public sealed record S57Chart
         return builder.ToImmutable();
     }
 
-    private static ImmutableDictionary<S57RecordName, IReadOnlyList<S57TypedFeature>> BuildReferencingFeaturesIndex(
+    private static ReadOnlyDictionary<S57LongName, S57TypedFeature> BuildFeaturesByLongNameIndex(
         IReadOnlyDictionary<S57RecordName, S57TypedFeature> allFeatures)
     {
-        var builder = new Dictionary<S57RecordName, ImmutableArray<S57TypedFeature>.Builder>();
+        // A hash table, not an ImmutableDictionary: it is read far more than built, and a node per
+        // entry would add about a twentieth to the chart's memory. Nothing mutates it once built.
+        var index = new Dictionary<S57LongName, S57TypedFeature>(allFeatures.Count);
+        foreach (var feature in allFeatures.Values)
+        {
+            if (feature.LongName is { } longName)
+            {
+                index[longName] = feature;
+            }
+        }
+
+        index.TrimExcess();
+        return index.AsReadOnly();
+    }
+
+    private static ImmutableDictionary<S57LongName, IReadOnlyList<S57TypedFeature>> BuildReferencingFeaturesIndex(
+        IReadOnlyDictionary<S57RecordName, S57TypedFeature> allFeatures)
+    {
+        var builder = new Dictionary<S57LongName, ImmutableArray<S57TypedFeature>.Builder>();
 
         foreach (var feature in allFeatures.Values)
         {
@@ -182,7 +208,7 @@ public sealed record S57Chart
             }
         }
 
-        var result = ImmutableDictionary.CreateBuilder<S57RecordName, IReadOnlyList<S57TypedFeature>>();
+        var result = ImmutableDictionary.CreateBuilder<S57LongName, IReadOnlyList<S57TypedFeature>>();
         foreach (var (name, list) in builder)
         {
             result[name] = list.ToImmutable();
@@ -358,6 +384,7 @@ public sealed record S57Chart
         AreaFeatures = areaFeatures.ToImmutable();
         MetaFeatures = metaFeatures.ToImmutable();
         AllFeatures = allFeatures.ToImmutable();
+        FeaturesByLongName = BuildFeaturesByLongNameIndex(AllFeatures);
         ReferencingFeatures = BuildReferencingFeaturesIndex(AllFeatures);
         ColocatedPointFeatures = BuildColocatedPointFeaturesIndex(PointFeatures);
         FeaturesByObjectCode = BuildFeaturesByObjectCodeIndex(PointFeatures, LineFeatures, AreaFeatures, MetaFeatures);
@@ -459,6 +486,34 @@ public sealed record S57Chart
     public S57Face? GetFace(S57RecordName name)
     {
         return Faces.TryGetValue(name, out var face) ? face : null;
+    }
+
+    /// <summary>
+    /// Gets the feature with the specified long name, such as the target of a feature pointer.
+    /// </summary>
+    /// <param name="longName">The long name (LNAM) to find.</param>
+    /// <returns>The feature, or <c>null</c> if the chart has none with that long name.</returns>
+    /// <example>
+    /// <code>
+    /// foreach (var pointer in feature.RelatedFeatures)
+    /// {
+    ///     S57TypedFeature? related = chart.GetFeature(pointer.Name);
+    /// }
+    /// </code>
+    /// </example>
+    public S57TypedFeature? GetFeature(S57LongName longName)
+    {
+        return FeaturesByLongName.TryGetValue(longName, out var feature) ? feature : null;
+    }
+
+    /// <summary>
+    /// Gets the features whose feature pointers refer to the specified feature.
+    /// </summary>
+    /// <param name="longName">The long name (LNAM) of the referenced feature.</param>
+    /// <returns>The referencing features, or an empty list if there are none.</returns>
+    public IReadOnlyList<S57TypedFeature> GetReferencingFeatures(S57LongName longName)
+    {
+        return ReferencingFeatures.TryGetValue(longName, out var features) ? features : [];
     }
 
     /// <summary>

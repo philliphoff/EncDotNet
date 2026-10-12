@@ -97,6 +97,12 @@ internal static class S57DocumentFingerprint
         CultureInfo.InvariantCulture,
         $"{name.RecordNameCode}/{name.RecordId}/{name.AgencyCode}/{name.FeatureId}/{name.FeatureSubdivision}");
 
+    // Feature pointers hold only the long name; format it as the record name it used to be, so
+    // the recorded hashes still hold.
+    private static string Name(S57LongName name) => string.Create(
+        CultureInfo.InvariantCulture,
+        $"0/0/{name.AgencyCode}/{(int)name.FeatureId}/{name.FeatureSubdivision}");
+
     private static void Attributes(StringBuilder text, string kind, IReadOnlyList<S57AttributeValue> attributes)
     {
         foreach (var a in attributes)
