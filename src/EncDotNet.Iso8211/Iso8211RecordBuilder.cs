@@ -136,15 +136,20 @@ public sealed class Iso8211RecordBuilder
 
         var layout = Iso8211RecordWriter.ComputeLayout(seedLeader, _fields, _options);
 
+        // Each field's length includes its terminator, and its position is the sum of the
+        // lengths before it, as the writer lays them out.
         var directory = new List<Iso8211DirectoryEntry>(_fields.Count);
+        var position = 0;
         for (int i = 0; i < _fields.Count; i++)
         {
+            var length = _fields[i].Data.Length + 1;
             directory.Add(new Iso8211DirectoryEntry
             {
                 Tag = _fields[i].Tag,
-                Length = layout.Lengths[i],
-                Position = layout.Positions[i]
+                Length = length,
+                Position = position
             });
+            position += length;
         }
 
         var leader = seedLeader with
