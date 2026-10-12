@@ -25,7 +25,7 @@
        it's published, so APIs added in it are protected too. -->
   <PropertyGroup Condition="'$(IsPackable)' != 'false'">
     <EnablePackageValidation>true</EnablePackageValidation>
-    <PackageValidationBaselineVersion>0.7.2</PackageValidationBaselineVersion>
+    <PackageValidationBaselineVersion>0.8.0</PackageValidationBaselineVersion>
   </PropertyGroup>
 
   <!-- Local and pull request builds carry the 0.0.0-dev placeholder version,
