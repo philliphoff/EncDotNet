@@ -1,3 +1,5 @@
+using System.Buffers;
+
 namespace EncDotNet.Iso8211;
 
 /// <summary>
@@ -17,6 +19,9 @@ namespace EncDotNet.Iso8211;
 /// </remarks>
 public static class Iso8211DocumentWriter
 {
+    // Stream and file output is gathered into chunks of about this size before each write.
+    private const int ChunkSize = 64 * 1024;
+
     /// <summary>
     /// Serializes an ISO 8211 document to a byte array.
     /// </summary>
@@ -25,16 +30,18 @@ public static class Iso8211DocumentWriter
     /// <returns>The serialized ISO 8211 bytes.</returns>
     public static byte[] Write(Iso8211Document document, Iso8211WriterOptions? options = null)
     {
-        ArgumentNullException.ThrowIfNull(document);
-        options ??= Iso8211WriterOptions.Default;
+        var plan = Plan(document, options);
 
-        var output = new List<byte>(EstimateCapacity(document));
-        foreach (var record in document.Records)
+        var output = new byte[plan.TotalLength];
+        var offset = 0;
+        for (int i = 0; i < plan.Layouts.Length; i++)
         {
-            Iso8211RecordWriter.Write(record, options, output);
+            var length = plan.Layouts[i].RecordLength;
+            Iso8211RecordWriter.Write(document.Records[i], plan.Layouts[i], output.AsSpan(offset, length));
+            offset += length;
         }
 
-        return output.ToArray();
+        return output;
     }
 
     /// <summary>
@@ -43,11 +50,15 @@ public static class Iso8211DocumentWriter
     /// <param name="stream">The destination stream.</param>
     /// <param name="document">The document to serialize.</param>
     /// <param name="options">Optional writer options. Defaults to <see cref="Iso8211WriterOptions.Default"/>.</param>
+    /// <remarks>
+    /// Every record is checked before anything is written, so a document that can't be encoded
+    /// leaves the stream untouched. The output is then written a chunk of records at a time
+    /// rather than built in memory first.
+    /// </remarks>
     public static void Write(Stream stream, Iso8211Document document, Iso8211WriterOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(stream);
-        var bytes = Write(document, options);
-        stream.Write(bytes, 0, bytes.Length);
+        WriteChunks(stream, document, Plan(document, options));
     }
 
     /// <summary>
@@ -58,6 +69,11 @@ public static class Iso8211DocumentWriter
     /// <param name="options">Optional writer options. Defaults to <see cref="Iso8211WriterOptions.Default"/>.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>A task that represents the asynchronous write operation.</returns>
+    /// <remarks>
+    /// Every record is checked before anything is written, so a document that can't be encoded
+    /// leaves the stream untouched. The output is then written a chunk of records at a time
+    /// rather than built in memory first.
+    /// </remarks>
     public static async Task WriteAsync(
         Stream stream,
         Iso8211Document document,
@@ -65,8 +81,7 @@ public static class Iso8211DocumentWriter
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(stream);
-        var bytes = Write(document, options);
-        await stream.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
+        await WriteChunksAsync(stream, document, Plan(document, options), cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -75,10 +90,16 @@ public static class Iso8211DocumentWriter
     /// <param name="path">The destination file path.</param>
     /// <param name="document">The document to serialize.</param>
     /// <param name="options">Optional writer options. Defaults to <see cref="Iso8211WriterOptions.Default"/>.</param>
+    /// <remarks>
+    /// Every record is checked before the file is opened, so a document that can't be encoded
+    /// doesn't create or change the file.
+    /// </remarks>
     public static void WriteToFile(string path, Iso8211Document document, Iso8211WriterOptions? options = null)
     {
-        var bytes = Write(document, options);
-        File.WriteAllBytes(path, bytes);
+        var plan = Plan(document, options);
+
+        using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read, bufferSize: 1);
+        WriteChunks(stream, document, plan);
     }
 
     /// <summary>
@@ -89,27 +110,106 @@ public static class Iso8211DocumentWriter
     /// <param name="options">Optional writer options. Defaults to <see cref="Iso8211WriterOptions.Default"/>.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>A task that represents the asynchronous write operation.</returns>
+    /// <remarks>
+    /// Every record is checked before the file is opened, so a document that can't be encoded
+    /// doesn't create or change the file.
+    /// </remarks>
     public static async Task WriteToFileAsync(
         string path,
         Iso8211Document document,
         Iso8211WriterOptions? options = null,
         CancellationToken cancellationToken = default)
     {
-        var bytes = Write(document, options);
-        await File.WriteAllBytesAsync(path, bytes, cancellationToken).ConfigureAwait(false);
+        var plan = Plan(document, options);
+
+        var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read, bufferSize: 1, useAsync: true);
+        await using (stream.ConfigureAwait(false))
+        {
+            await WriteChunksAsync(stream, document, plan, cancellationToken).ConfigureAwait(false);
+        }
     }
 
-    private static int EstimateCapacity(Iso8211Document document)
+    // Works out every record's layout, which also checks that each can be encoded.
+    private static WritePlan Plan(Iso8211Document document, Iso8211WriterOptions? options)
     {
-        var total = 0;
-        foreach (var record in document.Records)
+        ArgumentNullException.ThrowIfNull(document);
+        options ??= Iso8211WriterOptions.Default;
+
+        var records = document.Records;
+        var layouts = new Iso8211RecordLayout[records.Count];
+        long total = 0;
+        var max = 0;
+        for (int i = 0; i < layouts.Length; i++)
         {
-            total += 32 + (record.Directory.Count * 12);
-            foreach (var field in record.Fields)
+            layouts[i] = Iso8211RecordWriter.Plan(records[i], options);
+            total += layouts[i].RecordLength;
+            max = Math.Max(max, layouts[i].RecordLength);
+        }
+
+        if (total > Array.MaxLength)
+        {
+            throw new InvalidOperationException($"The document encodes to {total:N0} bytes, more than an array can hold.");
+        }
+
+        return new WritePlan(layouts, (int)total, max);
+    }
+
+    private static void WriteChunks(Stream stream, Iso8211Document document, WritePlan plan)
+    {
+        var buffer = ArrayPool<byte>.Shared.Rent(Math.Max(ChunkSize, plan.MaxRecordLength));
+        try
+        {
+            var record = 0;
+            while (record < plan.Layouts.Length)
             {
-                total += field.Data.Length + 1;
+                var length = FillChunk(document, plan, buffer, ref record);
+                stream.Write(buffer, 0, length);
             }
         }
-        return total > 0 ? total : 64;
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
     }
+
+    private static async Task WriteChunksAsync(Stream stream, Iso8211Document document, WritePlan plan, CancellationToken cancellationToken)
+    {
+        var buffer = ArrayPool<byte>.Shared.Rent(Math.Max(ChunkSize, plan.MaxRecordLength));
+        try
+        {
+            var record = 0;
+            while (record < plan.Layouts.Length)
+            {
+                var length = FillChunk(document, plan, buffer, ref record);
+                await stream.WriteAsync(buffer.AsMemory(0, length), cancellationToken).ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
+    }
+
+    // Encodes as many whole records as fit in the buffer, starting at the given record, and
+    // returns the number of bytes written. The buffer always holds at least the longest record.
+    private static int FillChunk(Iso8211Document document, WritePlan plan, byte[] buffer, ref int record)
+    {
+        var offset = 0;
+        while (record < plan.Layouts.Length)
+        {
+            var length = plan.Layouts[record].RecordLength;
+            if (offset + length > buffer.Length)
+            {
+                break;
+            }
+
+            Iso8211RecordWriter.Write(document.Records[record], plan.Layouts[record], buffer.AsSpan(offset, length));
+            offset += length;
+            record++;
+        }
+
+        return offset;
+    }
+
+    private readonly record struct WritePlan(Iso8211RecordLayout[] Layouts, int TotalLength, int MaxRecordLength);
 }

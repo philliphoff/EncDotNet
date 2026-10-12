@@ -1,4 +1,6 @@
 using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace EncDotNet.S57;
 
@@ -45,21 +47,41 @@ public sealed record S57Document
     /// <summary>
     /// Gets a feature record by its record name.
     /// </summary>
+    /// <remarks>
+    /// This searches every feature record. To look up many records, build an
+    /// <see cref="Charts.S57Chart"/>, whose lookups use an index.
+    /// </remarks>
     public S57FeatureRecord? GetFeatureRecord(S57RecordName name)
     {
-        return FeatureRecords.FirstOrDefault(r =>
-            r.RecordName.RecordNameCode == name.RecordNameCode &&
-            r.RecordName.RecordId == name.RecordId);
+        foreach (var record in FeatureRecords)
+        {
+            if (SameRecord(record.RecordName, name))
+            {
+                return record;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>
     /// Gets a vector record by its record name.
     /// </summary>
+    /// <remarks>
+    /// This searches every vector record. To look up many records, build an
+    /// <see cref="Charts.S57Chart"/>, whose lookups use an index.
+    /// </remarks>
     public S57VectorRecord? GetVectorRecord(S57RecordName name)
     {
-        return VectorRecords.FirstOrDefault(r =>
-            r.RecordName.RecordNameCode == name.RecordNameCode &&
-            r.RecordName.RecordId == name.RecordId);
+        foreach (var record in VectorRecords)
+        {
+            if (SameRecord(record.RecordName, name))
+            {
+                return record;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -147,8 +169,89 @@ public sealed record S57Document
         Func<T, T, T> applyModify)
         where T : class
     {
-        // Build a mutable dictionary keyed by (RCNM, RCID) for efficient lookup.
-        // Use a list to preserve insertion order for records not touched by updates.
+        // Records by (RCNM, RCID), and their keys in output order. A delete leaves its key in
+        // the order rather than searching the list for it; the output skips keys that no
+        // longer have a record. A key inserted again after a delete is appended at its new
+        // position, and only that position outputs its record.
+        var records = new Dictionary<(int, int), T>(baseRecords.Count);
+        var order = new List<(int, int)>(baseRecords.Count);
+        HashSet<(int, int)>? deleted = null;
+        Dictionary<(int, int), int>? reinsertedAt = null;
+
+        foreach (var record in baseRecords)
+        {
+            var key = getKey(record);
+            if (!records.TryAdd(key, record))
+            {
+                // A base that repeats a record name is malformed. Merge it as the list-based
+                // merge always has, so its output doesn't change.
+                return ApplyRecordChangesToRepeatedNames(baseRecords, updateRecords, getKey, applyModify);
+            }
+
+            order.Add(key);
+        }
+
+        foreach (var updateRecord in updateRecords)
+        {
+            var key = getKey(updateRecord);
+            var instruction = GetUpdateInstruction(updateRecord);
+
+            switch (instruction)
+            {
+                case S57UpdateInstruction.Insert:
+                    ref var inserted = ref CollectionsMarshal.GetValueRefOrAddDefault(records, key, out var exists);
+                    inserted = updateRecord;
+                    if (!exists)
+                    {
+                        if (deleted is not null && deleted.Contains(key))
+                        {
+                            (reinsertedAt ??= [])[key] = order.Count;
+                        }
+
+                        order.Add(key);
+                    }
+                    break;
+
+                case S57UpdateInstruction.Delete:
+                    if (records.Remove(key))
+                    {
+                        (deleted ??= []).Add(key);
+                    }
+                    break;
+
+                case S57UpdateInstruction.Modify:
+                    ref var modified = ref CollectionsMarshal.GetValueRefOrNullRef(records, key);
+                    if (!Unsafe.IsNullRef(ref modified))
+                    {
+                        modified = applyModify(modified, updateRecord);
+                    }
+                    break;
+            }
+        }
+
+        var builder = ImmutableArray.CreateBuilder<T>(records.Count);
+        for (var position = 0; position < order.Count; position++)
+        {
+            var key = order[position];
+            if (records.TryGetValue(key, out var record) &&
+                (reinsertedAt is null || !reinsertedAt.TryGetValue(key, out var current) || current == position))
+            {
+                builder.Add(record);
+            }
+        }
+
+        return builder.MoveToImmutable();
+    }
+
+    // The list-based merge, kept for bases that repeat a record name: each appearance of a
+    // name outputs its record, and a delete removes only the name's first appearance.
+    private static ImmutableArray<T> ApplyRecordChangesToRepeatedNames<T>(
+        IReadOnlyList<T> baseRecords,
+        IReadOnlyList<T> updateRecords,
+        Func<T, (int Rcnm, int Rcid)> getKey,
+        Func<T, T, T> applyModify)
+        where T : class
+    {
         var dict = new Dictionary<(int, int), T>(baseRecords.Count);
         var orderedKeys = new List<(int, int)>(baseRecords.Count);
 
@@ -162,9 +265,7 @@ public sealed record S57Document
         foreach (var updateRecord in updateRecords)
         {
             var key = getKey(updateRecord);
-            var instruction = GetUpdateInstruction(updateRecord);
-
-            switch (instruction)
+            switch (GetUpdateInstruction(updateRecord))
             {
                 case S57UpdateInstruction.Insert:
                     dict[key] = updateRecord;
@@ -199,6 +300,9 @@ public sealed record S57Document
 
         return builder.ToImmutable();
     }
+
+    private static bool SameRecord(S57RecordName a, S57RecordName b) =>
+        a.RecordNameCode == b.RecordNameCode && a.RecordId == b.RecordId;
 
     private static S57UpdateInstruction GetUpdateInstruction<T>(T record) => record switch
     {

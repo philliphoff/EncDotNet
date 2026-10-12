@@ -37,36 +37,73 @@ internal static class Iso8211RecordWriter
     private const int UnspecifiedRecordLength = 0;
 
     /// <summary>
-    /// Encodes the specified record and appends the resulting bytes to <paramref name="output"/>.
+    /// Computes a record's layout and checks that its leader can be encoded, without emitting
+    /// any bytes, so a document's records can all be checked before any of them is written.
     /// </summary>
     /// <param name="record">The record to encode.</param>
     /// <param name="options">The writer options.</param>
-    /// <param name="output">The destination buffer to append the encoded record to.</param>
-    public static void Write(Iso8211Record record, Iso8211WriterOptions options, List<byte> output)
+    /// <returns>The layout to pass to <see cref="Write(Iso8211Record, Iso8211RecordLayout, Span{byte})"/>.</returns>
+    /// <exception cref="InvalidOperationException">The record cannot be encoded.</exception>
+    public static Iso8211RecordLayout Plan(Iso8211Record record, Iso8211WriterOptions options)
     {
         ArgumentNullException.ThrowIfNull(record);
         ArgumentNullException.ThrowIfNull(options);
-        ArgumentNullException.ThrowIfNull(output);
 
+        var layout = ComputeLayout(record.Leader, record.Fields, options);
+
+        // The field control length has two characters in the leader.
+        var fieldControlLength = record.Leader.FieldControlLength;
+        if (fieldControlLength is < 0 or > 99)
+        {
+            var encodedLength = LeaderLength - 2 + fieldControlLength.ToString("D2", CultureInfo.InvariantCulture).Length;
+            throw new InvalidOperationException($"Encoded leader length was {encodedLength}; expected {LeaderLength}.");
+        }
+
+        return layout;
+    }
+
+    /// <summary>
+    /// Encodes the specified record into <paramref name="destination"/>, which must hold
+    /// exactly <see cref="Iso8211RecordLayout.RecordLength"/> bytes.
+    /// </summary>
+    /// <param name="record">The record to encode.</param>
+    /// <param name="layout">The record's layout, from <see cref="Plan"/>.</param>
+    /// <param name="destination">The bytes to write the record to.</param>
+    public static void Write(Iso8211Record record, Iso8211RecordLayout layout, Span<byte> destination)
+    {
         var fields = record.Fields;
-        var layout = ComputeLayout(record.Leader, fields, options);
 
-        WriteLeader(output, record.Leader, layout.RecordLength, layout.BaseAddress, layout.LengthSize, layout.PositionSize, layout.TagSize);
+        WriteLeader(destination, record.Leader, layout.RecordLength, layout.BaseAddress, layout.LengthSize, layout.PositionSize, layout.TagSize);
+        var offset = LeaderLength;
 
-        // Directory.
+        // Directory. Each field's length includes its terminator, and its position is the sum
+        // of the lengths before it.
+        var position = 0;
         for (int i = 0; i < fields.Count; i++)
         {
-            WriteTag(output, fields[i].Tag, layout.TagSize);
-            WriteNumeric(output, layout.Lengths[i], layout.LengthSize);
-            WriteNumeric(output, layout.Positions[i], layout.PositionSize);
+            var length = fields[i].Data.Length + 1;
+            WriteTag(destination.Slice(offset, layout.TagSize), fields[i].Tag);
+            offset += layout.TagSize;
+            WriteNumeric(destination.Slice(offset, layout.LengthSize), length);
+            offset += layout.LengthSize;
+            WriteNumeric(destination.Slice(offset, layout.PositionSize), position);
+            offset += layout.PositionSize;
+            position += length;
         }
-        output.Add(FieldTerminator);
+        destination[offset++] = FieldTerminator;
 
         // Field area.
         for (int i = 0; i < fields.Count; i++)
         {
-            output.AddRange(fields[i].Data.Span);
-            output.Add(FieldTerminator);
+            var data = fields[i].Data.Span;
+            data.CopyTo(destination[offset..]);
+            offset += data.Length;
+            destination[offset++] = FieldTerminator;
+        }
+
+        if (offset != layout.RecordLength)
+        {
+            throw new InvalidOperationException($"Encoded record length was {offset}; expected {layout.RecordLength}.");
         }
     }
 
@@ -87,21 +124,21 @@ internal static class Iso8211RecordWriter
         Iso8211WriterOptions options)
     {
         var fieldCount = fields.Count;
-        var fieldLengths = new int[fieldCount];
-        var fieldPositions = new int[fieldCount];
         var fieldAreaLength = 0;
+        var maxLength = 0;
+        var maxPosition = 0;
 
         for (int i = 0; i < fieldCount; i++)
         {
             var length = fields[i].Data.Length + 1; // +1 for the field terminator
-            fieldLengths[i] = length;
-            fieldPositions[i] = fieldAreaLength;
+            maxLength = Math.Max(maxLength, length);
+            maxPosition = Math.Max(maxPosition, fieldAreaLength);
             fieldAreaLength += length;
         }
 
         var tagSize = DetermineTagSize(leader, fields, options);
-        var lengthSize = DetermineNumericSize(leader.SizeOfFieldLengthField, fieldLengths, options);
-        var positionSize = DetermineNumericSize(leader.SizeOfFieldPositionField, fieldPositions, options);
+        var lengthSize = DetermineNumericSize(leader.SizeOfFieldLengthField, maxLength, options);
+        var positionSize = DetermineNumericSize(leader.SizeOfFieldPositionField, maxPosition, options);
 
         var entrySize = tagSize + lengthSize + positionSize;
         var directoryBytes = entrySize * fieldCount;
@@ -114,11 +151,11 @@ internal static class Iso8211RecordWriter
 
         var recordLength = baseAddress + fieldAreaLength;
 
-        return new Iso8211RecordLayout(fieldLengths, fieldPositions, tagSize, lengthSize, positionSize, baseAddress, recordLength);
+        return new Iso8211RecordLayout(tagSize, lengthSize, positionSize, baseAddress, recordLength);
     }
 
     private static void WriteLeader(
-        List<byte> output,
+        Span<byte> output,
         Iso8211RecordLeader leader,
         int recordLength,
         int baseAddress,
@@ -126,31 +163,30 @@ internal static class Iso8211RecordWriter
         int positionSize,
         int tagSize)
     {
-        var sb = new StringBuilder(LeaderLength);
+        Span<char> text = stackalloc char[LeaderLength];
+
         // A record length beyond five digits is written as "00000"; the reader recovers it
         // from the directory.
-        var leaderRecordLength = recordLength > MaxLeaderNumericValue ? UnspecifiedRecordLength : recordLength;
-        sb.Append(leaderRecordLength.ToString("D5", CultureInfo.InvariantCulture));
-        sb.Append(OrDefault(leader.InterchangeLevel, '3'));
-        sb.Append(OrDefault(leader.LeaderIdentifier, 'D'));
-        sb.Append(OrDefault(leader.InlineCodeExtensionIndicator, 'E'));
-        sb.Append(OrDefault(leader.VersionNumber, '1'));
-        sb.Append(OrDefault(leader.ApplicationIndicator, ' '));
-        sb.Append(leader.FieldControlLength.ToString("D2", CultureInfo.InvariantCulture));
-        sb.Append(baseAddress.ToString("D5", CultureInfo.InvariantCulture));
-        sb.Append(FitExtendedCharset(leader.ExtendedCharacterSetIndicator));
-        sb.Append((char)('0' + lengthSize));
-        sb.Append((char)('0' + positionSize));
-        sb.Append('0'); // Reserved.
-        sb.Append((char)('0' + tagSize));
+        FormatDigits(text[..5], recordLength > MaxLeaderNumericValue ? UnspecifiedRecordLength : recordLength);
+        text[5] = OrDefault(leader.InterchangeLevel, '3');
+        text[6] = OrDefault(leader.LeaderIdentifier, 'D');
+        text[7] = OrDefault(leader.InlineCodeExtensionIndicator, 'E');
+        text[8] = OrDefault(leader.VersionNumber, '1');
+        text[9] = OrDefault(leader.ApplicationIndicator, ' ');
+        FormatDigits(text.Slice(10, 2), leader.FieldControlLength);
+        FormatDigits(text.Slice(12, 5), baseAddress);
+        FitExtendedCharset(text.Slice(17, 3), leader.ExtendedCharacterSetIndicator);
+        text[20] = (char)('0' + lengthSize);
+        text[21] = (char)('0' + positionSize);
+        text[22] = '0'; // Reserved.
+        text[23] = (char)('0' + tagSize);
 
-        var leaderText = sb.ToString();
-        if (leaderText.Length != LeaderLength)
+        // ASCII, with '?' for anything outside it, as the leader has always been encoded.
+        var written = Encoding.ASCII.GetBytes(text, output[..LeaderLength]);
+        if (written != LeaderLength)
         {
-            throw new InvalidOperationException($"Encoded leader length was {leaderText.Length}; expected {LeaderLength}.");
+            throw new InvalidOperationException($"Encoded leader length was {written}; expected {LeaderLength}.");
         }
-
-        output.AddRange(Encoding.ASCII.GetBytes(leaderText));
     }
 
     private static int DetermineTagSize(Iso8211RecordLeader leader, IReadOnlyList<Iso8211Field> fields, Iso8211WriterOptions options)
@@ -177,17 +213,10 @@ internal static class Iso8211RecordWriter
         return Math.Max(maxTag, 1);
     }
 
-    private static int DetermineNumericSize(int declaredSize, int[] values, Iso8211WriterOptions options)
+    // The largest value has the most digits, so it alone decides the size.
+    private static int DetermineNumericSize(int declaredSize, int maxValue, Iso8211WriterOptions options)
     {
-        var required = 1;
-        foreach (var value in values)
-        {
-            var digits = value == 0 ? 1 : (int)Math.Floor(Math.Log10(value)) + 1;
-            if (digits > required)
-            {
-                required = digits;
-            }
-        }
+        var required = maxValue == 0 ? 1 : (int)Math.Floor(Math.Log10(maxValue)) + 1;
 
         if (!options.AutoSizeDirectoryEntries && declaredSize > 0)
         {
@@ -202,44 +231,48 @@ internal static class Iso8211RecordWriter
         return required;
     }
 
-    private static void WriteTag(List<byte> output, string tag, int tagSize)
+    private static void WriteTag(Span<byte> output, string tag)
     {
         tag ??= string.Empty;
-        for (int i = 0; i < tagSize; i++)
+        for (int i = 0; i < output.Length; i++)
         {
-            output.Add(i < tag.Length ? (byte)tag[i] : (byte)' ');
+            output[i] = i < tag.Length ? (byte)tag[i] : (byte)' ';
         }
     }
 
-    private static void WriteNumeric(List<byte> output, int value, int size)
+    // Writes a non-negative value as decimal digits, zero-padded to fill the output.
+    private static void WriteNumeric(Span<byte> output, int value)
     {
-        var text = value.ToString(CultureInfo.InvariantCulture);
-        if (text.Length > size)
+        var remaining = value;
+        for (int i = output.Length - 1; i >= 0; i--)
         {
-            throw new InvalidOperationException($"Value {value} does not fit in {size} digit(s).");
+            output[i] = (byte)('0' + (remaining % 10));
+            remaining /= 10;
         }
-        for (int i = 0; i < size - text.Length; i++)
+
+        if (remaining != 0)
         {
-            output.Add((byte)'0');
-        }
-        for (int i = 0; i < text.Length; i++)
-        {
-            output.Add((byte)text[i]);
+            throw new InvalidOperationException($"Value {value} does not fit in {output.Length} digit(s).");
         }
     }
 
-    private static string FitExtendedCharset(string? value)
+    // Writes a value from 0 to the width's maximum as zero-padded decimal digits.
+    private static void FormatDigits(Span<char> output, int value)
+    {
+        for (int i = output.Length - 1; i >= 0; i--)
+        {
+            output[i] = (char)('0' + (value % 10));
+            value /= 10;
+        }
+    }
+
+    private static void FitExtendedCharset(Span<char> output, string? value)
     {
         value ??= "   ";
-        if (value.Length == 3)
+        for (int i = 0; i < output.Length; i++)
         {
-            return value;
+            output[i] = i < value.Length ? value[i] : ' ';
         }
-        if (value.Length > 3)
-        {
-            return value.Substring(0, 3);
-        }
-        return value.PadRight(3, ' ');
     }
 
     private static char OrDefault(char value, char fallback) => value == '\0' ? fallback : value;
@@ -251,28 +284,18 @@ internal static class Iso8211RecordWriter
 internal readonly struct Iso8211RecordLayout
 {
     public Iso8211RecordLayout(
-        int[] lengths,
-        int[] positions,
         int tagSize,
         int lengthSize,
         int positionSize,
         int baseAddress,
         int recordLength)
     {
-        Lengths = lengths;
-        Positions = positions;
         TagSize = tagSize;
         LengthSize = lengthSize;
         PositionSize = positionSize;
         BaseAddress = baseAddress;
         RecordLength = recordLength;
     }
-
-    /// <summary>Gets the per-field lengths, including each field's trailing terminator.</summary>
-    public int[] Lengths { get; }
-
-    /// <summary>Gets the per-field positions within the field area.</summary>
-    public int[] Positions { get; }
 
     /// <summary>Gets the size of the field tag field in directory entries.</summary>
     public int TagSize { get; }

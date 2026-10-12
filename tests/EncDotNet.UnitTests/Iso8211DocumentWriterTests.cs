@@ -1,5 +1,6 @@
 using System.Text;
 using EncDotNet.Iso8211;
+using EncDotNet.Testing;
 
 namespace EncDotNet.UnitTests;
 
@@ -275,6 +276,45 @@ public class Iso8211DocumentWriterTests
         {
             File.Delete(path);
         }
+    }
+
+    [Fact]
+    public async Task WriteToStream_DocumentLargerThanOneChunk_MatchesByteArray()
+    {
+        // The harbour cell is about 400 KB, so the stream overloads write it in several chunks.
+        var document = Iso8211DocumentReader.Read(SyntheticS57Cell.Create(SyntheticCellProfile.Harbour));
+        var expected = Iso8211DocumentWriter.Write(document);
+
+        using var sync = new MemoryStream();
+        Iso8211DocumentWriter.Write(sync, document);
+        using var async = new MemoryStream();
+        await Iso8211DocumentWriter.WriteAsync(async, document, cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.True(expected.Length > 256 * 1024);
+        Assert.Equal(expected, sync.ToArray());
+        Assert.Equal(expected, async.ToArray());
+    }
+
+    [Fact]
+    public async Task WriteToStreamOrFile_RecordThatCannotBeEncoded_WritesNothing()
+    {
+        // The second record's field control length doesn't fit the leader's two characters,
+        // so the document can't be written; the first record must not be written either.
+        var valid = Iso8211DocumentReader.Read(BuildRecordBytes('D', new[] { ("0001", "TEST"u8.ToArray()) })).Records[0];
+        var invalid = valid with { Leader = valid.Leader with { FieldControlLength = 100 } };
+        var document = new Iso8211Document { Records = [valid, invalid] };
+
+        using var stream = new MemoryStream();
+        Assert.Throws<InvalidOperationException>(() => Iso8211DocumentWriter.Write(stream, document));
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => Iso8211DocumentWriter.WriteAsync(stream, document, cancellationToken: TestContext.Current.CancellationToken));
+        Assert.Equal(0, stream.Length);
+
+        var path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.000");
+        Assert.Throws<InvalidOperationException>(() => Iso8211DocumentWriter.WriteToFile(path, document));
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => Iso8211DocumentWriter.WriteToFileAsync(path, document, cancellationToken: TestContext.Current.CancellationToken));
+        Assert.False(File.Exists(path));
     }
 
     [Fact]

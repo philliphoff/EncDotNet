@@ -1,3 +1,6 @@
+using System.Diagnostics;
+using System.Reflection;
+
 namespace EncDotNet.PerformanceTests;
 
 /// <summary>
@@ -48,6 +51,13 @@ internal static class PerformanceBudget
     {
         TestContext.Current.TestOutputHelper?.WriteLine($"{scenario}: {actual:N0} bytes {kind} (budget {budget:N0})");
 
+        if (!LibrariesAreOptimized)
+        {
+            Assert.Skip(
+                "The budgets are recorded from Release builds, and Debug builds of the libraries allocate " +
+                "differently. Run these tests with --configuration Release, as CI does.");
+        }
+
         // Budgets under 1 KB are checked exactly; a percentage of zero is no tolerance at all.
         var upper = budget < 1024 ? budget : (long)(budget * (1 + over));
         var lower = budget < 1024 ? budget : (long)(budget * (1 - under));
@@ -57,16 +67,31 @@ internal static class PerformanceBudget
             Assert.Fail(
                 $"{scenario} {kind} {actual:N0} bytes, over its budget of {budget:N0} by {Percent(actual, budget)}. " +
                 "Find the regression, or if the increase is intended, raise the budget in PerformanceBudgets.cs " +
-                "and explain why in the pull request.");
+                "and explain why in the pull request." + RuntimeNote());
         }
 
         if (actual < lower)
         {
             Assert.Fail(
                 $"{scenario} {kind} {actual:N0} bytes, under its budget of {budget:N0} by {Percent(actual, budget)}. " +
-                $"Lower the budget in PerformanceBudgets.cs to {actual:N0} to lock in the improvement.");
+                $"Lower the budget in PerformanceBudgets.cs to {actual:N0} to lock in the improvement." + RuntimeNote());
         }
     }
+
+    // Whether the libraries under test were compiled with optimizations, as in Release builds.
+    private static bool LibrariesAreOptimized { get; } =
+        IsOptimized(typeof(Iso8211.Iso8211Reader).Assembly) && IsOptimized(typeof(S57.S57Document).Assembly);
+
+    private static bool IsOptimized(Assembly assembly) =>
+        assembly.GetCustomAttribute<DebuggableAttribute>()?.IsJITOptimizerDisabled != true;
+
+    // A different .NET runtime can compile the same code to allocate differently, so a
+    // failure says when the run didn't use the runtime the budgets were recorded on.
+    private static string RuntimeNote() =>
+        Environment.Version.ToString() == PerformanceBudgets.RecordedOnRuntime
+            ? string.Empty
+            : $" The budgets were recorded on .NET {PerformanceBudgets.RecordedOnRuntime}, and this run used " +
+              $".NET {Environment.Version}; if every budget moved, re-record them for the new runtime.";
 
     // The size of the difference as a share of the budget.
     private static string Percent(long actual, long budget) =>

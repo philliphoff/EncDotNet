@@ -16,6 +16,11 @@ namespace EncDotNet.PerformanceTests;
 /// </remarks>
 internal static class PerformanceBudgets
 {
+    /// <summary>
+    /// The .NET runtime the budgets were recorded on. Update it when re-recording the budgets.
+    /// </summary>
+    public const string RecordedOnRuntime = "10.0.12";
+
     // Allocated bytes for one operation.
     public const long Iso8211ReaderAllTokens = 0;
     public const long Iso8211DocumentReaderRead = 2_088_976;
@@ -23,7 +28,7 @@ internal static class PerformanceBudgets
     public const long Iso8211DataDescriptiveRecordReaderRead = 32_808;
     public const long Iso8211FieldReaderCoordinates = 846_376;
     public const long Iso8211FieldReaderCoordinatesByOrdinal = 141_264;
-    public const long Iso8211DocumentWriterWrite = 2_318_456;
+    public const long Iso8211DocumentWriterWrite = 591_616;
     public const long S57DocumentReaderRead = 3_713_184;
     public const long S57DocumentApplyChanges = 685_440;
     public const long S57ChartFromDocument = 1_063_752;
