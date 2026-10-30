@@ -1529,6 +1529,55 @@ public class Iso8211DataDescriptiveRecordReaderTests
     }
 
     [Fact]
+    public void Parse_TwoUtFormat_S100BackslashesBeforeStar_AreTrimmedFromLeaderName()
+    {
+        // Arrange — S-100 Part 10a writes "\\" before the '*' that starts the repeating group
+        // (S-101 2.0 DSID descriptor).
+        var record = CreateDdrRecordTwoUt(
+            tag: "DSID",
+            dataStructureCode: '1',
+            dataTypeCode: '6',
+            fieldName: "Dataset Identification",
+            subfieldLabels: @"RCNM!RCID!ENSP!ENED!PRSP!PRED!PROF!DSNM!DSTL!DSRD!DSLG!DSAB!DSED\\*DSTC",
+            formatControls: "(b11,b14,11A,b11)");
+
+        // Act
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
+        var dsid = ddr.FieldDefinitions[0];
+
+        // Assert
+        Assert.Equal(14, dsid.SubfieldDefinitions.Count);
+        Assert.Equal("DSED", dsid.SubfieldDefinitions[12].Name);
+        Assert.Equal("DSTC", dsid.SubfieldDefinitions[13].Name);
+        Assert.Equal(13, dsid.RepeatingSubfieldStartIndex);
+        Assert.False(dsid.SubfieldDefinitions[12].IsRepeating);
+        Assert.True(dsid.SubfieldDefinitions[13].IsRepeating);
+    }
+
+    [Fact]
+    public void Parse_TwoUtFormat_S100BackslashesBeforeStar_SingleLeaderSubfield()
+    {
+        // Arrange — S-101 2.0 C3IL descriptor
+        var record = CreateDdrRecordTwoUt(
+            tag: "C3IL",
+            dataStructureCode: '3',
+            dataTypeCode: '5',
+            fieldName: "3-D Integer Coordinate List",
+            subfieldLabels: @"VCID\\*YCOO!XCOO!ZCOO",
+            formatControls: "(b11,3b24)");
+
+        // Act
+        var ddr = Iso8211DataDescriptiveRecordReader.Read(record);
+        var c3il = ddr.FieldDefinitions[0];
+
+        // Assert
+        Assert.Equal(4, c3il.SubfieldDefinitions.Count);
+        Assert.Equal("VCID", c3il.SubfieldDefinitions[0].Name);
+        Assert.Equal("YCOO", c3il.SubfieldDefinitions[1].Name);
+        Assert.Equal(1, c3il.RepeatingSubfieldStartIndex);
+    }
+
+    [Fact]
     public void Parse_TwoUtFormat_VectorStyleStarAtStart_StillWorks()
     {
         // Arrange — regression guard: '*' at the start of labels (Vector-style)
