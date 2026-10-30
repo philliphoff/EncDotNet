@@ -366,7 +366,8 @@ public static class Iso8211DataDescriptiveRecordReader
                 int starIndex = rawName.IndexOf('*');
                 if (starIndex > 0)
                 {
-                    string leaderName = rawName.Substring(0, starIndex);
+                    // S-100 Part 10a writes "\\" just before the '*'; it is not part of the label.
+                    string leaderName = TrimLabel(rawName.Substring(0, starIndex));
                     if (!string.IsNullOrEmpty(leaderName))
                     {
                         names.Add(leaderName);
@@ -378,6 +379,7 @@ public static class Iso8211DataDescriptiveRecordReader
                 }
             }
 
+            rawName = TrimLabel(rawName);
             if (!string.IsNullOrEmpty(rawName))
             {
                 names.Add(rawName);
@@ -387,6 +389,11 @@ public static class Iso8211DataDescriptiveRecordReader
 
         subfieldNames = names.ToImmutable();
     }
+
+    /// <summary>
+    /// Removes the trailing backslashes S-100 Part 10a places before a repeating-group <c>*</c>.
+    /// </summary>
+    private static string TrimLabel(string label) => label.TrimEnd('\\');
 
     /// <summary>
     /// Parses the descriptor portion of a DDR field into a field name and subfield names.
@@ -439,6 +446,7 @@ public static class Iso8211DataDescriptiveRecordReader
                 rawName = rawName.Substring(1);
             }
 
+            rawName = TrimLabel(rawName);
             if (!string.IsNullOrEmpty(rawName))
             {
                 names.Add(rawName);
