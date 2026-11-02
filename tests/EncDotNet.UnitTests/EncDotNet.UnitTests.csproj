@@ -18,6 +18,11 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <!-- Golden files: small synthetic cells written by the S-57 writers. Not real ENC data. -->
+  <ItemGroup>
+    <None Include="Golden\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\src\EncDotNet.Iso8211\EncDotNet.Iso8211.csproj" />
     <ProjectReference Include="..\..\src\EncDotNet.S57\EncDotNet.S57.csproj" />

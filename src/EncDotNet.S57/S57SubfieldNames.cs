@@ -29,6 +29,14 @@ internal static class S57SubfieldNames
     public const string DSTR = "DSTR";  // Data structure
     public const string AALL = "AALL";  // ATTF lexical level
     public const string NALL = "NALL";  // NATF lexical level
+    public const string NOMR = "NOMR";  // Number of meta records
+    public const string NOCR = "NOCR";  // Number of cartographic records
+    public const string NOGR = "NOGR";  // Number of geo records
+    public const string NOLR = "NOLR";  // Number of collection records
+    public const string NOIN = "NOIN";  // Number of isolated node records
+    public const string NOCN = "NOCN";  // Number of connected node records
+    public const string NOED = "NOED";  // Number of edge records
+    public const string NOFA = "NOFA";  // Number of face records
 
     // DSPM subfields
     public const string HDAT = "HDAT";  // Horizontal geodetic datum

@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Collections.Immutable;
 using System.Globalization;
+using System.Text;
 using EncDotNet.Iso8211;
 using Microsoft.Extensions.Logging;
 
@@ -119,7 +120,8 @@ public static class S57DocumentReader
         S57DataSetParameters? dspm = null;
         var featureRecords = ImmutableArray.CreateBuilder<S57FeatureRecord>();
         var vectorRecords = ImmutableArray.CreateBuilder<S57VectorRecord>();
-        int nall = 0; // NATF lexical level (0=ASCII, 1=ISO 8859, 2=UCS-2)
+        int aall = 0; // ATTF lexical level (0=ASCII, 1=ISO 8859-1)
+        int nall = 0; // NATF lexical level (0=ASCII, 1=ISO 8859-1, 2=UCS-2)
 
         foreach (var record in records)
         {
@@ -143,6 +145,7 @@ public static class S57DocumentReader
             if (dsidField != null)
             {
                 dsid = ParseDataSetIdentification(record, ddr);
+                aall = dsid.AttfLexicalLevel;
                 nall = dsid.NatfLexicalLevel;
                 continue;
             }
@@ -159,7 +162,7 @@ public static class S57DocumentReader
             var fridField = record.GetFieldByTag(S57FieldTags.FRID);
             if (fridField != null)
             {
-                var featureRecord = ParseFeatureRecord(record, ddr, nall, logger);
+                var featureRecord = ParseFeatureRecord(record, ddr, aall, nall, logger);
                 if (featureRecord != null)
                 {
                     featureRecords.Add(featureRecord);
@@ -206,7 +209,7 @@ public static class S57DocumentReader
 
         byte rcnm;
         uint rcid;
-        byte intu;
+        byte expp = 0, intu;
         string dsnm, edtn, updn, uadt, isdt, sted;
         ushort agen = 0;
         string comt = "";
@@ -221,7 +224,7 @@ public static class S57DocumentReader
 
         rcnm = reader.GetSubfield<byte>(S57SubfieldNames.RCNM);
         rcid = reader.GetSubfield<uint>(S57SubfieldNames.RCID);
-        _ = reader.TryGetSubfield<byte>(S57SubfieldNames.EXPP, out _);  // EXPP - exchange purpose (not used)
+        _ = reader.TryGetSubfield<byte>(S57SubfieldNames.EXPP, out expp);
         intu = reader.GetSubfield<byte>(S57SubfieldNames.INTU);
         dsnm = reader.GetSubfield<string>(S57SubfieldNames.DSNM);
         edtn = reader.GetSubfield<string>(S57SubfieldNames.EDTN);
@@ -273,6 +276,7 @@ public static class S57DocumentReader
         return new S57DataSetIdentification
         {
             RecordName = S57RecordName.FromRcnmRcid(rcnm, (int)rcid),
+            ExchangePurpose = expp,
             IntendedUsage = intu,
             DataSetName = dsnm,
             EditionNumber = edtn,
@@ -368,7 +372,7 @@ public static class S57DocumentReader
     /// <summary>
     /// Parses a Feature Record.
     /// </summary>
-    private static S57FeatureRecord? ParseFeatureRecord(Iso8211Record record, Iso8211DataDescriptiveRecord? ddr, int nall, ILogger? logger)
+    private static S57FeatureRecord? ParseFeatureRecord(Iso8211Record record, Iso8211DataDescriptiveRecord? ddr, int aall, int nall, ILogger? logger)
     {
         var fridField = record.GetFieldByTag(S57FieldTags.FRID);
         if (fridField == null)
@@ -422,7 +426,7 @@ public static class S57DocumentReader
         }
 
         // Parse ATTF (attributes)
-        var attributes = ParseAttributes(record, S57FieldTags.ATTF, ddr, logger);
+        var attributes = ParseAttributes(record, S57FieldTags.ATTF, ddr, logger, aall);
 
         // Parse NATF (national attributes)
         var nationalAttributes = ParseAttributes(record, S57FieldTags.NATF, ddr, logger, nall);
@@ -552,7 +556,9 @@ public static class S57DocumentReader
                 {
                     attributes.Add(new S57AttributeValue(
                         reader.GetSubfield<ushort>(group, attl),
-                        reader.GetSubfield<string>(group, atvl)));
+                        lexicalLevel == 1
+                            ? DecodeLatin1(reader.GetSubfieldBytes(group, atvl))
+                            : reader.GetSubfield<string>(group, atvl)));
                 }
 
                 WarnIfTruncated(reader, logger, "Failed to parse attribute in {FieldTag} field.", fieldTag);
@@ -567,6 +573,21 @@ public static class S57DocumentReader
     }
 
 
+
+    /// <summary>
+    /// Decodes general text at lexical level 1, ISO 8859-1 (S-57 Part 3, clause 2.4), dropping
+    /// trailing terminators, NULs and spaces as other character data is.
+    /// </summary>
+    private static string DecodeLatin1(ReadOnlySpan<byte> data)
+    {
+        var end = data.Length;
+        while (end > 0 && data[end - 1] is 0x1F or 0x1E or 0x00 or (byte)' ')
+        {
+            end--;
+        }
+
+        return Encoding.Latin1.GetString(data[..end]);
+    }
 
     /// <summary>
     /// Parses spatial pointers from FSPT fields.

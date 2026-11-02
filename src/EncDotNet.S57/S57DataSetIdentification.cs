@@ -8,6 +8,14 @@ public sealed record S57DataSetIdentification
     /// <summary>Gets the record name.</summary>
     public S57RecordName RecordName { get; init; }
 
+    /// <summary>Gets the exchange purpose code (EXPP).</summary>
+    /// <remarks>
+    /// S-57 Edition 3.1, Part 3 §7.3.1.1 enumerates 1 = N (data set is new) and 2 = R (data set
+    /// is a revision). The value is 0 when the subfield is absent; <see cref="S57DocumentWriter"/>
+    /// writes 0 as 1.
+    /// </remarks>
+    public int ExchangePurpose { get; init; }
+
     /// <summary>Gets the intended usage code (INTU).</summary>
     public int IntendedUsage { get; init; }
 

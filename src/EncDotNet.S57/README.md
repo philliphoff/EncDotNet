@@ -1,11 +1,12 @@
 # EncDotNet.S57
 
-`EncDotNet.S57` reads IHO S-57 Edition 3.1 Electronic Navigational Chart
-(ENC) cells. It gives you the dataset metadata, feature and vector records,
-and attributes as encoded, and a typed chart model of point, line and area
-features with indexed nodes, edges and faces. It also applies update cells
-(`.001`, `.002`, ...) and reads and verifies exchange sets. Reference it to
-read S-57 data in .NET 8 or .NET 10. It depends on
+`EncDotNet.S57` reads and writes IHO S-57 Edition 3.1 Electronic
+Navigational Chart (ENC) cells. It gives you the dataset metadata, feature
+and vector records, and attributes as encoded, and a typed chart model of
+point, line and area features with indexed nodes, edges and faces. It also
+applies update cells (`.001`, `.002`, ...), reads and verifies exchange sets,
+and writes base cells and `CATALOG.031` files. Reference it to work with S-57
+data in .NET 8 or .NET 10. It depends on
 [`EncDotNet.Iso8211`](https://www.nuget.org/packages/EncDotNet.Iso8211),
 which it installs for you.
 
@@ -37,6 +38,7 @@ foreach (S57FeatureRecord feature in document.GetFeaturesByObjectCode(S57ObjectC
 | Type | Use it to |
 |---|---|
 | `S57DocumentReader` | Read a cell from a file, stream or bytes into an `S57Document` |
+| `S57DocumentWriter` | Write an `S57Document` as a base cell (`.000`) to a file, stream or bytes |
 | `S57Document` | Get metadata (`DSID`, `DSPM`), feature records and vector records; apply an update cell with `ApplyChanges` |
 | `S57FeatureRecord` | Get a feature's object class, primitive, attributes and pointers |
 | `S57VectorRecord` | Get a node's or edge's coordinates, soundings and topology pointers |
@@ -57,10 +59,12 @@ foreach (S57FeatureRecord feature in document.GetFeaturesByObjectCode(S57ObjectC
 | `S57ExchangeSetReader` | Find the catalog, base cell and update cells of a single-cell exchange set |
 | `S57ExchangeSet` | Read the cell with its updates applied; verify the exchange set |
 | `S57CatalogReader` | Read `CATALOG.031` entries and their coverage |
+| `S57CatalogWriter` | Write `CATALOG.031`, and compute the CRCs its entries list |
 | `S57ExchangeSetVerifier` | Check each file's CRC-32 against the catalog |
 
 [Reading S-57 charts](../../docs/reading-s57-charts.md) covers each of these
-with examples.
+with examples, and [Writing S-57 charts](../../docs/writing-s57-charts.md)
+covers the writers.
 
 ## Exchange set verification outcomes
 

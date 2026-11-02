@@ -12,7 +12,14 @@ namespace EncDotNet.UnitTests;
 /// </summary>
 internal static class S57DocumentFingerprint
 {
-    public static string Compute(S57Document document)
+    public static string Compute(S57Document document) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Dump(document))));
+
+    /// <summary>
+    /// Gets the canonical text dump that <see cref="Compute"/> hashes, for comparing two
+    /// documents with a readable difference.
+    /// </summary>
+    public static string Dump(S57Document document)
     {
         // The dump must be the same on every OS and in every culture: lines end in '\n' rather
         // than Environment.NewLine, and numbers (including those in the records' ToString)
@@ -21,7 +28,7 @@ internal static class S57DocumentFingerprint
         CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
         try
         {
-            return Hash(document);
+            return Text(document);
         }
         finally
         {
@@ -29,10 +36,16 @@ internal static class S57DocumentFingerprint
         }
     }
 
-    private static string Hash(S57Document document)
+    private static string Text(S57Document document)
     {
         var text = new StringBuilder();
-        text.Append(document.DataSetIdentification?.ToString() ?? "no DSID").Append('\n');
+
+        // EXPP was added to the model after these hashes were recorded; leave it out so they
+        // still hold.
+        var dsid = document.DataSetIdentification is { } identification
+            ? identification.ToString().Replace($"ExchangePurpose = {identification.ExchangePurpose}, ", "", StringComparison.Ordinal)
+            : "no DSID";
+        text.Append(dsid).Append('\n');
         text.Append(document.DataSetParameters?.ToString() ?? "no DSPM").Append('\n');
 
         foreach (var feature in document.FeatureRecords)
@@ -90,7 +103,7 @@ internal static class S57DocumentFingerprint
             Control(text, "CC", vector.CoordinateControl);
         }
 
-        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text.ToString())));
+        return text.ToString();
     }
 
     private static string Name(S57RecordName name) => string.Create(

@@ -37,7 +37,7 @@ public static class Iso8211DocumentWriter
         for (int i = 0; i < plan.Layouts.Length; i++)
         {
             var length = plan.Layouts[i].RecordLength;
-            Iso8211RecordWriter.Write(document.Records[i], plan.Layouts[i], output.AsSpan(offset, length));
+            Iso8211RecordWriter.Write(document.Records[i], plan.Layouts[i], plan.Options, output.AsSpan(offset, length));
             offset += length;
         }
 
@@ -151,7 +151,7 @@ public static class Iso8211DocumentWriter
             throw new InvalidOperationException($"The document encodes to {total:N0} bytes, more than an array can hold.");
         }
 
-        return new WritePlan(layouts, (int)total, max);
+        return new WritePlan(layouts, (int)total, max, options);
     }
 
     private static void WriteChunks(Stream stream, Iso8211Document document, WritePlan plan)
@@ -203,7 +203,7 @@ public static class Iso8211DocumentWriter
                 break;
             }
 
-            Iso8211RecordWriter.Write(document.Records[record], plan.Layouts[record], buffer.AsSpan(offset, length));
+            Iso8211RecordWriter.Write(document.Records[record], plan.Layouts[record], plan.Options, buffer.AsSpan(offset, length));
             offset += length;
             record++;
         }
@@ -211,5 +211,5 @@ public static class Iso8211DocumentWriter
         return offset;
     }
 
-    private readonly record struct WritePlan(Iso8211RecordLayout[] Layouts, int TotalLength, int MaxRecordLength);
+    private readonly record struct WritePlan(Iso8211RecordLayout[] Layouts, int TotalLength, int MaxRecordLength, Iso8211WriterOptions Options);
 }
