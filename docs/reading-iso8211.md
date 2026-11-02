@@ -194,6 +194,21 @@ Records longer than 99,999 bytes can't state their length in the five-digit
 leader field. The writer writes `00000` there, as producers do, and the
 reader derives the real length from the directory.
 
+Two <xref:EncDotNet.Iso8211.Iso8211WriterOptions> settings cover encodings
+that S-57 cells use:
+
+- `BlankDataRecordFieldControlLength` writes two spaces in place of a data
+  record's field control length of `00`. ISO 8211 leaves it blank, and S-57
+  requires that.
+- `TwoByteTerminatorFieldTags` lists the tags of fields that end with the
+  two-byte terminator `0x1E 0x00`, such as an S-57 `NATF` field encoded in
+  UCS-2. The reader removes only the final byte, so the data of such a field
+  ends with `0x1E`. The writer then ends it with `0x00`, completing the
+  terminator.
+
+With both set, an S-57 cell read with `Iso8211DocumentReader` writes back
+byte for byte.
+
 ## Build a file from scratch
 
 Describe each field with an <xref:EncDotNet.Iso8211.Iso8211FieldDefinition>,

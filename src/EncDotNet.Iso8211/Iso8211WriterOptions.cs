@@ -61,6 +61,42 @@ public sealed class Iso8211WriterOptions
     public bool AutoSizeDirectoryEntries { get; set; }
 
     /// <summary>
+    /// Gets or sets a value indicating whether a data record whose leader has a field control
+    /// length of zero is written with two spaces there instead of <c>00</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Only the DDR uses field controls, so ISO/IEC 8211 leaves leader positions 10–11 of a data
+    /// record blank, and S-57 requires them to be two spaces (S-57 Part 3, Annex A, table A.3).
+    /// The reader reads both forms as zero. The DDR (leader identifier <c>'L'</c>) is unaffected.
+    /// </para>
+    /// <para>The default is <c>false</c>, which writes <c>00</c>.</para>
+    /// </remarks>
+    public bool BlankDataRecordFieldControlLength { get; set; }
+
+    /// <summary>
+    /// Gets or sets the tags of data record fields that end with the two-byte field terminator
+    /// <c>0x1E 0x00</c>, or <c>null</c> for none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A field encoded in a two-byte character set has its terminators in that character set:
+    /// S-57 ends a field at lexical level 2 (UCS-2), such as a national attribute (NATF) field,
+    /// with <c>0x1E 0x00</c> (S-57 Part 3, clause 2.5 and Annex B.2).
+    /// </para>
+    /// <para>
+    /// <see cref="Iso8211DocumentReader"/> removes only the final byte of every field as its
+    /// terminator, so the data of such a field keeps the terminator's first byte, <c>0x1E</c>.
+    /// The writer ends a field whose tag is in this set with <c>0x00</c> instead of
+    /// <c>0x1E</c>, completing the terminator, so these fields read and write back unchanged.
+    /// Their data must end with <c>0x1E</c>; writing one that doesn't throws
+    /// <see cref="InvalidOperationException"/>. The fields of the DDR (leader identifier
+    /// <c>'L'</c>), which describe these fields, keep one-byte terminators.
+    /// </para>
+    /// </remarks>
+    public IReadOnlySet<string>? TwoByteTerminatorFieldTags { get; set; }
+
+    /// <summary>
     /// Gets the terminator width in bytes implied by <see cref="LexicalLevel"/>.
     /// </summary>
     internal int TerminatorWidth => LexicalLevel >= 2 ? 2 : 1;

@@ -42,12 +42,25 @@ internal static class Iso8211RecordWriter
     /// </summary>
     /// <param name="record">The record to encode.</param>
     /// <param name="options">The writer options.</param>
-    /// <returns>The layout to pass to <see cref="Write(Iso8211Record, Iso8211RecordLayout, Span{byte})"/>.</returns>
+    /// <returns>The layout to pass to <see cref="Write(Iso8211Record, Iso8211RecordLayout, Iso8211WriterOptions, Span{byte})"/>.</returns>
     /// <exception cref="InvalidOperationException">The record cannot be encoded.</exception>
     public static Iso8211RecordLayout Plan(Iso8211Record record, Iso8211WriterOptions options)
     {
         ArgumentNullException.ThrowIfNull(record);
         ArgumentNullException.ThrowIfNull(options);
+
+        if (options.TwoByteTerminatorFieldTags is { Count: > 0 } twoByteTags && !record.IsDataDescriptiveRecord)
+        {
+            var fields = record.Fields;
+            for (int i = 0; i < fields.Count; i++)
+            {
+                if (twoByteTags.Contains(fields[i].Tag) && (fields[i].Data.IsEmpty || fields[i].Data.Span[^1] != FieldTerminator))
+                {
+                    throw new InvalidOperationException(
+                        $"Field '{fields[i].Tag}' has a two-byte terminator, so its data must end with the terminator's first byte, 0x1E.");
+                }
+            }
+        }
 
         var layout = ComputeLayout(record.Leader, record.Fields, options);
 
@@ -68,12 +81,13 @@ internal static class Iso8211RecordWriter
     /// </summary>
     /// <param name="record">The record to encode.</param>
     /// <param name="layout">The record's layout, from <see cref="Plan"/>.</param>
+    /// <param name="options">The writer options the layout was planned with.</param>
     /// <param name="destination">The bytes to write the record to.</param>
-    public static void Write(Iso8211Record record, Iso8211RecordLayout layout, Span<byte> destination)
+    public static void Write(Iso8211Record record, Iso8211RecordLayout layout, Iso8211WriterOptions options, Span<byte> destination)
     {
         var fields = record.Fields;
 
-        WriteLeader(destination, record.Leader, layout.RecordLength, layout.BaseAddress, layout.LengthSize, layout.PositionSize, layout.TagSize);
+        WriteLeader(destination, record.Leader, layout.RecordLength, layout.BaseAddress, layout.LengthSize, layout.PositionSize, layout.TagSize, options.BlankDataRecordFieldControlLength);
         var offset = LeaderLength;
 
         // Directory. Each field's length includes its terminator, and its position is the sum
@@ -92,13 +106,17 @@ internal static class Iso8211RecordWriter
         }
         destination[offset++] = FieldTerminator;
 
-        // Field area.
+        // Field area. The DDR describes fields rather than holding them, so its fields keep
+        // one-byte terminators.
+        var twoByteTags = record.IsDataDescriptiveRecord ? null : options.TwoByteTerminatorFieldTags;
         for (int i = 0; i < fields.Count; i++)
         {
             var data = fields[i].Data.Span;
             data.CopyTo(destination[offset..]);
             offset += data.Length;
-            destination[offset++] = FieldTerminator;
+            destination[offset++] = twoByteTags?.Contains(fields[i].Tag) == true
+                ? (byte)0x00
+                : FieldTerminator;
         }
 
         if (offset != layout.RecordLength)
@@ -161,7 +179,8 @@ internal static class Iso8211RecordWriter
         int baseAddress,
         int lengthSize,
         int positionSize,
-        int tagSize)
+        int tagSize,
+        bool blankFieldControlLength)
     {
         Span<char> text = stackalloc char[LeaderLength];
 
@@ -173,7 +192,18 @@ internal static class Iso8211RecordWriter
         text[7] = OrDefault(leader.InlineCodeExtensionIndicator, 'E');
         text[8] = OrDefault(leader.VersionNumber, '1');
         text[9] = OrDefault(leader.ApplicationIndicator, ' ');
-        FormatDigits(text.Slice(10, 2), leader.FieldControlLength);
+        // A data record's field control length may be blank (ISO/IEC 8211; S-57 Part 3, Annex A,
+        // table A.3); the reader reads it as zero.
+        if (blankFieldControlLength && leader.FieldControlLength == 0 && leader.LeaderIdentifier != 'L')
+        {
+            text[10] = ' ';
+            text[11] = ' ';
+        }
+        else
+        {
+            FormatDigits(text.Slice(10, 2), leader.FieldControlLength);
+        }
+
         FormatDigits(text.Slice(12, 5), baseAddress);
         FitExtendedCharset(text.Slice(17, 3), leader.ExtendedCharacterSetIndicator);
         text[20] = (char)('0' + lengthSize);
@@ -311,4 +341,5 @@ internal readonly struct Iso8211RecordLayout
 
     /// <summary>Gets the total record length in bytes.</summary>
     public int RecordLength { get; }
+
 }
