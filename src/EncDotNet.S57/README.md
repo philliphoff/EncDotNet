@@ -5,7 +5,9 @@ Navigational Chart (ENC) cells. It gives you the dataset metadata, feature
 and vector records, and attributes as encoded, and a typed chart model of
 point, line and area features with indexed nodes, edges and faces. It also
 applies update cells (`.001`, `.002`, ...), reads and verifies exchange sets,
-and writes base cells and `CATALOG.031` files. Reference it to work with S-57
+and writes base cells and `CATALOG.031` files. It identifies NATO
+Additional Military Layers (AML) cells and looks up their object classes and
+attributes in the AML object catalogues. Reference it to work with S-57
 data in .NET 8 or .NET 10. It depends on
 [`EncDotNet.Iso8211`](https://www.nuget.org/packages/EncDotNet.Iso8211),
 which it installs for you.
@@ -62,8 +64,17 @@ foreach (S57FeatureRecord feature in document.GetFeaturesByObjectCode(S57ObjectC
 | `S57CatalogWriter` | Write `CATALOG.031`, and compute the CRCs its entries list |
 | `S57ExchangeSetVerifier` | Check each file's CRC-32 against the catalog |
 
+### NATO Additional Military Layers (`EncDotNet.S57.Aml`)
+
+| Type | Use it to |
+|---|---|
+| `AmlDataSet` | Get an AML cell's product, metadata and catalogue, and look up its features' object classes and attributes |
+| `AmlDataSetMetadata` | Parse the title, protective marking and other metadata in an AML cell's `DSID` comment |
+| `S57ObjectCatalogue` | Look up IHO, Inland ENC and AML object classes and attributes by code or acronym |
+
 [Reading S-57 charts](../../docs/reading-s57-charts.md) covers each of these
-with examples, and [Writing S-57 charts](../../docs/writing-s57-charts.md)
+with examples, [Reading AML data sets](../../docs/reading-aml-data-sets.md)
+covers AML cells, and [Writing S-57 charts](../../docs/writing-s57-charts.md)
 covers the writers.
 
 ## Exchange set verification outcomes

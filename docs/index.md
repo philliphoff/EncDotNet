@@ -25,6 +25,9 @@ in a new console app.
 
 - [Reading S-57 charts](reading-s57-charts.md): features, attributes,
   coordinates, the typed chart model, update cells and exchange sets.
+- [Reading AML data sets](reading-aml-data-sets.md): detecting NATO
+  Additional Military Layers cells, their metadata, catalogues and the
+  `AmlDataSet` view.
 - [Reading and writing ISO 8211](reading-iso8211.md): documents, the token
   reader, writing and building files.
 - [Download NOAA ENC cells](download-noaa-charts.md): find, download and open

@@ -8,6 +8,8 @@
       href: reading-s57-charts.md
     - name: Writing S-57 charts
       href: writing-s57-charts.md
+    - name: Reading AML data sets
+      href: reading-aml-data-sets.md
     - name: Reading and writing ISO 8211
       href: reading-iso8211.md
     - name: Download NOAA ENC cells

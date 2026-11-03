@@ -66,6 +66,18 @@ S-57 defines how nautical chart data is encoded *within* ISO 8211 files. It spec
 - **`S57DocumentReader`** → **`S57Document`** — parses an ISO 8211 file into an S-57 domain model with typed feature records, vector records, dataset metadata, and coordinate conversion helpers
 - **`S57Chart`** — a higher-level model that categorizes features by geometry (point, line, area, meta) and indexes spatial records by type (isolated nodes, connected nodes, edges, faces), with lookup methods and reverse-pointer indexes
 
+### Products and catalogues
+
+S-57 encodes several products: ENC cells, Inland ENC cells and NATO Additional Military Layers (AML) cells. They use the same records and fields, so they share one document model. `S57DocumentReader`, `S57DocumentWriter`, `S57Document.ApplyChanges`, `S57Chart` and the exchange set code read and write every product the same way, and don't depend on what the codes mean.
+
+What depends on the product is the object catalogue, which gives the object class (`OBJL`) and attribute (`ATTL`) codes their acronyms, names and values. The product is only known after a cell is read, from its data set identification field (`DSID`):
+
+- `S57DataSetIdentification.Product` (`S57ProductIdentity`) identifies the product, edition and AML product.
+- `S57ObjectCatalogue.For` chooses the catalogue for that product: IHO for ENC cells, Inland ENC, or AML 1.0, 2.1 or 3.0. `S57Document.GetObjectCatalogue()` and `S57Chart.GetObjectCatalogue()` do the same for a cell.
+- `S57ObjectCode` names only the IHO codes. Other products' codes fit in it as numbers without names, and the catalogue names them.
+
+Product-specific layers sit on top of the shared model instead of replacing it. `AmlDataSet`, in `EncDotNet.S57.Aml`, is a view over an `S57Chart` that adds an AML cell's metadata and catalogue. [Reading AML data sets](reading-aml-data-sets.md) covers it.
+
 ### NOAA ENC products
 
 NOAA publishes an XML product catalog listing all available U.S. ENC cells with metadata like chart name, scale, coverage, and download URLs.
@@ -123,3 +135,4 @@ Each step adds meaning to the raw bytes:
 | Work with typed geometry and indexes | `S57Chart.FromFile()` |
 | Discover and download NOAA charts | `EncProductCatalogClient` |
 | Apply incremental chart updates (.001, .002, …) | `S57Document.ApplyChanges()` |
+| Read NATO AML cells with their catalogue | `AmlDataSet.FromFile()` |
