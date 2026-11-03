@@ -36,5 +36,5 @@ internal static class PerformanceBudgets
     // Retained bytes held by the resulting model.
     public const long Iso8211DocumentRetained = 2_048_712;
     public const long S57DocumentRetained = 1_260_048;
-    public const long S57ChartRetained = 1_178_960;
+    public const long S57ChartRetained = 1_214_504;
 }
