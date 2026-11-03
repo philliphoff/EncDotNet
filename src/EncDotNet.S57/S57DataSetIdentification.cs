@@ -50,6 +50,10 @@ public sealed record S57DataSetIdentification
     public int NatfLexicalLevel { get; init; }
 
     /// <summary>Gets the comment (COMT).</summary>
+    /// <remarks>
+    /// S-57 makes this basic text (ASCII), but some producers, such as NATO AML cells, put
+    /// ISO 8859-1 characters in it, so it's read and written as ISO 8859-1, a superset of ASCII.
+    /// </remarks>
     public string Comment { get; init; } = string.Empty;
 
     /// <summary>Gets the product specification code (PRSP).</summary>

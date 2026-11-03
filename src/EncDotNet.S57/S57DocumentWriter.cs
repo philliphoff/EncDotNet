@@ -41,8 +41,10 @@ namespace EncDotNet.S57;
 /// <para>
 /// ATTF values are encoded at the DSSI lexical level <see cref="S57DataSetIdentification.AttfLexicalLevel"/>
 /// (0 = ASCII, 1 = ISO 8859-1), and NATF values at <see cref="S57DataSetIdentification.NatfLexicalLevel"/>
-/// (0, 1, or 2 = UCS-2). All other character data is ASCII (S-57 Part 3, clause 2.4). A value
-/// its lexical level can't represent is an error rather than being replaced.
+/// (0, 1, or 2 = UCS-2). The DSID, DSPM and FFPT comments (COMT) are ISO 8859-1, which reads the
+/// same as ASCII for conforming comments and round-trips the Latin-1 characters some producers
+/// (NATO AML cells, for example) put there. All other character data is ASCII (S-57 Part 3,
+/// clause 2.4). A value its encoding can't represent is an error rather than being replaced.
 /// </para>
 /// </remarks>
 public static class S57DocumentWriter
@@ -200,7 +202,7 @@ public static class S57DocumentWriter
             .Text(dsid.ProductSpecificationEdition, S57SubfieldNames.PRED, S57FieldEncoder.Ascii)
             .B11(dsid.ApplicationProfile, S57SubfieldNames.PROF)
             .B12(dsid.ProducingAgency, S57SubfieldNames.AGEN)
-            .Text(dsid.Comment, S57SubfieldNames.COMT, S57FieldEncoder.Ascii);
+            .Text(dsid.Comment, S57SubfieldNames.COMT, S57FieldEncoder.Latin1);
         record.AddField(encoder.ToField(S57FieldTags.DSID));
 
         // S-57 Part 3, clause 7.3.1.2: the record counts describe the records written here.
@@ -263,7 +265,7 @@ public static class S57DocumentWriter
             .B11(dspm.CoordinateUnits, S57SubfieldNames.COUN)
             .B14(dspm.CoordinateMultiplicationFactor, S57SubfieldNames.COMF)
             .B14(dspm.SoundingMultiplicationFactor, S57SubfieldNames.SOMF)
-            .Text(dspm.Comment, S57SubfieldNames.COMT, S57FieldEncoder.Ascii);
+            .Text(dspm.Comment, S57SubfieldNames.COMT, S57FieldEncoder.Latin1);
         record.AddField(encoder.ToField(S57FieldTags.DSPM));
 
         return record.Build();
@@ -390,7 +392,7 @@ public static class S57DocumentWriter
                     .B14(pointer.Name.FeatureId, S57SubfieldNames.FIDN)
                     .B12(pointer.Name.FeatureSubdivision, S57SubfieldNames.FIDS)
                     .B11((byte)pointer.Relationship, S57SubfieldNames.RIND)
-                    .Text(pointer.Comment, S57SubfieldNames.COMT, S57FieldEncoder.Ascii);
+                    .Text(pointer.Comment, S57SubfieldNames.COMT, S57FieldEncoder.Latin1);
             }
 
             record.AddField(encoder.ToField(S57FieldTags.FFPT));

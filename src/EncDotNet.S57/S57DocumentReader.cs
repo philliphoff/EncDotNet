@@ -255,7 +255,7 @@ public static class S57DocumentReader
         {
             agen = agenValue;
         }
-        if (reader.TryGetSubfield<string>(S57SubfieldNames.COMT, out var comtValue))
+        if (TryGetLatin1Subfield(reader, S57SubfieldNames.COMT, out var comtValue))
         {
             comt = comtValue;
         }
@@ -350,7 +350,7 @@ public static class S57DocumentReader
         coun = reader.GetSubfield<byte>(S57SubfieldNames.COUN);
         comf = reader.GetSubfield<uint>(S57SubfieldNames.COMF);
         somf = reader.GetSubfield<uint>(S57SubfieldNames.SOMF);
-        comt = reader.TryGetSubfield<string>(S57SubfieldNames.COMT, out var c) ? c : "";
+        comt = TryGetLatin1Subfield(reader, S57SubfieldNames.COMT, out var c) ? c : "";
 
         return new S57DataSetParameters
         {
@@ -575,6 +575,35 @@ public static class S57DocumentReader
 
 
     /// <summary>
+    /// Reads a non-repeating comment subfield (<c>COMT</c>) as ISO 8859-1 text.
+    /// </summary>
+    /// <remarks>
+    /// S-57 Part 3, clause 2.4 makes every character subfield other than <c>ATTF</c> and
+    /// <c>NATF</c> basic text (lexical level 0, ASCII). Producers nevertheless put Latin-1
+    /// characters in comments; NATO AML cells, for example, write the degree sign in the
+    /// <c>DSID</c> comment. ISO 8859-1 is a superset of the basic text, so decoding it as
+    /// Latin-1 reads conforming comments unchanged and keeps those characters instead of
+    /// turning them into U+FFFD.
+    /// </remarks>
+    private static bool TryGetLatin1Subfield(Iso8211FieldReader reader, string name, out string value)
+    {
+        // Instances follow definition order, so a subfield's first instance is at its position
+        // in the definition.
+        var definitions = reader.FieldDefinition.SubfieldDefinitions;
+        for (var i = 0; i < definitions.Count && i < reader.SubfieldCount; i++)
+        {
+            if (string.Equals(definitions[i].Name, name, StringComparison.Ordinal))
+            {
+                value = DecodeLatin1(reader.GetSubfieldBytesAt(i));
+                return true;
+            }
+        }
+
+        value = "";
+        return false;
+    }
+
+    /// <summary>
     /// Decodes general text at lexical level 1, ISO 8859-1 (S-57 Part 3, clause 2.4), dropping
     /// trailing terminators, NULs and spaces as other character data is.
     /// </summary>
@@ -682,7 +711,9 @@ public static class S57DocumentReader
                         // LNAM is a composite subfield (8 bytes: AGEN(2) + FIDN(4) + FIDS(2))
                         Name = DecomposeLongNameField(reader.GetSubfieldBytes(group, lnam)),
                         Relationship = (S57RelationshipIndicator)reader.GetSubfield<byte>(group, rind),
-                        Comment = reader.GetSubfield<string>(group, comt)
+                        // Latin-1 for the same reason as the DSID and DSPM comments;
+                        // see TryGetLatin1Subfield.
+                        Comment = DecodeLatin1(reader.GetSubfieldBytes(group, comt))
                     });
                 }
 

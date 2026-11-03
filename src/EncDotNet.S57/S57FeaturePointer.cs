@@ -15,6 +15,10 @@ public readonly record struct S57FeaturePointer
     /// <summary>Gets the relationship indicator.</summary>
     public S57RelationshipIndicator Relationship { get; init; }
 
-    /// <summary>Gets the comment.</summary>
+    /// <summary>Gets the comment (COMT).</summary>
+    /// <remarks>
+    /// S-57 makes this basic text (ASCII), but some producers, such as NATO AML cells, put
+    /// ISO 8859-1 characters in it, so it's read and written as ISO 8859-1, a superset of ASCII.
+    /// </remarks>
     public string Comment { get; init; }
 }
