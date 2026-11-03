@@ -6,7 +6,7 @@ standards. It decodes the Data Descriptive Record (DDR), data records, fields
 and subfield values, writes documents back out, and builds new ones. It has
 no knowledge of S-57; reference
 [`EncDotNet.S57`](https://www.nuget.org/packages/EncDotNet.S57) instead if
-you want chart features. The package targets .NET 8 and .NET 10.
+you want chart features. The package targets .NET 10.
 
 ## Install
 

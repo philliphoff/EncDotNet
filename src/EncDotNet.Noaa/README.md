@@ -8,7 +8,7 @@ coverage, the states, regions and Coast Guard districts it covers, and the
 URL of its ZIP file. Reference it to find and download U.S. cells; read the
 downloaded cells with
 [`EncDotNet.S57`](https://www.nuget.org/packages/EncDotNet.S57). The package
-targets .NET 8 and .NET 10.
+targets .NET 10.
 
 ## Install
 

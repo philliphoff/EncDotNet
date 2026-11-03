@@ -8,7 +8,7 @@ EncDotNet is a set of .NET libraries for
 and the [ISO/IEC 8211](https://www.iso.org/standard/7688.html) files they're
 encoded in. The libraries read and write ISO 8211, read S-57 cells, apply
 update cells, verify exchange sets, and find cells in the NOAA product catalog.
-They target .NET 8 and .NET 10.
+They target .NET 10.
 
 [EncDotNet.S100](https://github.com/philliphoff/EncDotNet.S100) builds on
 these libraries to read S-101 and to translate S-57 cells to S-101.

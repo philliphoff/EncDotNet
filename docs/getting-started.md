@@ -5,8 +5,8 @@ and list its depth areas with their depth ranges and positions.
 
 ## Prerequisites
 
-- The [.NET SDK](https://dotnet.microsoft.com/download) 8 or later. The
-  packages target .NET 8 and .NET 10.
+- The [.NET SDK](https://dotnet.microsoft.com/download) 10 or later. The
+  packages target .NET 10.
 - An S-57 base cell (a `.000` file). NOAA publishes U.S. cells for free; see
   [Download NOAA ENC cells](download-noaa-charts.md), or download one from the
   [NOAA ENC page](https://charts.noaa.gov/ENCs/ENCs.shtml).
