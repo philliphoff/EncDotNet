@@ -12,7 +12,7 @@ public sealed record S57DataSetIdentification
     /// <remarks>
     /// S-57 Edition 3.1, Part 3 §7.3.1.1 enumerates 1 = N (data set is new) and 2 = R (data set
     /// is a revision). The value is 0 when the subfield is absent; <see cref="S57DocumentWriter"/>
-    /// writes 0 as 1.
+    /// writes 0 as 1. <see cref="S57ExchangePurpose"/> names the codes; cast between the two.
     /// </remarks>
     public int ExchangePurpose { get; init; }
 
@@ -41,12 +41,24 @@ public sealed record S57DataSetIdentification
     public int ProducingAgency { get; init; }
 
     /// <summary>Gets the data structure (DSTR).</summary>
+    /// <remarks>
+    /// The values are the DSSI codes of S-57 Edition 3.1, Part 3 §7.3.1.2, which
+    /// <see cref="S57DataStructure"/> names; cast between the two.
+    /// </remarks>
     public int DataStructure { get; init; }
 
     /// <summary>Gets the lexical level for ATTF (AALL).</summary>
+    /// <remarks>
+    /// <see cref="S57LexicalLevel"/> names the levels; cast between the two. ATTF allows levels 0
+    /// and 1 only. <see cref="S57LexicalLevels.Lowest"/> picks the lowest level for a set of values.
+    /// </remarks>
     public int AttfLexicalLevel { get; init; }
 
     /// <summary>Gets the lexical level for NATF (NALL).</summary>
+    /// <remarks>
+    /// <see cref="S57LexicalLevel"/> names the levels; cast between the two.
+    /// <see cref="S57LexicalLevels.Lowest"/> picks the lowest level for a set of values.
+    /// </remarks>
     public int NatfLexicalLevel { get; init; }
 
     /// <summary>Gets the comment (COMT).</summary>
@@ -63,7 +75,8 @@ public sealed record S57DataSetIdentification
     /// Additional Military Layers (AML) producers declare 51-57 (see
     /// <see cref="Aml.AmlProduct"/>). When the data set uses the ASCII lexical form, the mnemonics
     /// <c>ENC</c> and <c>ODD</c> are mapped to 1 and 2. The value is 0 when the subfield is
-    /// absent. <see cref="Product"/> interprets it.
+    /// absent. <see cref="Product"/> interprets it. To set it, cast from
+    /// <see cref="S57ProductSpecification"/> (or <see cref="Aml.AmlProduct"/>).
     /// </remarks>
     public int ProductSpecification { get; init; }
 
@@ -81,6 +94,7 @@ public sealed record S57DataSetIdentification
     /// SBO 18/19), and AML 3.0 uses 20 for both. When the data set uses the ASCII lexical form,
     /// the S-57 mnemonics are mapped to their numeric codes. The value is 0 when the subfield is
     /// absent. <see cref="S57ProductIdentity.IsUpdate"/> interprets it.
+    /// <see cref="S57ApplicationProfile"/> names the S-57 codes; cast between the two.
     /// </remarks>
     public int ApplicationProfile { get; init; }
 

@@ -180,18 +180,50 @@ internal sealed class S57FieldEncoder
         return new Iso8211Field { Tag = tag, Data = _buffer.WrittenSpan.ToArray() };
     }
 
-    private void Encode(string value, string subfield, Encoding encoding)
+    /// <summary>
+    /// Gets whether <see cref="Text"/> can encode a value with an encoding, without throwing.
+    /// </summary>
+    /// <remarks>
+    /// This makes the same checks as the encoder, so <see cref="S57LexicalLevels"/> and the
+    /// writers can't disagree about which lexical level a string needs.
+    /// </remarks>
+    public static bool CanEncode(string value, Encoding encoding)
     {
         if (ReferenceEquals(encoding, Ucs2))
         {
-            // UCS-2 implementation level 1 covers the Basic Multilingual Plane only.
-            foreach (var c in value)
-            {
-                if (char.IsSurrogate(c))
-                {
-                    throw Invalid($"{subfield} value '{value}' has a character outside the Basic Multilingual Plane, which UCS-2 (lexical level 2) can't encode");
-                }
-            }
+            return !HasSurrogate(value);
+        }
+
+        try
+        {
+            encoding.GetByteCount(value);
+            return true;
+        }
+        catch (EncoderFallbackException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Gets the encoding of a lexical level (S-57 Part 3, clause 2.4).</summary>
+    public static Encoding ForLexicalLevel(S57LexicalLevel level) => level switch
+    {
+        S57LexicalLevel.Ascii => Ascii,
+        S57LexicalLevel.Latin1 => Latin1,
+        S57LexicalLevel.Ucs2 => Ucs2,
+        _ => throw new ArgumentOutOfRangeException(nameof(level), level, "S-57 defines lexical levels 0, 1 and 2 only.")
+    };
+
+    // UCS-2 implementation level 1 covers the Basic Multilingual Plane only, so neither half of
+    // a UTF-16 surrogate pair (nor an unpaired surrogate) can be encoded.
+    private static bool HasSurrogate(string value) =>
+        value.AsSpan().IndexOfAnyInRange('\uD800', '\uDFFF') >= 0;
+
+    private void Encode(string value, string subfield, Encoding encoding)
+    {
+        if (ReferenceEquals(encoding, Ucs2) && HasSurrogate(value))
+        {
+            throw Invalid($"{subfield} value '{value}' has a character outside the Basic Multilingual Plane, which UCS-2 (lexical level 2) can't encode");
         }
 
         try
