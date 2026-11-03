@@ -27,7 +27,7 @@ public partial class AmlDataSetCorpusTests
         int cells = 0, features = 0, values = 0;
 
         var paths = Directory.EnumerateFiles(root, "*.*", SearchOption.AllDirectories)
-            .Where(p => CellExtension().IsMatch(Path.GetExtension(p)))
+            .Where(p => CellExtension().IsMatch(Path.GetExtension(p)) && !IsExchangeSetCatalogue(p))
             .Order(StringComparer.Ordinal);
 
         foreach (var path in paths)
@@ -53,8 +53,11 @@ public partial class AmlDataSetCorpusTests
                 failures.Add($"{cell}: product {dataSet.Product.Kind} has no AML product");
             }
 
+            // COMT is free text in S-57. The published AML cells write AML metadata there as
+            // key=value pairs, but copies re-encoded by other tools can carry a plain comment,
+            // which isn't metadata. Only a comment written as pairs must parse.
             var comment = dataSet.Identification.Comment;
-            if (!string.IsNullOrWhiteSpace(comment) && dataSet.Metadata is null)
+            if (comment is not null && comment.Contains('=', StringComparison.Ordinal) && dataSet.Metadata is null)
             {
                 failures.Add($"{cell}: COMT isn't AML metadata: \"{comment}\"");
             }
@@ -112,6 +115,13 @@ public partial class AmlDataSetCorpusTests
 
         return attributes.Count;
     }
+
+    /// <summary>
+    /// Gets whether a file is an exchange set catalogue (<c>CATALOG.031</c>), which has a cell-like
+    /// extension but isn't a cell.
+    /// </summary>
+    private static bool IsExchangeSetCatalogue(string path) =>
+        Path.GetFileNameWithoutExtension(path).Equals("CATALOG", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Matches the extension of a base cell (<c>.000</c>) or an update cell (<c>.001</c> and up).</summary>
     [GeneratedRegex(@"^\.\d{3}$")]
