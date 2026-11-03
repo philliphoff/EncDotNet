@@ -441,9 +441,7 @@ public static class S57DocumentWriter
             encoder.Begin($"{S57FieldTags.FFPT} ({name})");
             foreach (var pointer in feature.FeaturePointers)
             {
-                encoder.B12(pointer.Name.AgencyCode, S57SubfieldNames.AGEN)
-                    .B14(pointer.Name.FeatureId, S57SubfieldNames.FIDN)
-                    .B12(pointer.Name.FeatureSubdivision, S57SubfieldNames.FIDS)
+                encoder.Lnam(pointer.Name)
                     .B11((byte)pointer.Relationship, S57SubfieldNames.RIND)
                     .Text(pointer.Comment, S57SubfieldNames.COMT, S57FieldEncoder.Latin1);
             }

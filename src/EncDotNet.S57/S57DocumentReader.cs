@@ -1101,18 +1101,8 @@ public static class S57DocumentReader
     /// <summary>
     /// Decomposes a LNAM composite subfield (8 bytes: AGEN(2) + FIDN(4) + FIDS(2)) into an S57LongName.
     /// </summary>
-    private static S57LongName DecomposeLongNameField(ReadOnlySpan<byte> data)
-    {
-        if (data.Length < 8)
-        {
-            return default;
-        }
-
-        var agen = BinaryPrimitives.ReadUInt16LittleEndian(data.Slice(0, 2));
-        var fidn = BinaryPrimitives.ReadUInt32LittleEndian(data.Slice(2, 4));
-        var fids = BinaryPrimitives.ReadUInt16LittleEndian(data.Slice(6, 2));
-        return new S57LongName(agen, fidn, fids);
-    }
+    private static S57LongName DecomposeLongNameField(ReadOnlySpan<byte> data) =>
+        data.Length < S57LongName.LnamLength ? default : S57LongName.FromLnam(data[..S57LongName.LnamLength]);
 
     /// <summary>
     /// Parses an update control field (FSPC, FFPC, VRPC, or SGCC) from a record.

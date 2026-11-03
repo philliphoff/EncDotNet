@@ -12,7 +12,7 @@ using System.Text;
 // Source: the S-57 object catalogue tables GDAL ships with its S-57 driver
 // (ogr/ogrsf_frmts/s57/data in https://github.com/OSGeo/gdal, MIT licence):
 //   s57objectclasses.csv   object classes (code, name, acronym, class, primitives)
-//   s57attributes.csv      attributes (code, name, acronym, type)
+//   s57attributes.csv      attributes (code, name, acronym, type, class)
 //   s57expectedinput.csv   enumerated values (attribute code, ID, meaning)
 // GDAL derived them from the IHO S-57 Edition 3.1 Object Catalogue. Codes
 // 17000-19999 are the Inland ENC entries GDAL kept from its former
@@ -20,8 +20,8 @@ using System.Text;
 // enumerations. Codes 20000 and up are AML entries and aren't used here.
 //
 // Without a data directory the script downloads the files from the GDAL tag
-// below. Only codes, acronyms, names, classes, primitives, attribute types and
-// enumerated values are written; definition text is never included.
+// below. Only codes, acronyms, names, classes, primitives, attribute types,
+// attribute classes and enumerated values are written; definition text is never included.
 //
 // Writes, in <output-dir> (default src/EncDotNet.S57):
 //   S57ObjectCatalogue.Iho.g.cs        codes 1-16999
@@ -51,7 +51,8 @@ var attributes = ReadCsv(Path.Combine(dataDirectory, "s57attributes.csv"))
         int.Parse(row["Code"], CultureInfo.InvariantCulture),
         row["Acronym"].Trim(),
         Normalize(row["Attribute"]),
-        row["Attributetype"].Trim()))
+        row["Attributetype"].Trim(),
+        row["Class"].Trim()))
     .Where(row => row.Code > 0)
     .ToList();
 
@@ -155,6 +156,10 @@ void WriteTable(
     foreach (var a in attributeList)
     {
         var head = $"        new({a.Code}, {Literal(a.Acronym)}, {Literal(a.Name)}, {Type(a.Type)}";
+
+        // Feature is the constructor's default, so only the other classes are written.
+        var attributeClass = AttributeClass(a.Class, a.Code);
+        var tail = attributeClass == "Feature" ? ")" : $", attributeClass: S57AttributeClass.{attributeClass})";
         if (values.TryGetValue(a.Code, out var list) && list.Count > 0)
         {
             builder.Append(head).Append(",\n        [\n");
@@ -163,11 +168,11 @@ void WriteTable(
                 builder.Append(CultureInfo.InvariantCulture, $"            new({value.Code}, {Literal(value.Name)}),\n");
             }
 
-            builder.Append("        ]),\n");
+            builder.Append("        ]").Append(tail).Append(",\n");
         }
         else
         {
-            builder.Append(head).Append("),\n");
+            builder.Append(head).Append(tail).Append(",\n");
         }
     }
 
@@ -208,6 +213,17 @@ static string Type(string value) => value switch
     "A" => "CodedString",
     "S" => "FreeText",
     _ => "S57AttributeType.Unknown",
+};
+
+// The Class column of s57attributes.csv: S-57 Edition 3.1, Appendix A, Chapter 2 §2.2 (F),
+// §2.3 (N) and §2.4 (S); $ marks the cartographic feature attributes.
+static string AttributeClass(string value, int code) => value switch
+{
+    "F" => "Feature",
+    "N" => "National",
+    "S" => "Spatial",
+    "$" => "Cartographic",
+    _ => throw new InvalidDataException($"Attribute {code} has an unknown class '{value}'."),
 };
 
 static string Primitives(string value)
@@ -336,6 +352,6 @@ static List<string> ParseCsvLine(string line)
 
 record ObjectClassRow(int Code, string Acronym, string Name, string Category, string Primitives);
 
-record AttributeRow(int Code, string Acronym, string Name, string Type);
+record AttributeRow(int Code, string Acronym, string Name, string Type, string Class);
 
 record ValueRow(int Code, string Name);

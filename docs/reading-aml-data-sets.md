@@ -127,6 +127,12 @@ Acronyms of AML classes and attributes are lower case, such as `atsctl` and
 `databa`, and acronym lookups are case-sensitive. The catalogues hold codes,
 acronyms, names, attribute types and enumerated values, but not definitions.
 
+`S57AttributeDefinition.Class` says whether an attribute is a feature,
+national, spatial or cartographic attribute, and `IsNational` whether a
+feature stores it in `NATF` rather than `ATTF`. The AML catalogues don't
+classify their own attributes, so codes 20000 and up are feature attributes;
+the IHO attributes they include keep their IHO class.
+
 ## Use the AML data set view
 
 `AmlDataSet` is a view over the `S57Chart` of an AML cell. It doesn't copy the

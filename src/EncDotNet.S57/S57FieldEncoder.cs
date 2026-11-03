@@ -74,6 +74,14 @@ internal sealed class S57FieldEncoder
         return this;
     }
 
+    /// <summary>Writes a binary <c>LNAM</c> subfield (<c>B(64)</c>, S-57 Part 3, clause 4.3).</summary>
+    public S57FieldEncoder Lnam(S57LongName name)
+    {
+        name.TryWriteLnam(_buffer.GetSpan(S57LongName.LnamLength));
+        _buffer.Advance(S57LongName.LnamLength);
+        return this;
+    }
+
     /// <summary>Writes a <c>b24</c> subfield.</summary>
     public S57FieldEncoder B24(int value)
     {
