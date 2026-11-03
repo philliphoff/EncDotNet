@@ -40,10 +40,12 @@ internal static class S57DocumentFingerprint
     {
         var text = new StringBuilder();
 
-        // EXPP was added to the model after these hashes were recorded; leave it out so they
-        // still hold.
+        // EXPP and the derived Product were added to the model after these hashes were recorded;
+        // leave them out so they still hold.
         var dsid = document.DataSetIdentification is { } identification
-            ? identification.ToString().Replace($"ExchangePurpose = {identification.ExchangePurpose}, ", "", StringComparison.Ordinal)
+            ? identification.ToString()
+                .Replace($"ExchangePurpose = {identification.ExchangePurpose}, ", "", StringComparison.Ordinal)
+                .Replace($", Product = {identification.Product}", "", StringComparison.Ordinal)
             : "no DSID";
         text.Append(dsid).Append('\n');
         text.Append(document.DataSetParameters?.ToString() ?? "no DSPM").Append('\n');
