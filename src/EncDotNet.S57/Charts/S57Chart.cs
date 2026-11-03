@@ -449,6 +449,16 @@ public sealed record S57Chart
     }
 
     /// <summary>
+    /// Gets the object catalogue that gives this chart's object and attribute codes their meaning.
+    /// </summary>
+    /// <returns>
+    /// The catalogue <see cref="S57ObjectCatalogue.For(S57DataSetIdentification)"/> chooses for
+    /// <see cref="Identification"/>, or <see cref="S57ObjectCatalogue.Iho"/> when the chart has none.
+    /// </returns>
+    public S57ObjectCatalogue GetObjectCatalogue() =>
+        Identification is { } identification ? S57ObjectCatalogue.For(identification) : S57ObjectCatalogue.Iho;
+
+    /// <summary>
     /// Gets an isolated node by its record name.
     /// </summary>
     /// <param name="name">The record name.</param>
