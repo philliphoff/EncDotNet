@@ -62,6 +62,15 @@ internal static class S57FieldTags
     /// <summary>Arc/Curve Definition</summary>
     public const string ARCC = "ARCC";
 
+    /// <summary>Arc Coordinates</summary>
+    public const string AR2D = "AR2D";
+
+    /// <summary>Ellipse Coordinates</summary>
+    public const string EL2D = "EL2D";
+
+    /// <summary>Curve Coordinates</summary>
+    public const string CT2D = "CT2D";
+
     // Update Control Fields
     /// <summary>Feature Record to Spatial Record Pointer Control</summary>
     public const string FSPC = "FSPC";

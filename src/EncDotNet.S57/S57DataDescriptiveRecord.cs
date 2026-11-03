@@ -76,6 +76,27 @@ internal static class S57DataDescriptiveRecord
         "0001DSIDDSIDDSSI0001DSPM0001VRIDVRIDATTVVRIDVRPTVRIDSG2DVRIDSG3D" +
         "0001FRIDFRIDFOIDFRIDATTFFRIDNATFFRIDFFPTFRIDFSPT";
 
+    // The arc/curve fields of vector records (S-57 Part 3, clauses 7.7.1.8 to 7.7.1.11), which a
+    // DDR declares only when the cell has arc/curve geometry. The AR2D and EL2D descriptors are
+    // ISO/IEC 8211 Cartesian labels: one row per point, each a YCOO and XCOO pair.
+    private static readonly FieldDefinition[] ArcCurveFields =
+    [
+        new(S57FieldTags.ARCC, VectorField, MixedDataTypes, "Arc/Curve definition field",
+            "ATYP!SURF!ORDR!RESO!FPMF",
+            "(3b11,2b14)"),
+        new(S57FieldTags.AR2D, ArrayField, BinaryForm, "Arc coordinate field",
+            "STPT!CTPT!ENPT*YCOO!XCOO",
+            "(2b24)"),
+        new(S57FieldTags.EL2D, ArrayField, BinaryForm, "Ellipse coordinate field",
+            "STPT!CTPT!ENPT!CDPM!CDPR*YCOO!XCOO",
+            "(2b24)"),
+        new(S57FieldTags.CT2D, ArrayField, BinaryForm, "Curve coordinate field",
+            "*YCOO!XCOO",
+            "(2b24)"),
+    ];
+
+    private const string ArcCurveFieldTree = "VRIDARCCARCCAR2DARCCEL2DARCCCT2D";
+
     private const string CatalogFieldTree = "0001CATD";
 
     /// <summary>
@@ -83,12 +104,20 @@ internal static class S57DataDescriptiveRecord
     /// </summary>
     /// <param name="attfLexicalLevel">The ATTF lexical level (AALL).</param>
     /// <param name="natfLexicalLevel">The NATF lexical level (NALL).</param>
-    public static Iso8211Record Build(int attfLexicalLevel, int natfLexicalLevel)
+    /// <param name="includeArcCurves">Whether to declare the arc/curve fields (ARCC, AR2D, EL2D
+    /// and CT2D), after SG3D.</param>
+    public static Iso8211Record Build(int attfLexicalLevel, int natfLexicalLevel, bool includeArcCurves = false)
     {
         var builder = NewDdr();
-        builder.AddField(FileControlField(CellFieldTree));
+        var fieldTree = includeArcCurves
+            ? CellFieldTree.Replace("VRIDSG3D", "VRIDSG3D" + ArcCurveFieldTree, StringComparison.Ordinal)
+            : CellFieldTree;
+        builder.AddField(FileControlField(fieldTree));
         builder.AddField(RecordIdentifierField(BinaryForm, "(b12)"));
-        foreach (var field in CellFields)
+        IEnumerable<FieldDefinition> fields = includeArcCurves
+            ? [.. CellFields.TakeWhile(f => f.Tag != S57FieldTags.FRID), .. ArcCurveFields, .. CellFields.SkipWhile(f => f.Tag != S57FieldTags.FRID)]
+            : CellFields;
+        foreach (var field in fields)
         {
             var escape = field.Tag switch
             {

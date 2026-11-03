@@ -82,6 +82,13 @@ internal static class S57SubfieldNames
     public const string XCOO = "XCOO";  // X coordinate
     public const string VE3D = "VE3D";  // 3D (sounding) value
 
+    // ARCC subfields
+    public const string ATYP = "ATYP";  // Arc/Curve type
+    public const string SURF = "SURF";  // Construction surface
+    public const string ORDR = "ORDR";  // Curve order
+    public const string RESO = "RESO";  // Interpolated point resolution
+    public const string FPMF = "FPMF";  // Floating point multiplication factor
+
     // FSPC subfields
     public const string FSUI = "FSUI";  // Feature to Spatial record update instruction
     public const string FSIX = "FSIX";  // Feature to Spatial record pointer index

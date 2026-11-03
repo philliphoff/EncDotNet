@@ -504,6 +504,9 @@ public static class S57DocumentReader
         // Parse SG3D (3D soundings)
         var soundings = ParseSoundings(record, ddr, logger);
 
+        // Parse ARCC with its AR2D, EL2D and CT2D coordinates
+        var arcCurves = ParseArcCurves(record, ddr, logger);
+
         // Parse SGCC (coordinate/sounding update control)
         var coordinateControl = ParseFieldUpdateControl(record, S57FieldTags.SGCC,
             S57SubfieldNames.CCUI, S57SubfieldNames.CCIX, S57SubfieldNames.CCNC, ddr, logger);
@@ -518,6 +521,7 @@ public static class S57DocumentReader
             VectorPointerControl = vectorPointerControl,
             Coordinates2D = coordinates2D,
             Soundings = soundings,
+            ArcCurves = arcCurves,
             CoordinateControl = coordinateControl
         };
     }
@@ -885,6 +889,174 @@ public static class S57DocumentReader
         }
 
         return Complete(soundings);
+    }
+
+    /// <summary>
+    /// Parses the arc/curve definitions (ARCC) of a vector record, each with the AR2D, EL2D and
+    /// CT2D fields that follow it in the record (S-57 Part 3, clause 7.7.1).
+    /// </summary>
+    private static ImmutableArray<S57ArcCurve> ParseArcCurves(Iso8211Record record, Iso8211DataDescriptiveRecord? ddr, ILogger? logger)
+    {
+        ImmutableArray<S57ArcCurve>.Builder? curves = null;
+        S57ArcCurve? current = null;
+        List<S57Arc>? arcs = null;
+        List<S57EllipticalArc>? ellipses = null;
+        List<S57Coordinate2D>? controlPoints = null;
+
+        for (var i = 0; i < record.Fields.Count; i++)
+        {
+            var field = record.Fields[i];
+            switch (field.Tag)
+            {
+                case S57FieldTags.ARCC:
+                    Flush();
+                    current = ParseArcCurveDefinition(field, ddr, logger);
+                    break;
+                case S57FieldTags.AR2D:
+                case S57FieldTags.EL2D:
+                case S57FieldTags.CT2D:
+                    if (current is null)
+                    {
+                        logger?.LogWarning("Ignoring {FieldTag} field that does not follow an ARCC field.", field.Tag);
+                        break;
+                    }
+
+                    var points = ParseArcCoordinates(field, ddr, logger);
+                    if (field.Tag == S57FieldTags.AR2D)
+                    {
+                        arcs ??= [];
+                        for (var p = 0; p + 3 <= points.Count; p += 3)
+                        {
+                            arcs.Add(new S57Arc { Start = points[p], Centre = points[p + 1], End = points[p + 2] });
+                        }
+
+                        KeepIncomplete(points, 3);
+                    }
+                    else if (field.Tag == S57FieldTags.EL2D)
+                    {
+                        ellipses ??= [];
+                        for (var p = 0; p + 5 <= points.Count; p += 5)
+                        {
+                            ellipses.Add(new S57EllipticalArc
+                            {
+                                Start = points[p],
+                                Centre = points[p + 1],
+                                End = points[p + 2],
+                                MajorAxisPoint = points[p + 3],
+                                MinorAxisPoint = points[p + 4]
+                            });
+                        }
+
+                        KeepIncomplete(points, 5);
+                    }
+                    else
+                    {
+                        controlPoints ??= [];
+                        controlPoints.AddRange(points);
+                    }
+
+                    break;
+            }
+        }
+
+        Flush();
+        return curves?.ToImmutable() ?? [];
+
+        void Flush()
+        {
+            if (current is null)
+            {
+                return;
+            }
+
+            curves ??= ImmutableArray.CreateBuilder<S57ArcCurve>();
+            curves.Add(current with
+            {
+                Arcs = arcs is null ? [] : [.. arcs],
+                EllipticalArcs = ellipses is null ? [] : [.. ellipses],
+                ControlPoints = controlPoints is null ? [] : [.. controlPoints]
+            });
+            current = null;
+            arcs = null;
+            ellipses = null;
+            controlPoints = null;
+        }
+
+        // An update record's SGCC can address single coordinates, so an AR2D or EL2D field may
+        // hold fewer than a whole arc. Those coordinates are kept, in order, as control points.
+        void KeepIncomplete(List<S57Coordinate2D> points, int pointsPerArc)
+        {
+            var remainder = points.Count % pointsPerArc;
+            if (remainder != 0)
+            {
+                controlPoints ??= [];
+                controlPoints.AddRange(points.GetRange(points.Count - remainder, remainder));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Parses an Arc/Curve definition (ARCC) field.
+    /// </summary>
+    private static S57ArcCurve ParseArcCurveDefinition(Iso8211Field field, Iso8211DataDescriptiveRecord? ddr, ILogger? logger)
+    {
+        var fieldDef = ddr?.GetFieldDefinition(S57FieldTags.ARCC);
+        if (fieldDef is null)
+        {
+            logger?.LogWarning("DDR field definition not found for {FieldTag}.", S57FieldTags.ARCC);
+            return new S57ArcCurve();
+        }
+
+        try
+        {
+            var reader = new Iso8211FieldReader(fieldDef, field.Data);
+            return new S57ArcCurve
+            {
+                Type = (S57ArcCurveType)reader.GetSubfield<byte>(S57SubfieldNames.ATYP),
+                Surface = (S57ConstructionSurface)reader.GetSubfield<byte>(S57SubfieldNames.SURF),
+                Order = reader.GetSubfield<byte>(S57SubfieldNames.ORDR),
+                Resolution = reader.GetSubfield<uint>(S57SubfieldNames.RESO),
+                FloatingPointMultiplicationFactor = reader.GetSubfield<uint>(S57SubfieldNames.FPMF)
+            };
+        }
+        catch (Exception ex)
+        {
+            logger?.LogWarning(ex, "Failed to parse {FieldTag} field.", S57FieldTags.ARCC);
+            return new S57ArcCurve();
+        }
+    }
+
+    /// <summary>
+    /// Parses the coordinate pairs of an AR2D, EL2D or CT2D field.
+    /// </summary>
+    /// <remarks>
+    /// The binary implementation encodes each coordinate as <c>b24</c> YCOO and XCOO subfields
+    /// (S-57 Part 3, clauses 7.7.1.9 to 7.7.1.11). The AR2D and EL2D descriptors are ISO/IEC 8211
+    /// Cartesian labels (<c>STPT!CTPT!ENPT*YCOO!XCOO</c>), whose row labels are not subfields,
+    /// so the pairs are read directly rather than through the field definition.
+    /// </remarks>
+    private static List<S57Coordinate2D> ParseArcCoordinates(Iso8211Field field, Iso8211DataDescriptiveRecord? ddr, ILogger? logger)
+    {
+        var points = new List<S57Coordinate2D>();
+        var fieldDef = ddr?.GetFieldDefinition(field.Tag);
+        if (fieldDef is null || !fieldDef.FormatControls.Contains("b24", StringComparison.Ordinal))
+        {
+            logger?.LogWarning("Ignoring {FieldTag} field that is not in the binary (b24) implementation.", field.Tag);
+            return points;
+        }
+
+        // The field data ends with a field terminator, which never completes a pair.
+        var data = field.Data.Span;
+        for (var offset = 0; offset + 8 <= data.Length; offset += 8)
+        {
+            points.Add(new S57Coordinate2D
+            {
+                Y = BinaryPrimitives.ReadInt32LittleEndian(data.Slice(offset, 4)),
+                X = BinaryPrimitives.ReadInt32LittleEndian(data.Slice(offset + 4, 4))
+            });
+        }
+
+        return points;
     }
 
     /// <summary>

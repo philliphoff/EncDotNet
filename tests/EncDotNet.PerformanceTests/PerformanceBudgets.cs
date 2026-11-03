@@ -29,12 +29,12 @@ internal static class PerformanceBudgets
     public const long Iso8211FieldReaderCoordinates = 846_376;
     public const long Iso8211FieldReaderCoordinatesByOrdinal = 141_264;
     public const long Iso8211DocumentWriterWrite = 591_616;
-    public const long S57DocumentReaderRead = 3_713_184;
+    public const long S57DocumentReaderRead = 3_778_376;
     public const long S57DocumentApplyChanges = 685_440;
     public const long S57ChartFromDocument = 1_063_752;
 
     // Retained bytes held by the resulting model.
     public const long Iso8211DocumentRetained = 2_048_712;
-    public const long S57DocumentRetained = 1_194_928;
-    public const long S57ChartRetained = 1_178_960;
+    public const long S57DocumentRetained = 1_260_048;
+    public const long S57ChartRetained = 1_214_504;
 }
