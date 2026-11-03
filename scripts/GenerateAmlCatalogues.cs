@@ -8,8 +8,19 @@
 //
 // Sources, from https://www.admiralty.co.uk/defence/additional-military-layers:
 //   AML Object and Attribute Catalogue v1.1.6     (AML 1.0: 171 object classes, 385 attributes)
-//   AML Object and Attribute Catalogue v2.x       (AML 2.1: 174 object classes, 387 attributes)
+//   AML Object and Attribute Catalogue v2.3.3     (AML 2 and 2.1: 174 object classes, 387 attributes)
 //   AML Feature and Attribute Catalogue v3.0.1    (AML 3.0: 258 object classes, 473 attributes)
+// The counts are the distinct codes each spreadsheet lists: the IHO codes the edition uses
+// as well as its own (20000 and up), and the obsolete AML codes that the 1.0 and 2.1
+// spreadsheets keep without an acronym. The script skips the obsolete codes.
+//
+// Layouts the reader handles:
+//   AML 1.0 and 2.1: a Features sheet with a row per real-world entity (so a class can take
+//     several rows, and its acronym can carry a narrowing attribute, as in "ADMARE + catadm"),
+//     and an Attributes sheet that lists enumerated values inline, a line each, as
+//     "501 = name: definition". Header cells add notes and code legends on later lines.
+//   AML 3.0: FeatureTypes, Attributes and Enumerations sheets. It gives no permitted
+//     primitives, so its classes get None. Its Feature Catalogue (binding) sheet is skipped.
 //
 // The spreadsheets are UKHO/NATO documents with no stated licence. Download them
 // to a folder OUTSIDE the repository and never commit them. The script writes only
@@ -18,7 +29,10 @@
 //
 // Steps to generate the tables:
 //   1. Download the three spreadsheets into one folder, for example ~/aml-catalogues.
-//      If a file is in the old .xls format, open it and save it as .xlsx first.
+//      They're in the old .xls format, so open each one and save it as .xlsx first. The v2.3.3
+//      file downloads without a version in its name; add "v2.3.3" to the name. The v1.1.6
+//      file is write-protected (encrypted with Excel's default password); a tool that can
+//      open it, such as Excel, can save it as an unprotected .xlsx.
 //   2. Run with --inspect to print each workbook's sheet names, header rows and the
 //      sheets the script recognises. If a sheet isn't recognised, adjust the header
 //      names in AmlCatalogueReader below.
@@ -28,7 +42,7 @@
 //      files explicitly instead.
 //        dotnet run scripts/GenerateAmlCatalogues.cs ~/aml-catalogues
 //      Check the printed counts against the ones above. The script also reports codes
-//      that two AML editions give different acronyms, and codes below 20000 that a
+//      that two AML editions give different acronyms or types, and codes below 20000 that a
 //      spreadsheet lists (those come from the IHO base catalogue, so they aren't written).
 //   4. Wire each written table into src/EncDotNet.S57/S57ObjectCatalogue.cs, the same
 //      way as InlandEnc, with the IHO catalogue as its base:
@@ -49,6 +63,7 @@
 
 using System.Globalization;
 using System.IO.Compression;
+using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
@@ -91,6 +106,9 @@ internal sealed record AmlValueRow(int Code, string Name);
 internal sealed class AmlCatalogueSource
 {
     public List<AmlObjectClassRow> ObjectClasses { get; } = [];
+
+    /// <summary>Gets the codes of rows skipped because they have no acronym.</summary>
+    public List<int> ObsoleteCodes { get; } = [];
 
     public List<AmlAttributeRow> Attributes { get; } = [];
 
@@ -243,7 +261,7 @@ internal static class XlsxReader
 /// Finds the object class, attribute and enumerated value sheets of an AML catalogue workbook by
 /// their sheet names and header rows, and reads their rows.
 /// </summary>
-internal static class AmlCatalogueReader
+internal static partial class AmlCatalogueReader
 {
     private enum SheetKind
     {
@@ -266,10 +284,10 @@ internal static class AmlCatalogueReader
             switch (kind)
             {
                 case SheetKind.ObjectClasses:
-                    ReadObjectClasses(sheet, headerRow, header, objectClasses, source.Messages);
+                    ReadObjectClasses(sheet, headerRow, header, objectClasses, source.ObsoleteCodes, source.Messages);
                     break;
                 case SheetKind.Attributes:
-                    ReadAttributes(sheet, headerRow, header, attributes, source.Messages);
+                    ReadAttributes(sheet, headerRow, header, attributes, values, source.ObsoleteCodes, source.Messages);
                     break;
                 case SheetKind.Values:
                     ReadValues(sheet, headerRow, header, values, source.Messages);
@@ -391,13 +409,14 @@ internal static class AmlCatalogueReader
         int headerRow,
         IReadOnlyList<string> header,
         Dictionary<int, AmlObjectClassRow> rows,
+        List<int> obsolete,
         List<string> messages)
     {
         var code = CodeColumn(header);
         var acronym = FindContaining(header, "acronym");
-        var name = NameColumn(header, "objectclass", "objectclassname", "featureclass", "featurename", "feature", "object");
+        var name = NameColumn(header, "objectclass", "objectclassname", "featureclass", "amlfeatureclass", "featurename", "featuretypename", "feature", "object");
         var primitives = FindContaining(header, "primitive", "geometry");
-        var category = Find(header, "class", "category", "objectclasstype", "type");
+        var category = Find(header, "class", "category", "objectclasstype", "s57objectclass", "featuretypecategory", "type");
 
         foreach (var row in DataRows(sheet, headerRow))
         {
@@ -408,10 +427,15 @@ internal static class AmlCatalogueReader
 
             var entry = new AmlObjectClassRow(
                 value,
-                Cell(row, acronym).Trim(),
+                Acronym(Cell(row, acronym)),
                 Normalize(Cell(row, name)),
                 Cell(row, category).Trim(),
                 Cell(row, primitives));
+            if (IsObsolete(entry.Acronym, sheet.Name, "object class", value, obsolete, messages))
+            {
+                continue;
+            }
+
             Merge(rows, value, entry, e => e.Acronym, sheet.Name, "object class", messages);
         }
     }
@@ -421,12 +445,15 @@ internal static class AmlCatalogueReader
         int headerRow,
         IReadOnlyList<string> header,
         Dictionary<int, AmlAttributeRow> rows,
+        List<(int? Code, string? Acronym, AmlValueRow Value)> values,
+        List<int> obsolete,
         List<string> messages)
     {
         var code = CodeColumn(header);
         var acronym = FindContaining(header, "acronym");
-        var name = NameColumn(header, "attribute", "attributename");
+        var name = NameColumn(header, "attribute", "attributename", "amlattributes", "realworldobjectattributes");
         var type = TypeColumn(header);
+        var inlineValues = FindContaining(header, "attributevalues");
 
         foreach (var row in DataRows(sheet, headerRow))
         {
@@ -435,10 +462,86 @@ internal static class AmlCatalogueReader
                 continue;
             }
 
-            var entry = new AmlAttributeRow(value, Cell(row, acronym).Trim(), Normalize(Cell(row, name)), Cell(row, type).Trim());
+            var entry = new AmlAttributeRow(value, Acronym(Cell(row, acronym)), Normalize(Cell(row, name)), Cell(row, type).Trim());
+            if (IsObsolete(entry.Acronym, sheet.Name, "attribute", value, obsolete, messages))
+            {
+                continue;
+            }
+
             Merge(rows, value, entry, e => e.Acronym, sheet.Name, "attribute", messages);
+
+            if (AmlCatalogueWriter.Type(entry.Type) is "Enumerated" or "List")
+            {
+                foreach (var listed in InlineValues(Cell(row, inlineValues)))
+                {
+                    values.Add((value, null, listed));
+                }
+            }
         }
     }
+
+    /// <summary>
+    /// Reads enumerated values listed in one cell, a line each, as <c>code = name: definition</c>.
+    /// Lines that don't start with a code, such as wrapped definition text, are skipped.
+    /// </summary>
+    public static IEnumerable<AmlValueRow> InlineValues(string text)
+    {
+        foreach (var line in text.Split('\n'))
+        {
+            var match = InlineValuePattern().Match(line);
+            if (!match.Success || !TryCode(match.Groups["code"].Value, out var code))
+            {
+                continue;
+            }
+
+            // Some names end with an (AML) marker that isn't part of the name.
+            var rest = match.Groups["rest"].Value;
+            var name = Normalize(rest[..InlineNameLength(rest)]);
+            if (name.EndsWith("(AML)", StringComparison.Ordinal))
+            {
+                name = name[..^"(AML)".Length].TrimEnd();
+            }
+
+            if (name.Length > 0)
+            {
+                yield return new AmlValueRow(code, name);
+            }
+        }
+    }
+
+    // A stray colon before the equals sign, as in "504: = name", is tolerated.
+    [GeneratedRegex(@"^\s*(?<code>\d+)\s*:?\s*=\s*(?<rest>.*)$")]
+    private static partial Regex InlineValuePattern();
+
+    /// <summary>
+    /// Finds where an inline value's name ends and its definition starts: at the first colon outside
+    /// parentheses and not between digits (as in <c>1:50000</c>), or, when a line has no colon, where a
+    /// sentence starting with an article follows the name, as in <c>Sandstone A type of rock</c>.
+    /// </summary>
+    private static int InlineNameLength(string text)
+    {
+        var depth = 0;
+        for (var i = 0; i < text.Length; i++)
+        {
+            switch (text[i])
+            {
+                case '(':
+                    depth++;
+                    break;
+                case ')':
+                    depth = Math.Max(0, depth - 1);
+                    break;
+                case ':' when depth == 0 && !(i > 0 && char.IsDigit(text[i - 1]) && i + 1 < text.Length && char.IsDigit(text[i + 1])):
+                    return i;
+            }
+        }
+
+        var definition = DefinitionSentence().Match(text);
+        return definition.Success ? definition.Index : text.Length;
+    }
+
+    [GeneratedRegex(@"\s(?:A|An|The)\s+[a-z]")]
+    private static partial Regex DefinitionSentence();
 
     private static void ReadValues(
         XlsxSheet sheet,
@@ -449,7 +552,7 @@ internal static class AmlCatalogueReader
     {
         var attributeCode = Find(header, "attributecode", "attl", "attributeid");
         var attributeAcronym = FindContaining(header, "acronym");
-        var valueCode = Find(header, "id", "value", "valueid", "valuecode", "enumerationcode", "enumeratecode", "listedvaluecode");
+        var valueCode = Find(header, "id", "value", "valueid", "valuecode", "enumerationcode", "enumeratecode", "listedvaluecode", "enumcode");
         var plainCode = Find(header, "code");
         if (valueCode < 0 && plainCode != attributeCode)
         {
@@ -490,6 +593,22 @@ internal static class AmlCatalogueReader
         }
     }
 
+    /// <summary>
+    /// Skips a row without an acronym. The AML 1.0 and 2.1 sheets keep codes from early drafts
+    /// as rows with the acronym <c>N/A</c> and the status <c>obsolete attribute</c>.
+    /// </summary>
+    private static bool IsObsolete(string acronym, string sheet, string what, int code, List<int> obsolete, List<string> messages)
+    {
+        if (acronym.Length > 0 && !string.Equals(acronym, "N/A", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        messages.Add($"Skipped {what} {code} on sheet '{sheet}': it has no acronym, so it's obsolete or unused.");
+        obsolete.Add(code);
+        return true;
+    }
+
     private static void Merge<T>(
         Dictionary<int, T> rows,
         int code,
@@ -515,12 +634,12 @@ internal static class AmlCatalogueReader
     private static IEnumerable<IReadOnlyList<string>> DataRows(XlsxSheet sheet, int headerRow) => sheet.Rows.Skip(headerRow + 1);
 
     private static int CodeColumn(IReadOnlyList<string> header) =>
-        Find(header, "code", "objl", "attl", "objectclasscode", "featurecode", "attributecode", "numericcode", "numericalcode");
+        Find(header, "code", "objl", "attl", "objectclasscode", "featurecode", "featuretypecode", "attributecode", "s57code", "numericcode", "numericalcode");
 
     private static int MeaningColumn(IReadOnlyList<string> header) =>
-        Find(header, "meaning", "label", "valuename", "enumerationname", "enumeratename", "listedvalue");
+        Find(header, "meaning", "label", "valuename", "enumerationname", "enumeratename", "enumname", "listedvalue");
 
-    private static int TypeColumn(IReadOnlyList<string> header) => Find(header, "attributetype", "type", "attrtype", "valuetype", "datatype");
+    private static int TypeColumn(IReadOnlyList<string> header) => Find(header, "attributetype", "s57attributetype", "type", "attrtype", "valuetype", "datatype");
 
     private static int NameColumn(IReadOnlyList<string> header, params string[] names)
     {
@@ -534,7 +653,7 @@ internal static class AmlCatalogueReader
         {
             for (var i = 0; i < header.Count; i++)
             {
-                if (Key(header[i]) == name)
+                if (HeaderKey(header[i]) == name)
                 {
                     return i;
                 }
@@ -548,7 +667,7 @@ internal static class AmlCatalogueReader
     {
         for (var i = 0; i < header.Count; i++)
         {
-            if (ContainsAny(Key(header[i]), parts))
+            if (ContainsAny(HeaderKey(header[i]), parts))
             {
                 return i;
             }
@@ -577,12 +696,26 @@ internal static class AmlCatalogueReader
         return true;
     }
 
+    /// <summary>
+    /// The <see cref="Key"/> of a header cell's first line. Some headers add notes or a code legend
+    /// on later lines, as in <c>S-57 OBJECT CLASS</c> followed by <c>C = Collection</c>.
+    /// </summary>
+    private static string HeaderKey(string value) => Key(value.Split('\n', 2)[0]);
+
+    /// <summary>
+    /// The acronym at the start of a cell. Some sheets add the attribute that narrows the class,
+    /// as in <c>ADMARE + catadm</c>.
+    /// </summary>
+    private static string Acronym(string value) =>
+        value.Trim().Split(['+', ' ', '\t', '\n'], 2, StringSplitOptions.TrimEntries)[0];
+
     /// <summary>Lowercase letters and digits only, so <c>Attribute Type</c> matches <c>attributetype</c>.</summary>
     private static string Key(string value) =>
         string.Concat(value.Where(char.IsLetterOrDigit)).ToLowerInvariant();
 
+    /// <summary>Collapses white space and decodes HTML entities, which some AML 3.0 cells hold, as in <c>&amp;lt;2m</c>.</summary>
     public static string Normalize(string value) =>
-        string.Join(' ', value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        string.Join(' ', WebUtility.HtmlDecode(value).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 }
 
 /// <summary>Writes an AML catalogue table as a partial of <c>S57ObjectCatalogue</c>.</summary>
@@ -666,7 +799,7 @@ internal static class AmlCatalogueWriter
     public static string Category(string value, string acronym) =>
         AmlCatalogueReader.Normalize(value).ToUpperInvariant() switch
         {
-            "G" or "GEO" => "Geo",
+            "G" or "GEO" or "GEOSPATIAL" => "Geo",
             "M" or "META" => "Meta",
             "C" or "COLLECTION" => "Collection",
             "$" or "CARTOGRAPHIC" => "Cartographic",
@@ -683,7 +816,7 @@ internal static class AmlCatalogueWriter
             "L" or "LIST" => "List",
             "F" or "FLOAT" or "REAL" => "Float",
             "I" or "INTEGER" => "Integer",
-            "A" or "CODEDSTRING" or "ASCII" => "CodedString",
+            "A" or "CODEDSTRING" or "ASCII" or "DATE" => "CodedString",
             "S" or "FREETEXT" or "STRING" or "TEXT" => "FreeText",
             _ => "S57AttributeType.Unknown",
         };
@@ -887,7 +1020,8 @@ internal static class AmlCatalogueGenerator
         var amlAttributes = source.Attributes.Count(a => a.Code >= AmlCatalogueWriter.FirstAmlCode);
         output.WriteLine(
             $"  {source.ObjectClasses.Count} object classes ({amlClasses} AML), {source.Attributes.Count} attributes ({amlAttributes} AML), " +
-            $"{source.Values.Count} enumerated attributes; expected {edition.ExpectedObjectClasses} object classes, {edition.ExpectedAttributes} attributes.");
+            $"{source.Values.Count} enumerated attributes, {source.ObsoleteCodes.Count} obsolete codes skipped; " +
+            $"expected {edition.ExpectedObjectClasses} object classes, {edition.ExpectedAttributes} attributes, obsolete codes included.");
 
         var ihoClasses = source.ObjectClasses.Where(c => c.Code < AmlCatalogueWriter.FirstAmlCode).Select(c => c.Acronym).ToList();
         var ihoAttributes = source.Attributes.Where(a => a.Code < AmlCatalogueWriter.FirstAmlCode).Select(a => a.Acronym).ToList();

@@ -16,6 +16,8 @@ namespace EncDotNet.S57;
 /// <list type="bullet">
 /// <item><description><see cref="Iho"/>: the IHO S-57 Edition 3.1 Object Catalogue (Appendix A).</description></item>
 /// <item><description><see cref="InlandEnc"/>: the IHO catalogue plus the Inland ENC classes and attributes, codes 17000 and up.</description></item>
+/// <item><description><see cref="Aml10"/>, <see cref="Aml21"/> and <see cref="Aml30"/>: the IHO catalogue plus the NATO
+/// Additional Military Layers (AML) classes and attributes of AML 1.0, 2.1 and 3.0, codes 20000 and up.</description></item>
 /// </list>
 /// <para>
 /// A catalogue holds codes, acronyms, names, attribute types and enumerated values. It doesn't hold
@@ -30,6 +32,15 @@ public sealed partial class S57ObjectCatalogue
 
     private static readonly Lazy<S57ObjectCatalogue> LazyInlandEnc =
         new(() => new("Inland ENC", Iho, CreateInlandEncObjectClasses(), CreateInlandEncAttributes()));
+
+    private static readonly Lazy<S57ObjectCatalogue> LazyAml10 =
+        new(() => new("AML 1.0", Iho, CreateAml10ObjectClasses(), CreateAml10Attributes()));
+
+    private static readonly Lazy<S57ObjectCatalogue> LazyAml21 =
+        new(() => new("AML 2.1", Iho, CreateAml21ObjectClasses(), CreateAml21Attributes()));
+
+    private static readonly Lazy<S57ObjectCatalogue> LazyAml30 =
+        new(() => new("AML 3.0", Iho, CreateAml30ObjectClasses(), CreateAml30Attributes()));
 
     private readonly Dictionary<int, S57ObjectClassDefinition> _objectClassesByCode;
     private readonly Dictionary<string, S57ObjectClassDefinition> _objectClassesByAcronym;
@@ -87,6 +98,39 @@ public sealed partial class S57ObjectCatalogue
     /// </remarks>
     public static S57ObjectCatalogue InlandEnc => LazyInlandEnc.Value;
 
+    /// <summary>
+    /// Gets the AML 1.0 catalogue: the <see cref="Iho"/> catalogue plus the object classes and
+    /// attributes of the UKHO AML Object and Attribute Catalogue v1.1.6, codes 20000 and up.
+    /// </summary>
+    /// <remarks>
+    /// The IHO catalogue supplies the standard codes that AML 1.0 data sets use, such as
+    /// <c>C_ASSO</c> and attribute 189 (<c>PUNITS</c>). Codes that the AML catalogue lists as
+    /// obsolete aren't included.
+    /// </remarks>
+    public static S57ObjectCatalogue Aml10 => LazyAml10.Value;
+
+    /// <summary>
+    /// Gets the AML 2.1 catalogue: the <see cref="Iho"/> catalogue plus the object classes and
+    /// attributes of the UKHO AML Object and Attribute Catalogue for AML 2 and 2.1 (v2.3.3), codes
+    /// 20000 and up.
+    /// </summary>
+    /// <remarks>
+    /// Codes that the AML catalogue lists as obsolete aren't included.
+    /// </remarks>
+    public static S57ObjectCatalogue Aml21 => LazyAml21.Value;
+
+    /// <summary>
+    /// Gets the AML 3.0 catalogue: the <see cref="Iho"/> catalogue plus the feature types and
+    /// attributes of the UKHO AML Feature and Attribute Catalogue v3.0.1, codes 20000 and up,
+    /// including those AML 3.0 adds from 40101.
+    /// </summary>
+    /// <remarks>
+    /// The AML 3.0 catalogue doesn't give permitted primitives, so
+    /// <see cref="S57ObjectClassDefinition.Primitives"/> is <see cref="S57PermittedPrimitives.None"/>
+    /// for its classes.
+    /// </remarks>
+    public static S57ObjectCatalogue Aml30 => LazyAml30.Value;
+
     /// <summary>Gets the catalogue name, for example <c>IHO S-57 Edition 3.1</c>.</summary>
     public string Name { get; }
 
@@ -101,16 +145,26 @@ public sealed partial class S57ObjectCatalogue
     /// </summary>
     /// <param name="product">The data set's product, from <see cref="S57DataSetIdentification.Product"/>.</param>
     /// <returns>
-    /// <see cref="InlandEnc"/> for <see cref="S57ProductKind.InlandEnc"/>; otherwise, <see cref="Iho"/>.
+    /// <see cref="InlandEnc"/> for <see cref="S57ProductKind.InlandEnc"/>; an AML catalogue for
+    /// <see cref="S57ProductKind.Aml"/>; otherwise, <see cref="Iho"/>.
     /// </returns>
     /// <remarks>
-    /// There are no built-in AML catalogues yet, so <see cref="S57ProductKind.Aml"/> data sets get
-    /// <see cref="Iho"/>. It resolves the standard IHO codes they use, such as <c>C_ASSO</c>, but not
-    /// the AML codes, 20000 and up.
+    /// <para>
+    /// An AML data set's catalogue follows the major number of its product specification edition
+    /// (<see cref="S57ProductIdentity.Version"/>): 1 gives <see cref="Aml10"/>, 2 gives
+    /// <see cref="Aml21"/> and 3 gives <see cref="Aml30"/>.
+    /// </para>
+    /// <para>
+    /// When the edition is missing or has another major number, the AML product decides: the
+    /// integrated product (<see cref="Aml.AmlProduct.Integrated"/>), which only AML 3.0 defines, gets
+    /// <see cref="Aml30"/>, and the separate products get <see cref="Aml21"/>, the last edition that
+    /// defines them.
+    /// </para>
     /// </remarks>
     public static S57ObjectCatalogue For(S57ProductIdentity product) => product.Kind switch
     {
         S57ProductKind.InlandEnc => InlandEnc,
+        S57ProductKind.Aml => ForAml(product),
         _ => Iho,
     };
 
@@ -219,6 +273,15 @@ public sealed partial class S57ObjectCatalogue
 
     /// <inheritdoc/>
     public override string ToString() => Name;
+
+    private static S57ObjectCatalogue ForAml(S57ProductIdentity product) => product.Version?.Major switch
+    {
+        1 => Aml10,
+        2 => Aml21,
+        3 => Aml30,
+        _ when product.AmlProduct == Aml.AmlProduct.Integrated => Aml30,
+        _ => Aml21,
+    };
 
     private static Dictionary<string, T> IndexByAcronym<T>(IEnumerable<T> entries, Func<T, string> acronym)
     {

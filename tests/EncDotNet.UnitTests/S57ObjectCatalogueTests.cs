@@ -137,7 +137,10 @@ public class S57ObjectCatalogueTests
     [Fact]
     public void Catalogues_HaveUniqueAcronymsAndCodes()
     {
-        foreach (var catalogue in new[] { S57ObjectCatalogue.Iho, S57ObjectCatalogue.InlandEnc })
+        foreach (var catalogue in new[]
+        {
+            S57ObjectCatalogue.Iho, S57ObjectCatalogue.InlandEnc, S57ObjectCatalogue.Aml10, S57ObjectCatalogue.Aml21, S57ObjectCatalogue.Aml30,
+        })
         {
             AssertUnique(catalogue.ObjectClasses.Select(c => c.Acronym));
             AssertUnique(catalogue.ObjectClasses.Select(c => c.Code));
@@ -217,7 +220,8 @@ public class S57ObjectCatalogueTests
     [InlineData(0, "IHO S-57 Edition 3.1")]
     [InlineData(1, "IHO S-57 Edition 3.1")]
     [InlineData(10, "Inland ENC")]
-    [InlineData(51, "IHO S-57 Edition 3.1")]
+    [InlineData(51, "AML 2.1")]
+    [InlineData(57, "AML 3.0")]
     public void For_ChoosesCatalogueFromProductSpecification(int productSpecification, string expected)
     {
         var identification = new S57DataSetIdentification { ProductSpecification = productSpecification };
@@ -230,7 +234,7 @@ public class S57ObjectCatalogueTests
     [InlineData(S57ProductKind.Enc, "IHO S-57 Edition 3.1")]
     [InlineData(S57ProductKind.DataDictionary, "IHO S-57 Edition 3.1")]
     [InlineData(S57ProductKind.InlandEnc, "Inland ENC")]
-    [InlineData(S57ProductKind.Aml, "IHO S-57 Edition 3.1")]
+    [InlineData(S57ProductKind.Aml, "AML 2.1")]
     public void For_ChoosesCatalogueFromProductKind(S57ProductKind kind, string expected)
     {
         Assert.Equal(expected, S57ObjectCatalogue.For(new S57ProductIdentity { Kind = kind }).Name);

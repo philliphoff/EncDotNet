@@ -129,6 +129,7 @@ public class AmlCatalogueGeneratorTests
     [InlineData("Coded string", "CodedString")]
     [InlineData("S", "FreeText")]
     [InlineData("Free text", "FreeText")]
+    [InlineData("Date", "CodedString")]
     [InlineData("", "S57AttributeType.Unknown")]
     public void Writer_MapsAttributeType(string type, string expected) =>
         Assert.Equal(expected, AmlCatalogueWriter.Type(type));
@@ -148,6 +149,7 @@ public class AmlCatalogueGeneratorTests
     [InlineData("", "$tstxt", "Cartographic")]
     [InlineData("M", "tstare", "Meta")]
     [InlineData("Geo", "m_tstm", "Geo")]
+    [InlineData("Geospatial", "tstare", "Geo")]
     public void Writer_MapsCategory(string category, string acronym, string expected) =>
         Assert.Equal(expected, AmlCatalogueWriter.Category(category, acronym));
 
@@ -245,6 +247,75 @@ public class AmlCatalogueGeneratorTests
         Assert.Equal(1, AmlCatalogueGenerator.Run([Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())], TextWriter.Null));
     }
 
+    [Fact]
+    public void Reader_ReadsSheetsWithNotesInHeaders_AndInlineValues()
+    {
+        var source = AmlCatalogueReader.Read(XlsxReader.Read(InlineValueCatalogue()));
+
+        Assert.Equal(
+            [
+                new AmlObjectClassRow(1, "TSTONE", "Test one", "G", "P, A"),
+                new AmlObjectClassRow(29001, "tstare", "Test area", "G", "L  A"),
+                new AmlObjectClassRow(29002, "m_tstm", "Test meta", "M", "N/A"),
+            ],
+            source.ObjectClasses);
+        Assert.Equal([29100, 29101, 29102], source.Attributes.Select(a => a.Code));
+        Assert.Equal(new AmlAttributeRow(29100, "tstenm", "Test enumeration", "E"), source.Attributes[0]);
+        Assert.Equal(
+            [new AmlValueRow(501, "first value"), new AmlValueRow(502, "second value (scale 1:50000)"), new AmlValueRow(503, "third value")],
+            source.Values[29100]);
+        Assert.Equal([new AmlValueRow(501, "list value")], source.Values[29101]);
+        Assert.False(source.Values.ContainsKey(29102));
+    }
+
+    [Fact]
+    public void Reader_SkipsObsoleteCodes()
+    {
+        var source = AmlCatalogueReader.Read(XlsxReader.Read(InlineValueCatalogue()));
+
+        Assert.Equal([29103], source.ObsoleteCodes);
+        Assert.DoesNotContain(source.Attributes, a => a.Code == 29103);
+        Assert.Contains(source.Messages, m => m.Contains("29103", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Reader_ReadsFeatureTypeAndEnumerationSheets()
+    {
+        var source = AmlCatalogueReader.Read(XlsxReader.Read(FeatureTypeCatalogue()));
+
+        Assert.Equal(
+            [
+                new AmlObjectClassRow(1, "TSTONE", "Test one", "Geospatial", ""),
+                new AmlObjectClassRow(29001, "tstare", "Test area", "Geospatial", ""),
+                new AmlObjectClassRow(49001, "m_tstm", "Test meta", "Meta", ""),
+            ],
+            source.ObjectClasses);
+        Assert.Equal(new AmlAttributeRow(29101, "tstdat", "Test date", "Date"), source.Attributes[1]);
+        Assert.Equal([new AmlValueRow(1, "first value"), new AmlValueRow(2, "<2m value")], source.Values[29100]);
+        Assert.Single(source.Values);
+        Assert.Contains(source.Messages, m => m.Contains("'Feature Catalogue'", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("501 = Name: A definition.", 501, "Name")]
+    [InlineData("504: = Name: A definition.", 504, "Name")]
+    [InlineData(" 701 = Unknown:", 701, "Unknown")]
+    [InlineData("502 = Name (AML)", 502, "Name")]
+    [InlineData("503 = Name (as at 1:50000)", 503, "Name (as at 1:50000)")]
+    [InlineData("505 = Name (type: small): A definition.", 505, "Name (type: small)")]
+    [InlineData("506 = Name A sentence that defines it.", 506, "Name")]
+    [InlineData("507 = 1/10", 507, "1/10")]
+    public void Reader_ReadsInlineValue(string line, int code, string name) =>
+        Assert.Equal([new AmlValueRow(code, name)], AmlCatalogueReader.InlineValues(line));
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("A definition that wraps onto a new line.")]
+    [InlineData("Generic definition: a value without a code")]
+    [InlineData("508 = : A definition without a name.")]
+    public void Reader_SkipsInlineLinesWithoutCodeAndName(string line) =>
+        Assert.Empty(AmlCatalogueReader.InlineValues(line));
+
     private static AmlCatalogueSource ReadSyntheticCatalogue() =>
         AmlCatalogueReader.Read(XlsxReader.Read(SyntheticCatalogue()));
 
@@ -283,6 +354,60 @@ public class AmlCatalogueGeneratorTests
             [29001, "tstare", "tstenm"],
         ]),
         ("Notes", [["Synthetic notes"]]));
+
+    /// <summary>
+    /// A workbook laid out like the AML 1.0 and 2.1 catalogues, with invented entries: header cells
+    /// with notes on later lines, a row per real-world entity, acronyms with a narrowing attribute,
+    /// enumerated values listed in the attribute sheet, and obsolete codes without an acronym.
+    /// </summary>
+    private static MemoryStream InlineValueCatalogue() => Workbook(
+        ("Features",
+        [
+            ["ENTITY", "FEATURE CLASS\nNote: codes from 29001", "PRIMITIVE(S)\nP = Point", "S-57 ACRONYM", "S-57 CODE", "S-57 OBJECT CLASS\nG = Geo\nM = Meta"],
+            ["first entity", "Test one", "P, A", "TSTONE + tstenm", "1", "G"],
+            ["second entity", "Test one", "P, A", "TSTONE + tstenm", "1", "G"],
+            ["third entity", "Test area", "L  A", "tstare", "29001", "G"],
+            ["fourth entity", "Test meta", "N/A", "m_tstm", "29002", "M"],
+            ["generic entity", "Generic", "N/A", "generic", "generic", null],
+        ]),
+        ("Attributes",
+        [
+            ["AML ATTRIBUTES\nNote: codes from 29100", "AML ATTRIBUTE FORMAT\nI = Integer", "S-57 ACRONYM\n(see comment)", "S-57 CODE", "S-57 ATTRIBUTE VALUES (CODES AND DESCRIPTIONS)", "S-57 ATTRIBUTE TYPE\nE = Enumerated"],
+            ["Test enumeration", "I", "tstenm", "29100", "501 = first value: Invented definition.\nwrapped definition text\n502 = second value (scale 1:50000): More text.\n503: = third value", "E"],
+            ["Test list", "I", "tstlst", "29101", "501 = list value (AML)", "L"],
+            ["Test text", "S", "tsttxt", "29102", "500 = not a value: free text has none", "S"],
+            ["Test obsolete", "S", "N/A", "29103", "Not applicable", "N/A"],
+        ]));
+
+    /// <summary>
+    /// A workbook laid out like the AML 3.0 catalogue, with invented entries: a feature type sheet,
+    /// an attribute sheet, an enumeration sheet keyed by attribute code, and a binding sheet.
+    /// </summary>
+    private static MemoryStream FeatureTypeCatalogue() => Workbook(
+        ("FeatureTypes",
+        [
+            ["Feature Type Code", "Feature Type Name", "Feature Type Definition", "Feature Type Acronym", "Feature Type Category"],
+            [1, "Test one", "Invented definition.", "TSTONE", "Geospatial"],
+            [29001, "Test area", "Invented definition.", "tstare", "Geospatial"],
+            [49001, "Test meta", "Invented definition.", "m_tstm", "Meta"],
+        ]),
+        ("Attributes",
+        [
+            ["Attribute Code", "Attribute Name", "Attribute Definition", "Attribute Acronym", "Attribute Type"],
+            [29100, "Test enumeration", "Invented definition.", "tstenm", "Enumeration"],
+            [29101, "Test date", "Invented definition.", "tstdat", "Date"],
+        ]),
+        ("Enumerations",
+        [
+            ["Attribute Code", "Attribute Name", "Enum Code", "Enum Name", "Enum Definition"],
+            [29100, "Test enumeration", 2, "&lt;2m value", "Invented definition."],
+            [29100, "Test enumeration", 1, "first value", "Invented definition."],
+        ]),
+        ("Feature Catalogue",
+        [
+            ["Attribute Code", "Feature Type Code", "Feature Type Name", "Attribute Name"],
+            [29100, 29001, "Test area", "Test enumeration"],
+        ]));
 
     private sealed record Inline(string Text);
 
