@@ -23,6 +23,16 @@
     <None Include="Golden\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <!-- The AML catalogue generator script's reader and writer, without its top-level program,
+       tested against synthetic workbooks. -->
+  <PropertyGroup>
+    <DefineConstants>$(DefineConstants);AML_CATALOGUE_TESTS</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\scripts\GenerateAmlCatalogues.cs" Link="Scripts\GenerateAmlCatalogues.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\src\EncDotNet.Iso8211\EncDotNet.Iso8211.csproj" />
     <ProjectReference Include="..\..\src\EncDotNet.S57\EncDotNet.S57.csproj" />

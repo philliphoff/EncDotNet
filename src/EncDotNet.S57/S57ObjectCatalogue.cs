@@ -103,6 +103,11 @@ public sealed partial class S57ObjectCatalogue
     /// <returns>
     /// <see cref="InlandEnc"/> for <see cref="S57ProductKind.InlandEnc"/>; otherwise, <see cref="Iho"/>.
     /// </returns>
+    /// <remarks>
+    /// There are no built-in AML catalogues yet, so <see cref="S57ProductKind.Aml"/> data sets get
+    /// <see cref="Iho"/>. It resolves the standard IHO codes they use, such as <c>C_ASSO</c>, but not
+    /// the AML codes, 20000 and up.
+    /// </remarks>
     public static S57ObjectCatalogue For(S57ProductIdentity product) => product.Kind switch
     {
         S57ProductKind.InlandEnc => InlandEnc,
