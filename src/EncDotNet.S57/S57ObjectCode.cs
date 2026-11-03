@@ -3,6 +3,22 @@ namespace EncDotNet.S57;
 /// <summary>
 /// S-57 object class codes (OBJL) as defined in IHO S-57 Appendix A - Object Catalogue.
 /// </summary>
+/// <remarks>
+/// <para>
+/// Each member is named after the class's acronym, except the cartographic object classes
+/// (codes 500 and up). Their acronyms start with <c>$</c>, which a C# identifier can't contain,
+/// so their members are named <c>Cartographic</c> followed by the class name:
+/// <see cref="CartographicArea"/> (<c>$AREAS</c>), <see cref="CartographicLine"/> (<c>$LINES</c>),
+/// <see cref="CartographicSymbol"/> (<c>$CSYMB</c>), <see cref="CartographicCompass"/>
+/// (<c>$COMPS</c>) and <see cref="CartographicText"/> (<c>$TEXTS</c>). Use
+/// <see cref="S57ObjectCatalogue.GetObjectClass(S57ObjectCode)"/> to get any code's acronym.
+/// </para>
+/// <para>
+/// A data set can hold codes this enumeration doesn't name, such as the Inland ENC (17000 and up)
+/// and AML (20000 and up) classes; look those up in the data set's
+/// <see cref="S57ObjectCatalogue"/>.
+/// </para>
+/// </remarks>
 public enum S57ObjectCode
 {
     // --- Geo Object Classes ---
@@ -487,6 +503,19 @@ public enum S57ObjectCode
     /// <summary>Tidal stream, flood/ebb (TS_FEB).</summary>
     TS_FEB = 160,
 
+    /// <summary>Archipelagic sea lane (ARCSLN), added by a supplement to S-57 Edition 3.1.</summary>
+    ARCSLN = 161,
+
+    /// <summary>Archipelagic sea lane axis (ASLXIS), added by a supplement to S-57 Edition 3.1.</summary>
+    ASLXIS = 162,
+
+    /// <summary>
+    /// New object (NEWOBJ), added by a supplement to S-57 Edition 3.1 to encode object classes
+    /// the catalogue doesn't define, such as virtual AIS aids to navigation (S-57 Appendix B.1,
+    /// Annex A).
+    /// </summary>
+    NEWOBJ = 163,
+
     // --- Meta Object Classes ---
 
     /// <summary>Accuracy of data (M_ACCY).</summary>
@@ -538,4 +567,22 @@ public enum S57ObjectCode
 
     /// <summary>Stacked on/stacked under (C_STAC).</summary>
     C_STAC = 402,
+
+    // --- Cartographic Object Classes ---
+    // The acronyms start with '$', which an identifier can't contain; see the remarks above.
+
+    /// <summary>Cartographic area (<c>$AREAS</c>).</summary>
+    CartographicArea = 500,
+
+    /// <summary>Cartographic line (<c>$LINES</c>).</summary>
+    CartographicLine = 501,
+
+    /// <summary>Cartographic symbol (<c>$CSYMB</c>).</summary>
+    CartographicSymbol = 502,
+
+    /// <summary>Compass (<c>$COMPS</c>).</summary>
+    CartographicCompass = 503,
+
+    /// <summary>Text (<c>$TEXTS</c>).</summary>
+    CartographicText = 504,
 }

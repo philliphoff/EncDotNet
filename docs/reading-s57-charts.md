@@ -170,6 +170,11 @@ foreach (S57TypedFeature feature in chart.AllFeatures.Values)
 `S57Document.GetFeatureRecord(S57LongName)` does the same on a document
 without building a chart, but searches every record on each call.
 
+In the binary encoding the FFPT pointer packs the long name into one 8-byte
+`LNAM` subfield. `S57LongName.FromLnam` and `ToLnam` convert between the two,
+and `S57RecordName.FromLongName(S57LongName)` gives the record name of a
+feature with that long name.
+
 ## Apply update cells
 
 A base cell (`.000`) is followed by update cells (`.001`, `.002`, and so on)

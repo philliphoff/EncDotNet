@@ -18,9 +18,46 @@ public class S57ObjectCatalogueTests
 
         Assert.NotNull(objectClass);
         Assert.Equal((int)code, objectClass.Code);
-        Assert.Equal(code.ToString(), objectClass.Acronym);
+        Assert.Equal(ExpectedAcronym(code), objectClass.Acronym);
         Assert.False(string.IsNullOrWhiteSpace(objectClass.Name));
         Assert.Same(objectClass, S57ObjectCatalogue.Iho.GetObjectClass(objectClass.Acronym));
+    }
+
+    [Theory]
+    [InlineData(S57ObjectCode.CartographicArea, 500, "$AREAS")]
+    [InlineData(S57ObjectCode.CartographicLine, 501, "$LINES")]
+    [InlineData(S57ObjectCode.CartographicSymbol, 502, "$CSYMB")]
+    [InlineData(S57ObjectCode.CartographicCompass, 503, "$COMPS")]
+    [InlineData(S57ObjectCode.CartographicText, 504, "$TEXTS")]
+    public void ObjectCode_CartographicMember_MapsToDollarAcronym(S57ObjectCode code, int value, string acronym)
+    {
+        Assert.Equal(value, (int)code);
+
+        var objectClass = S57ObjectCatalogue.Iho.GetObjectClass(code);
+        Assert.NotNull(objectClass);
+        Assert.Equal(acronym, objectClass.Acronym);
+        Assert.Equal(S57ObjectClassCategory.Cartographic, objectClass.Category);
+    }
+
+    [Theory]
+    [InlineData(S57ObjectCode.ARCSLN, 161)]
+    [InlineData(S57ObjectCode.ASLXIS, 162)]
+    [InlineData(S57ObjectCode.NEWOBJ, 163)]
+    public void ObjectCode_SupplementClasses_HaveCatalogueCodes(S57ObjectCode code, int value)
+    {
+        Assert.Equal(value, (int)code);
+        Assert.Equal(S57ObjectClassCategory.Geo, S57ObjectCatalogue.Iho.GetObjectClass(code)?.Category);
+    }
+
+    [Fact]
+    public void Iho_EveryCartographicClass_HasObjectCode()
+    {
+        var cartographic = S57ObjectCatalogue.Iho.ObjectClasses
+            .Where(c => c.Category == S57ObjectClassCategory.Cartographic)
+            .ToList();
+
+        Assert.NotEmpty(cartographic);
+        Assert.All(cartographic, c => Assert.True(Enum.IsDefined((S57ObjectCode)c.Code), c.Acronym));
     }
 
     [Fact]
@@ -267,4 +304,67 @@ public class S57ObjectCatalogueTests
         Assert.Equal("1: white", S57ObjectCatalogue.Iho.GetAttribute(75)?.GetValue(1)?.ToString());
         Assert.Equal("IHO S-57 Edition 3.1", S57ObjectCatalogue.Iho.ToString());
     }
+
+    [Theory]
+    [InlineData("COLOUR", S57AttributeClass.Feature)]
+    [InlineData("OBJNAM", S57AttributeClass.Feature)]
+    [InlineData("NINFOM", S57AttributeClass.National)]
+    [InlineData("NOBJNM", S57AttributeClass.National)]
+    [InlineData("NPLDST", S57AttributeClass.National)]
+    [InlineData("$NTXST", S57AttributeClass.National)]
+    [InlineData("NTXTDS", S57AttributeClass.National)]
+    [InlineData("HORDAT", S57AttributeClass.Spatial)]
+    [InlineData("POSACC", S57AttributeClass.Spatial)]
+    [InlineData("QUAPOS", S57AttributeClass.Spatial)]
+    [InlineData("$SCODE", S57AttributeClass.Cartographic)]
+    [InlineData("$TXSTR", S57AttributeClass.Cartographic)]
+    public void Iho_Attribute_HasClass(string acronym, S57AttributeClass attributeClass)
+    {
+        var attribute = S57ObjectCatalogue.Iho.GetAttribute(acronym);
+
+        Assert.NotNull(attribute);
+        Assert.Equal(attributeClass, attribute.Class);
+        Assert.Equal(attributeClass == S57AttributeClass.National, attribute.IsNational);
+    }
+
+    [Fact]
+    public void Iho_NationalAttributes_AreTheNationalLanguageAttributes()
+    {
+        // S-57 Edition 3.1, Appendix A, Chapter 2, §2.3.
+        var national = S57ObjectCatalogue.Iho.Attributes.Where(a => a.IsNational).Select(a => a.Code).Order();
+
+        Assert.Equal([300, 301, 302, 303, 304], national);
+    }
+
+    [Fact]
+    public void InlandEnc_OwnAttributes_AreFeatureAttributes()
+    {
+        var inland = S57ObjectCatalogue.InlandEnc.Attributes.Where(a => a.Code >= 17000).ToList();
+
+        Assert.NotEmpty(inland);
+        Assert.All(inland, a => Assert.Equal(S57AttributeClass.Feature, a.Class));
+        Assert.True(S57ObjectCatalogue.InlandEnc.GetAttribute("NOBJNM")?.IsNational);
+    }
+
+    [Fact]
+    public void Aml_AttributesDefaultToFeature_AndIhoAttributesKeepTheirClass()
+    {
+        foreach (var catalogue in new[] { S57ObjectCatalogue.Aml10, S57ObjectCatalogue.Aml21, S57ObjectCatalogue.Aml30 })
+        {
+            Assert.All(catalogue.Attributes.Where(a => a.Code >= 20000), a => Assert.Equal(S57AttributeClass.Feature, a.Class));
+            Assert.True(catalogue.GetAttribute("NOBJNM")?.IsNational);
+            Assert.Equal(S57AttributeClass.Spatial, catalogue.GetAttribute("POSACC")?.Class);
+        }
+    }
+
+    // The cartographic members are named for their class, because '$' can't start an identifier.
+    private static string ExpectedAcronym(S57ObjectCode code) => code switch
+    {
+        S57ObjectCode.CartographicArea => "$AREAS",
+        S57ObjectCode.CartographicLine => "$LINES",
+        S57ObjectCode.CartographicSymbol => "$CSYMB",
+        S57ObjectCode.CartographicCompass => "$COMPS",
+        S57ObjectCode.CartographicText => "$TEXTS",
+        _ => code.ToString(),
+    };
 }
