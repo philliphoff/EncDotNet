@@ -145,6 +145,9 @@ reader gives them. A feature's long name (`AGEN`, `FIDN`, `FIDS`) goes in its
 | `ATTF` | ASCII | ISO 8859-1 (Latin-1) | Not allowed |
 | `NATF` | ASCII | ISO 8859-1 (Latin-1) | UCS-2 |
 
+The `COMT` comments of `DSID`, `DSPM` and `FFPT` are ISO 8859-1. S-57 makes
+them ASCII, but some producers, such as NATO AML cells, put Latin-1 characters
+like the degree sign in them, and ISO 8859-1 writes ASCII comments unchanged.
 Every other text value is ASCII. A value that its level can't encode, such as
 Greek in an `ATTF` value at level 1, throws `ArgumentException` rather than
 being replaced. Put text like that in a national attribute with `NALL` set to
