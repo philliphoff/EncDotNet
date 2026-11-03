@@ -9,8 +9,9 @@ namespace EncDotNet.S57;
 /// <para>
 /// An S-57 data set encodes object classes (<c>OBJL</c>) and attributes (<c>ATTL</c>) as numbers.
 /// The product the data set belongs to decides which catalogue gives those numbers their meaning.
-/// Use <see cref="For(S57DataSetIdentification)"/> to choose the catalogue for a data set, or one of
-/// the built-in catalogues directly:
+/// Use <see cref="For(S57ProductIdentity)"/> or <see cref="For(S57DataSetIdentification)"/> to choose the
+/// catalogue for a data set's product (or <see cref="S57Document.GetObjectCatalogue"/> and
+/// <see cref="Charts.S57Chart.GetObjectCatalogue"/>), or use one of the built-in catalogues directly:
 /// </para>
 /// <list type="bullet">
 /// <item><description><see cref="Iho"/>: the IHO S-57 Edition 3.1 Object Catalogue (Appendix A).</description></item>
@@ -24,11 +25,6 @@ namespace EncDotNet.S57;
 /// </remarks>
 public sealed partial class S57ObjectCatalogue
 {
-    /// <summary>
-    /// The product specification code (<c>PRSP</c>) that Inland ENC producers declare.
-    /// </summary>
-    private const int InlandEncProductSpecification = 10;
-
     private static readonly Lazy<S57ObjectCatalogue> LazyIho =
         new(() => new("IHO S-57 Edition 3.1", null, CreateIhoObjectClasses(), CreateIhoAttributes()));
 
@@ -101,23 +97,29 @@ public sealed partial class S57ObjectCatalogue
     public IReadOnlyCollection<S57AttributeDefinition> Attributes => _attributesByCode.Values;
 
     /// <summary>
-    /// Chooses the catalogue for a data set from its product specification.
+    /// Chooses the catalogue for a data set's product.
+    /// </summary>
+    /// <param name="product">The data set's product, from <see cref="S57DataSetIdentification.Product"/>.</param>
+    /// <returns>
+    /// <see cref="InlandEnc"/> for <see cref="S57ProductKind.InlandEnc"/>; otherwise, <see cref="Iho"/>.
+    /// </returns>
+    public static S57ObjectCatalogue For(S57ProductIdentity product) => product.Kind switch
+    {
+        S57ProductKind.InlandEnc => InlandEnc,
+        _ => Iho,
+    };
+
+    /// <summary>
+    /// Chooses the catalogue for a data set from its identification field.
     /// </summary>
     /// <param name="identification">The data set's identification (<c>DSID</c>) field.</param>
-    /// <returns>
-    /// <see cref="InlandEnc"/> when the product specification (<c>PRSP</c>) is 10; otherwise,
-    /// <see cref="Iho"/>.
-    /// </returns>
+    /// <returns>The catalogue <see cref="For(S57ProductIdentity)"/> chooses for its <see cref="S57DataSetIdentification.Product"/>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="identification"/> is <c>null</c>.</exception>
     public static S57ObjectCatalogue For(S57DataSetIdentification identification)
     {
         ArgumentNullException.ThrowIfNull(identification);
 
-        return identification.ProductSpecification switch
-        {
-            InlandEncProductSpecification => InlandEnc,
-            _ => Iho,
-        };
+        return For(identification.Product);
     }
 
     /// <summary>

@@ -22,6 +22,16 @@ public sealed record S57Document
     public IReadOnlyList<S57VectorRecord> VectorRecords { get; init; } = [];
 
     /// <summary>
+    /// Gets the object catalogue that gives this data set's object and attribute codes their meaning.
+    /// </summary>
+    /// <returns>
+    /// The catalogue <see cref="S57ObjectCatalogue.For(S57DataSetIdentification)"/> chooses for
+    /// <see cref="DataSetIdentification"/>, or <see cref="S57ObjectCatalogue.Iho"/> when the document has none.
+    /// </returns>
+    public S57ObjectCatalogue GetObjectCatalogue() =>
+        DataSetIdentification is { } identification ? S57ObjectCatalogue.For(identification) : S57ObjectCatalogue.Iho;
+
+    /// <summary>
     /// Gets a feature record by its long name (LNAM), such as the target of a feature pointer.
     /// </summary>
     /// <param name="longName">The long name to find.</param>

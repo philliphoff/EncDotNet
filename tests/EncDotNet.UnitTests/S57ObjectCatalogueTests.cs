@@ -1,4 +1,5 @@
 using EncDotNet.S57;
+using EncDotNet.S57.Charts;
 
 namespace EncDotNet.UnitTests;
 
@@ -222,6 +223,28 @@ public class S57ObjectCatalogueTests
         var identification = new S57DataSetIdentification { ProductSpecification = productSpecification };
 
         Assert.Equal(expected, S57ObjectCatalogue.For(identification).Name);
+    }
+
+    [Theory]
+    [InlineData(S57ProductKind.Unknown, "IHO S-57 Edition 3.1")]
+    [InlineData(S57ProductKind.Enc, "IHO S-57 Edition 3.1")]
+    [InlineData(S57ProductKind.DataDictionary, "IHO S-57 Edition 3.1")]
+    [InlineData(S57ProductKind.InlandEnc, "Inland ENC")]
+    [InlineData(S57ProductKind.Aml, "IHO S-57 Edition 3.1")]
+    public void For_ChoosesCatalogueFromProductKind(S57ProductKind kind, string expected)
+    {
+        Assert.Equal(expected, S57ObjectCatalogue.For(new S57ProductIdentity { Kind = kind }).Name);
+    }
+
+    [Fact]
+    public void GetObjectCatalogue_UsesTheDataSetIdentification()
+    {
+        var inland = new S57DataSetIdentification { ProductSpecification = 10 };
+
+        Assert.Same(S57ObjectCatalogue.InlandEnc, new S57Document { DataSetIdentification = inland }.GetObjectCatalogue());
+        Assert.Same(S57ObjectCatalogue.Iho, new S57Document().GetObjectCatalogue());
+        Assert.Same(S57ObjectCatalogue.InlandEnc, S57Chart.FromDocument(new S57Document { DataSetIdentification = inland }).GetObjectCatalogue());
+        Assert.Same(S57ObjectCatalogue.Iho, S57Chart.FromDocument(new S57Document()).GetObjectCatalogue());
     }
 
     [Fact]
