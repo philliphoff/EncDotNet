@@ -126,6 +126,10 @@ public sealed record S57Document
     ///   <item><description>Attributes (ATTF/NATF) are merged by ATTL code; an empty ATVL deletes the attribute.</description></item>
     ///   <item><description>Array fields (FSPT, FFPT, VRPT, SG2D, SG3D) are spliced using their control fields
     ///   (FSPC, FFPC, VRPC, SGCC) when present.</description></item>
+    ///   <item><description>The coordinates of the arc/curve fields (AR2D, EL2D, CT2D) are spliced
+    ///   as one sequence using SGCC, and regrouped into the base record's arc/curve definitions
+    ///   (<see cref="S57VectorRecord.ArcCurves"/>). Without SGCC, the update record's definitions
+    ///   replace the base record's.</description></item>
     /// </list>
     /// </para>
     /// <para>
@@ -337,8 +341,14 @@ public sealed record S57Document
             UpdateInstruction = updateRecord.UpdateInstruction,
             Attributes = MergeAttributes(baseRecord.Attributes, updateRecord.Attributes),
             VectorPointers = ApplyArrayUpdate([.. baseRecord.VectorPointers], [.. updateRecord.VectorPointers], updateRecord.VectorPointerControl, baseRecord.RecordName, S57FieldTags.VRPC),
-            Coordinates2D = ApplyArrayUpdate([.. baseRecord.Coordinates2D], [.. updateRecord.Coordinates2D], updateRecord.CoordinateControl, baseRecord.RecordName, S57FieldTags.SGCC),
+            // SG2D and ARCC are mutually exclusive, so arcs that replace the base record's
+            // coordinates wholesale remove its SG2D.
+            Coordinates2D = updateRecord.CoordinateControl is null && updateRecord.ArcCurves.Count > 0 && updateRecord.Coordinates2D.Count == 0
+                ? []
+                : ApplyArrayUpdate([.. baseRecord.Coordinates2D], [.. updateRecord.Coordinates2D], updateRecord.CoordinateControl, baseRecord.RecordName, S57FieldTags.SGCC),
             Soundings = ApplyArrayUpdate([.. baseRecord.Soundings], [.. updateRecord.Soundings], updateRecord.CoordinateControl, baseRecord.RecordName, S57FieldTags.SGCC),
+            ArcCurves = S57ArcCurveUpdate.Apply(baseRecord, updateRecord,
+                (basePoints, updatePoints) => ApplyArrayUpdate(basePoints, updatePoints, updateRecord.CoordinateControl, baseRecord.RecordName, S57FieldTags.SGCC)),
         };
     }
 

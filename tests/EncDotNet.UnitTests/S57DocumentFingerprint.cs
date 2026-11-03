@@ -99,6 +99,30 @@ internal static class S57DocumentFingerprint
                 text.Append(" D ").Append(s.Y).Append(' ').Append(s.X).Append(' ').Append(s.Depth).Append('\n');
             }
 
+            // Arc/curve lines are written only for records that have them, so the recorded
+            // hashes of cells without arcs still hold.
+            foreach (var curve in vector.ArcCurves)
+            {
+                text.Append(" R ").Append((int)curve.Type).Append(' ').Append((int)curve.Surface).Append(' ')
+                    .Append(curve.Order).Append(' ').Append(curve.Resolution).Append(' ')
+                    .Append(curve.FloatingPointMultiplicationFactor).Append('\n');
+                foreach (var a in curve.Arcs)
+                {
+                    text.Append("  AR ").Append(Point(a.Start)).Append(Point(a.Centre)).Append(Point(a.End)).Append('\n');
+                }
+
+                foreach (var e in curve.EllipticalArcs)
+                {
+                    text.Append("  EL ").Append(Point(e.Start)).Append(Point(e.Centre)).Append(Point(e.End))
+                        .Append(Point(e.MajorAxisPoint)).Append(Point(e.MinorAxisPoint)).Append('\n');
+                }
+
+                foreach (var c in curve.ControlPoints)
+                {
+                    text.Append("  CT ").Append(Point(c)).Append('\n');
+                }
+            }
+
             Control(text, "VC", vector.VectorPointerControl);
             Control(text, "CC", vector.CoordinateControl);
         }
@@ -115,6 +139,8 @@ internal static class S57DocumentFingerprint
     private static string Name(S57LongName name) => string.Create(
         CultureInfo.InvariantCulture,
         $"0/0/{name.AgencyCode}/{(int)name.FeatureId}/{name.FeatureSubdivision}");
+
+    private static string Point(S57Coordinate2D c) => string.Create(CultureInfo.InvariantCulture, $"{c.Y} {c.X} ");
 
     private static void Attributes(StringBuilder text, string kind, IReadOnlyList<S57AttributeValue> attributes)
     {

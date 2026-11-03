@@ -36,7 +36,18 @@ public abstract record S57SpatialRecord
     /// <param name="source">The source vector record.</param>
     /// <returns>A strongly-typed spatial record.</returns>
     /// <exception cref="ArgumentException">Thrown when the record type is not recognized.</exception>
-    public static S57SpatialRecord Create(S57VectorRecord source)
+    /// <remarks>
+    /// An edge's arcs are densified as for a data set with the default coordinate multiplication
+    /// factor of 10,000,000. <see cref="S57Chart"/> uses the factor of its data set.
+    /// </remarks>
+    public static S57SpatialRecord Create(S57VectorRecord source) =>
+        Create(source, S57Edge.DefaultCoordinateMultiplicationFactor);
+
+    /// <summary>
+    /// Creates the appropriate strongly-typed spatial record from a generic vector record of a
+    /// data set with the given coordinate multiplication factor.
+    /// </summary>
+    internal static S57SpatialRecord Create(S57VectorRecord source, int coordinateMultiplicationFactor)
     {
         ArgumentNullException.ThrowIfNull(source);
 
@@ -44,7 +55,7 @@ public abstract record S57SpatialRecord
         {
             S57RecordNameCodes.IsolatedNode => new S57IsolatedNode(source),
             S57RecordNameCodes.ConnectedNode => new S57ConnectedNode(source),
-            S57RecordNameCodes.Edge => new S57Edge(source),
+            S57RecordNameCodes.Edge => new S57Edge(source, coordinateMultiplicationFactor),
             S57RecordNameCodes.Face => new S57Face(source),
             _ => throw new ArgumentException(
                 $"Unknown spatial record type: {source.RecordName.RecordNameCode}",

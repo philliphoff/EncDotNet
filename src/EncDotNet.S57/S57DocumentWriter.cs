@@ -20,7 +20,8 @@ namespace EncDotNet.S57;
 /// The DSSI record counts are computed from the document's records.</description></item>
 /// <item><description>The data set geographic reference record: DSPM (clause 7.3.2).</description></item>
 /// <item><description>Each vector record, in document order: VRID, ATTV, VRPT, then SG2D or
-/// SG3D (clause 7.7).</description></item>
+/// SG3D, then each ARCC with its AR2D, EL2D and CT2D fields (clause 7.7). The DDR declares the
+/// arc/curve fields only when a vector record has them.</description></item>
 /// <item><description>Each feature record, in document order: FRID, FOID, ATTF, NATF, FFPT,
 /// then FSPT (clause 7.6).</description></item>
 /// </list>
@@ -159,7 +160,8 @@ public static class S57DocumentWriter
         var encoder = new S57FieldEncoder();
         var records = new List<Iso8211Record>(document.VectorRecords.Count + document.FeatureRecords.Count + 3)
         {
-            S57DataDescriptiveRecord.Build(dsid.AttfLexicalLevel, dsid.NatfLexicalLevel)
+            S57DataDescriptiveRecord.Build(dsid.AttfLexicalLevel, dsid.NatfLexicalLevel,
+                includeArcCurves: document.VectorRecords.Any(v => v.ArcCurves.Count > 0))
         };
 
         var recordNumber = 0;
@@ -335,7 +337,58 @@ public static class S57DocumentWriter
             record.AddField(encoder.ToField(S57FieldTags.SG3D));
         }
 
+        foreach (var curve in vector.ArcCurves)
+        {
+            ArcCurveFields(encoder, record, vector.RecordName, curve);
+        }
+
         return record.Build();
+    }
+
+    // An ARCC field, then one AR2D or EL2D field per arc and one CT2D field with all the
+    // control points (S-57 Part 3, clauses 7.7.1.8 to 7.7.1.11).
+    private static void ArcCurveFields(S57FieldEncoder encoder, Iso8211RecordBuilder record, S57RecordName recordName, S57ArcCurve curve)
+    {
+        encoder.Begin($"{S57FieldTags.ARCC} ({recordName})")
+            .B11((byte)curve.Type, S57SubfieldNames.ATYP)
+            .B11((byte)curve.Surface, S57SubfieldNames.SURF)
+            .B11(curve.Order, S57SubfieldNames.ORDR)
+            .B14(curve.Resolution, S57SubfieldNames.RESO)
+            .B14(curve.FloatingPointMultiplicationFactor, S57SubfieldNames.FPMF);
+        record.AddField(encoder.ToField(S57FieldTags.ARCC));
+
+        foreach (var arc in curve.Arcs)
+        {
+            encoder.Begin($"{S57FieldTags.AR2D} ({recordName})");
+            Point(encoder, arc.Start);
+            Point(encoder, arc.Centre);
+            Point(encoder, arc.End);
+            record.AddField(encoder.ToField(S57FieldTags.AR2D));
+        }
+
+        foreach (var ellipse in curve.EllipticalArcs)
+        {
+            encoder.Begin($"{S57FieldTags.EL2D} ({recordName})");
+            Point(encoder, ellipse.Start);
+            Point(encoder, ellipse.Centre);
+            Point(encoder, ellipse.End);
+            Point(encoder, ellipse.MajorAxisPoint);
+            Point(encoder, ellipse.MinorAxisPoint);
+            record.AddField(encoder.ToField(S57FieldTags.EL2D));
+        }
+
+        if (curve.ControlPoints.Count > 0)
+        {
+            encoder.Begin($"{S57FieldTags.CT2D} ({recordName})");
+            foreach (var point in curve.ControlPoints)
+            {
+                Point(encoder, point);
+            }
+
+            record.AddField(encoder.ToField(S57FieldTags.CT2D));
+        }
+
+        static void Point(S57FieldEncoder encoder, S57Coordinate2D point) => encoder.B24(point.Y).B24(point.X);
     }
 
     private static Iso8211Record FeatureRecord(

@@ -326,7 +326,7 @@ public sealed record S57Chart
 
         foreach (var vectorRecord in document.VectorRecords)
         {
-            var spatialRecord = S57SpatialRecord.Create(vectorRecord);
+            var spatialRecord = S57SpatialRecord.Create(vectorRecord, CoordinateMultiplicationFactor);
 
             switch (spatialRecord)
             {

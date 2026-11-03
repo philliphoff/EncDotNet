@@ -126,6 +126,28 @@ for cells without full topology, their exterior and interior edges
 [Architecture](architecture.md) page explains how features, edges, nodes and
 faces relate.
 
+### Read arc edges
+
+Some cells, such as NATO AML cells, give an edge's shape as arcs (the ARCC and
+AR2D or EL2D fields) rather than as a list of points (SG2D). The vector record
+holds them in `ArcCurves`, and `S57Edge.IntermediatePoints` already holds them
+densified into points about a metre (`S57ArcDensifier.DefaultTolerance`) from
+the arc. To densify them more finely or more coarsely, call `S57ArcDensifier`
+with a tolerance in decimal degrees and the cell's coordinate multiplication
+factor:
+
+```csharp
+foreach (S57Edge edge in chart.Edges.Values.Where(e => e.HasArcCurves))
+{
+    IReadOnlyList<S57Coordinate2D> points = S57ArcDensifier.Densify(
+        edge.ArcCurves, tolerance: 0.000001, chart.CoordinateMultiplicationFactor);
+    Console.WriteLine($"{edge.RecordName}: {points.Count} points");
+}
+```
+
+B-spline and Bézier curves (CT2D) aren't interpolated: their control points
+are joined by straight lines.
+
 ### Follow relationships between features
 
 Features refer to other features, such as a beacon to the lights on it, with

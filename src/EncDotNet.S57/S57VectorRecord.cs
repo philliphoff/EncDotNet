@@ -29,6 +29,19 @@ public sealed record S57VectorRecord
     /// <summary>Gets the 3D sounding coordinates from SG3D field.</summary>
     public IReadOnlyList<S57Sounding> Soundings { get; init; } = [];
 
-    /// <summary>Gets the coordinate/sounding update control from SGCC field, if present.</summary>
+    /// <summary>
+    /// Gets the arc/curve definitions from the ARCC fields, each with the AR2D, EL2D or CT2D
+    /// coordinates that follow it.
+    /// </summary>
+    /// <remarks>
+    /// An edge has either <see cref="Coordinates2D"/> or arc/curve definitions, not both
+    /// (S-57 Part 3, clause 5.1.4.4).
+    /// </remarks>
+    public IReadOnlyList<S57ArcCurve> ArcCurves { get; init; } = [];
+
+    /// <summary>
+    /// Gets the coordinate update control from SGCC field, if present. It addresses the
+    /// coordinates of the SG2D, SG3D, AR2D, EL2D and CT2D fields.
+    /// </summary>
     public S57FieldUpdateControl? CoordinateControl { get; init; }
 }
