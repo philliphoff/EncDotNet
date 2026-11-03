@@ -60,29 +60,31 @@ var document = new S57Document
     DataSetIdentification = new S57DataSetIdentification
     {
         RecordName = S57RecordName.FromRcnmRcid(S57RecordNameCodes.DataSetGeneralInfo, 1),
-        ExchangePurpose = 1,
+        ExchangePurpose = (int)S57ExchangePurpose.New,
         IntendedUsage = 5,
         DataSetName = "XX5EXAMP.000",
         EditionNumber = "1",
         UpdateNumber = "0",
         IssueDate = "20260101",
         S57EditionNumber = "03.1",
-        ProductSpecification = 1,
-        ApplicationProfile = 1,
+        ProductSpecification = (int)S57ProductSpecification.Enc,
+        ApplicationProfile = (int)S57ApplicationProfile.EncNew,
         ProducingAgency = 550,
-        DataStructure = 2,
-        AttfLexicalLevel = 1,
-        NatfLexicalLevel = 2
+        DataStructure = (int)S57DataStructure.ChainNode,
+        AttfLexicalLevel = (int)S57LexicalLevel.Latin1,
+        NatfLexicalLevel = (int)S57LexicalLevel.Ucs2
     },
     DataSetParameters = new S57DataSetParameters
     {
         RecordName = S57RecordName.FromRcnmRcid(S57RecordNameCodes.DataSetGeoReference, 1),
-        HorizontalDatum = 2,
+        HorizontalDatum = (int)S57HorizontalDatum.WGS84,
+        VerticalDatum = (int)S57VerticalDatum.MeanSeaLevel,
+        SoundingDatum = (int)S57VerticalDatum.LowestAstronomicalTide,
         CompilationScale = 22000,
-        DepthUnits = 1,
-        HeightUnits = 1,
-        PositionalUnits = 1,
-        CoordinateUnits = 1,
+        DepthUnits = (int)S57DepthUnits.Metres,
+        HeightUnits = (int)S57HeightUnits.Metres,
+        PositionalUnits = (int)S57PositionalAccuracyUnits.Metres,
+        CoordinateUnits = (int)S57CoordinateUnits.LatitudeLongitude,
         CoordinateMultiplicationFactor = 10_000_000,
         SoundingMultiplicationFactor = 10
     },
@@ -131,6 +133,27 @@ var document = new S57Document
 byte[] cell = S57DocumentWriter.Write(document);
 ```
 
+The coded `DSID` and `DSPM` subfields are `int` properties. Enums name their
+values, and each value is the S-57 code, so cast in either direction:
+
+| Subfield | Property | Enum |
+|---|---|---|
+| `EXPP` | `ExchangePurpose` | `S57ExchangePurpose` |
+| `PRSP` | `ProductSpecification` | `S57ProductSpecification` |
+| `PROF` | `ApplicationProfile` | `S57ApplicationProfile` |
+| `DSTR` | `DataStructure` | `S57DataStructure` |
+| `AALL`, `NALL` | `AttfLexicalLevel`, `NatfLexicalLevel` | `S57LexicalLevel` |
+| `HDAT` | `HorizontalDatum` | `S57HorizontalDatum` |
+| `VDAT`, `SDAT` | `VerticalDatum`, `SoundingDatum` | `S57VerticalDatum` |
+| `DUNI` | `DepthUnits` | `S57DepthUnits` |
+| `HUNI` | `HeightUnits` | `S57HeightUnits` |
+| `PUNI` | `PositionalUnits` | `S57PositionalAccuracyUnits` |
+| `COUN` | `CoordinateUnits` | `S57CoordinateUnits` |
+
+A code an enum doesn't name, such as an AML product code, casts to an unnamed
+value. To interpret the product of a cell you've read, use
+`DataSetIdentification.Product` instead.
+
 Coordinates and soundings are integers scaled by `COMF` and `SOMF`, as the
 reader gives them. A feature's long name (`AGEN`, `FIDN`, `FIDS`) goes in its
 `RecordName` and is written as its `FOID` field. A feature without one gets a
@@ -153,6 +176,19 @@ Greek in an `ATTF` value at level 1, throws `ArgumentException` rather than
 being replaced. Put text like that in a national attribute with `NALL` set to
 2. UCS-2 covers the Basic Multilingual Plane only, so characters outside it,
 such as emoji, can't be written at any level.
+
+The writer uses the levels the document sets. To use the lowest levels that
+encode the document's attribute values, pass the document through
+`S57LexicalLevels.WithLowestLevels` before writing it. It throws
+`ArgumentException` if an `ATTF` value needs UCS-2:
+
+```csharp
+byte[] cell = S57DocumentWriter.Write(S57LexicalLevels.WithLowestLevels(document));
+```
+
+For other text, `S57LexicalLevels.Lowest` returns the lowest level that encodes
+a set of strings, and `S57LexicalLevels.CanEncode` checks one string. They make
+the same checks as the writer.
 
 The writer declares the levels in the DDR, as S-57 requires. It writes a
 level 2 `NATF` field with two-byte terminators.
