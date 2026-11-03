@@ -20,13 +20,21 @@
 
   <!-- Package compatibility: package validation compares each library with
        its last published release on nuget.org and fails the pack on a
-       breaking change to the public API (or on inconsistencies between the
-       net8.0 and net10.0 builds). Raise the baseline to each new release once
-       it's published, so APIs added in it are protected too. -->
+       breaking change to the public API. Raise the baseline to each new
+       release once it's published, so APIs added in it are protected too. -->
   <PropertyGroup Condition="'$(IsPackable)' != 'false'">
     <EnablePackageValidation>true</EnablePackageValidation>
     <PackageValidationBaselineVersion>0.9.0</PackageValidationBaselineVersion>
   </PropertyGroup>
+
+  <!-- 0.11.0 drops net8.0, which reached end of support in November 2026;
+       0.10.0 was the last release to ship it. The baseline still ships a
+       net8.0 build, so tell package validation that dropping it is
+       intentional (otherwise PKV006). Remove this once the baseline is
+       0.11.0 or later. -->
+  <ItemGroup Condition="'$(IsPackable)' != 'false'">
+    <PackageValidationBaselineFrameworkToIgnore Include="net8.0" />
+  </ItemGroup>
 
   <!-- Local and pull request builds carry the 0.0.0-dev placeholder version,
        which is lower than any baseline. Skip only the assembly-version
@@ -54,12 +62,10 @@
 
   <!-- Libraries are trimmable: the trim analyzers run in every build and, with
        TreatWarningsAsErrors, keep reflection that can't be statically analysed
-       out of them. Analysed on the net10.0 target only, because IsTrimmable on
-       net8.0 would pull in the net8.0 ILLink pack. The viewer is an app, not a
-       library. EncDotNet.Noaa deserializes the catalog with XmlSerializer,
-       which isn't trim-safe; it stays out until that parser is replaced. -->
-  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0'
-                            And '$(MSBuildProjectName)' != 'EncDotNet.ChartViewer'
+       out of them. The viewer is an app, not a library. EncDotNet.Noaa
+       deserializes the catalog with XmlSerializer, which isn't trim-safe; it
+       stays out until that parser is replaced. -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' != 'EncDotNet.ChartViewer'
                             And '$(MSBuildProjectName)' != 'EncDotNet.Noaa'">
     <IsTrimmable>true</IsTrimmable>
   </PropertyGroup>

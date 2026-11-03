@@ -31,8 +31,12 @@ packages, plus their documented behavior. It doesn't include:
 
 ## Supported frameworks
 
-Each package targets .NET 8 and .NET 10. Dropping a target framework is a
-breaking change.
+Each package targets .NET 10, the current long-term support release, and runs
+on later .NET versions; CI also runs the tests on the newest .NET release.
+The packages drop a .NET version once Microsoft ends its support. Dropping a
+target framework is a breaking change: 0.11.0 dropped .NET 8, which reached
+end of support in November 2026. 0.10.0 is the last release that targets
+.NET 8.
 
 ## How breaking changes are caught
 
@@ -40,7 +44,7 @@ Each pack compares the new package with its last published release on
 nuget.org, using
 [package validation](https://learn.microsoft.com/dotnet/fundamentals/apicompat/package-validation/overview).
 It fails the build when a public type or member is removed or changed in an
-incompatible way, or when the .NET 8 and .NET 10 builds expose different APIs.
+incompatible way, or when a target framework is dropped.
 The baseline version is `PackageValidationBaselineVersion` in
 [`src/Directory.Build.props`](https://github.com/philliphoff/EncDotNet/blob/main/src/Directory.Build.props).
 

@@ -8,7 +8,7 @@ applies update cells (`.001`, `.002`, ...), reads and verifies exchange sets,
 and writes base cells and `CATALOG.031` files. It identifies NATO
 Additional Military Layers (AML) cells and looks up their object classes and
 attributes in the AML object catalogues. Reference it to work with S-57
-data in .NET 8 or .NET 10. It depends on
+data in .NET 10 or later. It depends on
 [`EncDotNet.Iso8211`](https://www.nuget.org/packages/EncDotNet.Iso8211),
 which it installs for you.
 

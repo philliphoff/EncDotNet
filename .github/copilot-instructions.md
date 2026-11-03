@@ -4,8 +4,7 @@
 
 EncDotNet is a set of .NET libraries for reading, parsing and writing **IHO
 S-57 Electronic Navigational Charts (ENCs)** and the **ISO/IEC 8211**
-container format they use. The libraries target `net8.0;net10.0`; tests
-target `net10.0`. The repository also holds a legacy desktop viewer
+container format they use. The libraries and tests target `net10.0`. The repository also holds a legacy desktop viewer
 (`EncDotNet.ChartViewer`) that is kept building but not developed; chart
 display work happens in EncDotNet.S100. `<Nullable>enable</Nullable>` and
 `<ImplicitUsings>enable</ImplicitUsings>` apply throughout.
@@ -58,7 +57,7 @@ depends on `S57` and `Noaa`.
 
 | Concern | Library / tool |
 |---|---|
-| Language / platform | C#, .NET 10 (libraries also target .NET 8) |
+| Language / platform | C#, .NET 10 |
 | Legacy viewer | Avalonia 11, ReactiveUI, Mapsui 5, NetTopologySuite, MessagePack |
 | Observability | Microsoft.Extensions.Logging, OpenTelemetry |
 | Testing | xUnit v3, coverlet; BenchmarkDotNet |

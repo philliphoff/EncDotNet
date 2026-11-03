@@ -6,8 +6,7 @@ covers how to build, test and submit changes.
 
 ## Prerequisites
 
-- The [.NET 10 SDK](https://dotnet.microsoft.com/download). The libraries also
-  target .NET 8; the .NET 10 SDK builds both.
+- The [.NET 10 SDK](https://dotnet.microsoft.com/download).
 - A Git client.
 
 ## Build and test
